@@ -38,6 +38,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Perform npm build
+        if: ${{ inputs.NPM_BUILD }}
+        env:
+          CI: "" # required to ensure warnings aren't treated as errors
+        run: |
+          cd frontend
+          npm install --legacy-peer-deps
+          npm run ${{ inputs.NPM_RUN_CMD }}
+          cd ../
+          mv frontend/build/index.html pimcore-root/templates/default/default.html.twig
+          mv frontend/build/* pimcore-root/public/
+
       - name: Log into Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
         uses: docker/login-action@v1
         with:
@@ -55,18 +67,6 @@ jobs:
       - name: Copy in database.yaml file
         run: cp pimcore-root/config/db/database-dev-prod.yaml pimcore-root/config/database.yaml
 
-      - name: Perform npm build
-        if: ${{ inputs.NPM_BUILD }}
-        env:
-          CI: "" # required to ensure warnings aren't treated as errors
-        run: |
-          cd frontend
-          npm install --legacy-peer-deps
-          npm run ${{ inputs.NPM_RUN_CMD }}
-          cd ../
-          mv frontend/build/index.html pimcore-root/templates/default/default.html.twig
-          mv frontend/build/* pimcore-root/public/
-      
       - name: Build and push latest PHP-FPM image
         uses: docker/build-push-action@v2
         with:
