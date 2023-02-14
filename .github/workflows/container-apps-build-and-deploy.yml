@@ -38,6 +38,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      # Optional step to perform an npm build and to replace the "frontend" of the application with the results
       - name: Perform npm build
         if: ${{ inputs.NPM_BUILD }}
         env:
