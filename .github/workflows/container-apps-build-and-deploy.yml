@@ -9,6 +9,9 @@ on:
       NPM_RUN_CMD:
         required: false
         type: string
+      NPM_SPA:
+        required: false
+        type: boolean
     secrets:
       SERVICE_PRINCIPAL_ID:
         required: true
@@ -47,7 +50,11 @@ jobs:
           cd pimcore-root/frontend
           npm install --legacy-peer-deps
           npm run ${{ inputs.NPM_RUN_CMD }}
-          cd ../..
+          if [[ ${{ inputs.NPM_SPA }} ]]; then
+            cd ../../
+            mv pimcore-root/frontend/build/index.html pimcore-root/templates/default/default.html.twig
+            mv pimcore-root/frontend/build/* pimcore-root/public/
+          fi
 
       - name: Log into Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
         uses: docker/login-action@v1
