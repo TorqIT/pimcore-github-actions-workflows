@@ -3,6 +3,12 @@ name: Build, tag, and push Docker images, and deploy to Azure Container Apps
 on:
   workflow_call:
     inputs:
+      ENVIRONMENT:
+        required: false
+        type: string
+      BRANCH:
+        required: false
+        type: string
       NPM_BUILD:
         required: false
         type: boolean
@@ -25,10 +31,16 @@ jobs:
       - name: Determine environment based on branch
         id: branch-check
         run: |
-          if [ "${{ github.ref }}" == "refs/heads/develop" ]; then
-            echo "env=development" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "env=production" >> $GITHUB_OUTPUT
+          if [ -n "${{ inputs.ENVIRONMENT }}"]
+            if [ "${{ github.ref }}" == "refs/heads/develop" ] 
+            then
+              echo "env=development" >> $GITHUB_OUTPUT
+            elif [ "${{ github.ref }}" == "refs/heads/main" ]
+            then
+              echo "env=production" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "env=${{ inputs.ENVIRONMENT }}" >> $GITHUB_OUTPUT
           fi
     outputs:
       env: ${{ steps.branch-check.outputs.env }}
@@ -40,8 +52,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+        with:
+          - ${{ inputs.BRANCH }}
 
-      # Optional step to perform an npm build and to replace the "frontend" of the application with the results
+      # Optional step to perform an npm build
       - name: Perform npm build
         if: ${{ inputs.NPM_BUILD }}
         env:
