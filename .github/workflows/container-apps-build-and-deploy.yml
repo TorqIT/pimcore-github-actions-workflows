@@ -118,12 +118,6 @@ jobs:
             --name ${{ vars.PHP_FPM_CONTAINER_APP }} \
             --image ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }} \
             --revision-suffix run-${{ github.run_id }}
-
-          echo Redirecting 100% of traffic to new revision...
-          az containerapp ingress traffic set \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --name ${{ vars.PHP_FPM_CONTAINER_APP }} \
-            --revision-weight latest=100
       
       - name: Create new revision of supervisord Container App
         run: |
