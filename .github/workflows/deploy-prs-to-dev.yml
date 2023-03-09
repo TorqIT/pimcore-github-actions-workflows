@@ -6,6 +6,7 @@ on:
 jobs:
   merge-pr-to-dev:
     name: Merge PR branch into development branch
+    runs-on: ubuntu-latest
     if: github.event.review.state == 'approved'
 
     steps:

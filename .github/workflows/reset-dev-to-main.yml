@@ -5,6 +5,8 @@ on:
 
 jobs:
   reset-dev-to-main:
+    runs-on: ubuntu-latest
+
     steps:
       # Using a token generated from a GitHub App will allow this workflow to trigger any workflows
       # listening on the develop branch
