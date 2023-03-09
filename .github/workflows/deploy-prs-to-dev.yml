@@ -7,7 +7,7 @@ jobs:
   merge-pr-to-dev:
     name: Merge PR branch into development branch
     runs-on: ubuntu-latest
-    if: github.event.review.state == 'approved'
+    # if: github.event.review.state == 'approved'
 
     steps:
         # Using a token generated from a GitHub App will allow this workflow to trigger any workflows
