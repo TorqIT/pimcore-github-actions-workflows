@@ -2,6 +2,13 @@ name: Deploy PRs to development environment once approved
 
 on:
   workflow_call:
+    secrets:
+      WORKFLOW_APP_ID:
+        required: true
+        type: string
+      WORKFLOW_PRIVATE_KEY:
+        required: true
+        type: string
 
 jobs:
   merge-pr-to-dev:
