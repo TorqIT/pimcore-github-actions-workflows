@@ -1,4 +1,14 @@
-name: Reset development branch to match main
+# Resets the develop branch to match the main branch.
+# 
+# In typical situations, you would want to run this on a schedule such as the following which will 
+# trigger the workflow at midnight every Sunday:
+# on:
+#   schedule:
+#     - cron: "0 0 * * SUN"
+#
+# Refer to the README for details on the WORKFLOW parameters.
+
+name: Reset develop branch to match main
 
 on:
   workflow_call:
@@ -13,8 +23,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Using a token generated from a GitHub App will allow this workflow to trigger any workflows
-      # listening on the develop branch
       - name: Generate token
         id: generate_token
         uses: tibdex/github-app-token@v1
