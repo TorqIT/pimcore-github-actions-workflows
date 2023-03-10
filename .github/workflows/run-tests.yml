@@ -1,8 +1,9 @@
-# Runs tests which are assumed to be defined in a docker-compose.test.yml. 
-# Typically these are run on Pull Requests, in which case you can trigger this workflow as follows:
+# Runs Pimcore tests. Typically these are run on Pull Requests, in which case you can trigger this workflow as follows:
 # on:
 #   pull_request:
 #     types: [opened, reopened, synchronize]
+# 
+# Note this workflow assumes there is a buildable PHP-FPM Docker image located in the /docker/php-fpm of the calling repository.
 
 name: Run tests
 
