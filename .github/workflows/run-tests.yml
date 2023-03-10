@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           repository: TorqIT/pimcore-github-actions-workflows
-          path: scripts
+          path: reusable-workflow
 
       - name: Run tests
         run: |
@@ -45,11 +45,11 @@ jobs:
           #     --character-set-server=utf8mb4 \
           #     --collation-server=utf8mb4_unicode_ci \
           
-          ls ${GITHUB_WORKSPACE}
+          ls ${GITHUB_WORKSPACE}/reusable-workflow/scripts
 
           docker run \
             --rm \
-            -v ${GITHUB_WORKSPACE}/scripts/scripts/tests-container-entrypoint.sh:/entrypoint.sh \
+            -v ${GITHUB_WORKSPACE}/reusable-workflow/scripts/tests-container-entrypoint.sh:/entrypoint.sh \
             -e DATABASE_HOST='test-db' \
             -e DATABASE_PORT='3306' \
             -e DATABASE_NAME='test' \
