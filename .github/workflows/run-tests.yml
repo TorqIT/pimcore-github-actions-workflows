@@ -26,6 +26,11 @@ jobs:
           ls ${{ github.action_path }}
           docker build -f ./docker/php-fpm/Dockerfile -t tests .
 
+      - uses: actions/checkout@v3
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          path: scripts
+
       - name: Run tests
         run: |
           docker run \
@@ -42,7 +47,7 @@ jobs:
 
           docker run \
             --rm \
-            -v ./docker/test/entrypoint.sh:/entrypoint.sh \
+            -v ${GITHUB_WORKSPACE}/scripts/scripts/tests-container-entrypoint.sh:/entrypoint.sh \
             -e DATABASE_HOST='test-db' \
             -e DATABASE_PORT='3306' \
             -e DATABASE_NAME='test' \
