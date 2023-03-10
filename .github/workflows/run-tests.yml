@@ -13,7 +13,7 @@ on:
         required: false
         type: string
       REUSABLE_WORKFLOW_REF:
-        required: true
+        required: false
         type: string
 
 jobs:
@@ -25,7 +25,8 @@ jobs:
       - uses: actions/checkout@v3
 
       # Checkout the workflow repository itself so that we can access the extra script files
-      - uses: actions/checkout@v3
+      - name: Checkout workflow repository
+        uses: actions/checkout@v3
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ inputs.REUSABLE_WORKFLOW_REF }}
