@@ -35,6 +35,7 @@ jobs:
       - name: Run tests
         run: |
           docker run \
+            --name test-db \
             -d \
             --rm \
             -e MYSQL_DATABASE='test' \
@@ -61,4 +62,6 @@ jobs:
 
       - name: Bring down the containers
         if: always()
-        run: docker rmi tests mariadb:10.4
+        run: |
+          docker stop tests test-db
+          docker rmi tests mariadb:10.4
