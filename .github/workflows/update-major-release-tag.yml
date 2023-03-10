@@ -1,6 +1,11 @@
 # Creates or moves the "major" release tag to point to the latest release (based on the release's set tag). For example - creating a
 # release tagged v1.0.0 will create the v1 tag and point it to the same commit. Similarly, if we later create v1.3.2,
 # this action will move the existing v1 tag to point to this latest release.
+#
+# To trigger this workflow when a release is created, use the following:
+# on:
+#   release:
+#     types: [created]
 
 on:
   workflow_call:
