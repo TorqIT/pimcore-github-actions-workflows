@@ -12,19 +12,23 @@ on:
       RUNNER:
         required: false
         type: string
+      REUSABLE_WORKFLOW_REF:
+        required: true
+        type: string
 
 jobs:
   tests:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
     steps:
+      # Checkout the caller repository as usual
       - uses: actions/checkout@v3
 
-      # Checkout the workflow directory so that we can get access to the extra script files
+      # Checkout the workflow repository itself so that we can access the extra script files
       - uses: actions/checkout@v3
         with:
           repository: TorqIT/pimcore-github-actions-workflows
-          ref: feat/better-pr-tests
+          ref: ${{ inputs.REUSABLE_WORKFLOW_REF }}
           path: reusable-workflow
 
       - name: Build test container
