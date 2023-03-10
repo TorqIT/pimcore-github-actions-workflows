@@ -22,6 +22,8 @@ jobs:
 
       - name: Build test container
         run: |
+          echo HERE
+          ls ${{ gitub.action_path }}
           docker build -f ./docker/php-fpm/Dockerfile -t tests .
 
       - name: Run tests
@@ -48,7 +50,7 @@ jobs:
             -e DATABASE_PASSWORD='test' \
             -e REDIS_HOST='test' \
             -e REDIS_DB='test' \
-            --entrypoint /bin/sh /entrypoint.sh \
+            --entrypoint /entrypoint.sh \
             tests
 
       - name: Bring down the containers
