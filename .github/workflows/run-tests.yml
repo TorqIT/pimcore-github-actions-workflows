@@ -42,7 +42,7 @@ jobs:
 
           docker run \
             --rm \
-            -v /docker/test/entrypoint.sh:/entrypoint.sh \
+            -v ./docker/test/entrypoint.sh:/entrypoint.sh \
             -e DATABASE_HOST='test-db' \
             -e DATABASE_PORT='3306' \
             -e DATABASE_NAME='test' \
