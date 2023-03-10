@@ -21,11 +21,33 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Build test container
-        run: docker-compose -f ./docker/test/docker-compose.test.yml build
+        run: |
+          docker build -f ./docker/php-fpm/Dockerfile -t tests .
 
       - name: Run tests
-        run: docker-compose -f ./docker/test/docker-compose.test.yml run tests
+        run: |
+          docker run -it \
+            -e MYSQL_DATABASE='test' \
+            -e MYSQL_USER='test' \
+            -e MYSQL_PASSWORD='test' \
+            -e MYSQL_ROOT_PASSWORD='test' \
+            mariadb:10.4 \
+            mysqld \
+              --character-set-server=utf8mb4 \
+              --collation-server=utf8mb4_unicode_ci \
+
+          docker run -it \
+            -v ${{ github.action_path }}/scripts/tests-container-entrypoint.sh:/entrypoint.sh \
+            -e DATABASE_HOST='test-db' \
+            -e DATABASE_PORT='3306' \
+            -e DATABASE_NAME='test' \
+            -e DATABASE_USER='test' \
+            -e DATABASE_PASSWORD='test' \
+            -e REDIS_HOST='test' \
+            -e REDIS_DB='test' \
+            --entrypoint /entrypoint.sh \
+            tests
 
       - name: Bring down the containers
         if: always()
-        run: docker-compose -f ./docker/test/docker-compose.test.yml down
+        run: docker rmi tests mariadb:10.4
