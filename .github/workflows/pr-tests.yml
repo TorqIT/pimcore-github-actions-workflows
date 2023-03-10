@@ -1,0 +1,25 @@
+name: Run tests on pull requests
+
+on:
+  workflow_call:
+    inputs:
+      RUNNER:
+        required: false
+        type: string
+
+jobs:
+  unit-tests-on-pr:
+    runs-on: ${{ inputs.RUNNER || ubuntu-latest }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build test container
+        run: docker-compose -f ./docker/test/docker-compose.test.yml build
+
+      - name: Run tests
+        run: docker-compose -f ./docker/test/docker-compose.test.yml run tests
+
+      - name: Bring down the containers
+        if: always()
+        run: docker-compose -f ./docker/test/docker-compose.test.yml down
