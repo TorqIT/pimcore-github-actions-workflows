@@ -20,11 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Build test container
-        run: |
-          echo HERE
-          ls ${{ github.action_path }}
-          docker build -f ./docker/php-fpm/Dockerfile -t tests .
+      # - name: Build test container
+      #   run: |
+      #     echo HERE
+      #     ls ${{ github.action_path }}
+      #     docker build -f ./docker/php-fpm/Dockerfile -t tests .
 
       - uses: actions/checkout@v3
         with:
@@ -33,17 +33,19 @@ jobs:
 
       - name: Run tests
         run: |
-          docker run \
-            -d \
-            --rm \
-            -e MYSQL_DATABASE='test' \
-            -e MYSQL_USER='test' \
-            -e MYSQL_PASSWORD='test' \
-            -e MYSQL_ROOT_PASSWORD='test' \
-            mariadb:10.4 \
-            mysqld \
-              --character-set-server=utf8mb4 \
-              --collation-server=utf8mb4_unicode_ci \
+          # docker run \
+          #   -d \
+          #   --rm \
+          #   -e MYSQL_DATABASE='test' \
+          #   -e MYSQL_USER='test' \
+          #   -e MYSQL_PASSWORD='test' \
+          #   -e MYSQL_ROOT_PASSWORD='test' \
+          #   mariadb:10.4 \
+          #   mysqld \
+          #     --character-set-server=utf8mb4 \
+          #     --collation-server=utf8mb4_unicode_ci \
+          
+          ls ${GITHUB_WORKSPACE}
 
           docker run \
             --rm \
