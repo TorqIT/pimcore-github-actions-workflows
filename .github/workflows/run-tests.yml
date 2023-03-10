@@ -20,12 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Build test container
-        run: |
-          echo HERE
-          ls ${{ github.action_path }}
-          docker build -f ./docker/php-fpm/Dockerfile -t tests .
-
+      # Checkout the workflow directory so that we can get access to the extra script files
       - uses: actions/checkout@v3
         with:
           repository: TorqIT/pimcore-github-actions-workflows

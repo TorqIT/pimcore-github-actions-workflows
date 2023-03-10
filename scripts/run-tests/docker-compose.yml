@@ -5,7 +5,7 @@ services:
     depends_on:
       - test-db
     build:
-      context: ../..
+      context: ../../..
       dockerfile: ./docker/php-fpm/Dockerfile
     environment:
       DATABASE_HOST: test-db
