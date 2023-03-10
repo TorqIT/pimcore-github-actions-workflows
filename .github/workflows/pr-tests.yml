@@ -9,7 +9,7 @@ on:
 
 jobs:
   unit-tests-on-pr:
-    runs-on: ${{ inputs.RUNNER || ubuntu-latest }}
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
     steps:
       - uses: actions/checkout@v3
