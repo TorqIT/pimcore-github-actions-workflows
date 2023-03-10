@@ -1,4 +1,10 @@
-name: Run tests on pull requests
+# Runs tests which are assumed to be defined in a docker-compose.test.yml. 
+# Typically these are run on Pull Requests, in which case you can trigger this workflow as follows:
+# on:
+#   pull_request:
+#     types: [opened, reopened, ready_for_review, synchronize]
+
+name: Run tests
 
 on:
   workflow_call:
@@ -8,7 +14,7 @@ on:
         type: string
 
 jobs:
-  unit-tests-on-pr:
+  tests:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
     steps:
