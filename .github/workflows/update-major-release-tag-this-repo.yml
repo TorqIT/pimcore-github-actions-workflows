@@ -1,0 +1,11 @@
+# This workflow isn't actually intended to be re-used - rather, it runs on this repo (how meta).
+
+name: Update major release tag
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  tag-major-release:
+    uses: ./.github/workflows/update-major-release-tag.yml

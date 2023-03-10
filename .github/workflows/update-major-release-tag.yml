@@ -1,20 +1,20 @@
-# This action isn't actually intended to be re-used - rather, it runs on this repo (how meta) and creates or moves
-# the "major" release tag to point to the latest release (based on the release's set tag). For example - creating a
+# Creates or moves the "major" release tag to point to the latest release (based on the release's set tag). For example - creating a
 # release tagged v1.0.0 will create the v1 tag and point it to the same commit. Similarly, if we later create v1.3.2,
 # this action will move the existing v1 tag to point to this latest release.
 
-name: Update Major Release Tag
-
 on:
-  release:
-    types: [created]
+  workflow_call:
+    inputs:
+      RUNNER:
+        required: false
+        type: string
 
 jobs:
   tag-major-release:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Get major version number and update tag
         run: |
