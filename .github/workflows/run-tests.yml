@@ -20,11 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # - name: Build test container
-      #   run: |
-      #     echo HERE
-      #     ls ${{ github.action_path }}
-      #     docker build -f ./docker/php-fpm/Dockerfile -t tests .
+      - name: Build test container
+        run: |
+          echo HERE
+          ls ${{ github.action_path }}
+          docker build -f ./docker/php-fpm/Dockerfile -t tests .
 
       - uses: actions/checkout@v3
         with:
@@ -34,32 +34,30 @@ jobs:
 
       - name: Run tests
         run: |
-          # docker run \
-          #   -d \
-          #   --rm \
-          #   -e MYSQL_DATABASE='test' \
-          #   -e MYSQL_USER='test' \
-          #   -e MYSQL_PASSWORD='test' \
-          #   -e MYSQL_ROOT_PASSWORD='test' \
-          #   mariadb:10.4 \
-          #   mysqld \
-          #     --character-set-server=utf8mb4 \
-          #     --collation-server=utf8mb4_unicode_ci \
-          
-          ls ${GITHUB_WORKSPACE}/reusable-workflow
+          docker run \
+            -d \
+            --rm \
+            -e MYSQL_DATABASE='test' \
+            -e MYSQL_USER='test' \
+            -e MYSQL_PASSWORD='test' \
+            -e MYSQL_ROOT_PASSWORD='test' \
+            mariadb:10.4 \
+            mysqld \
+              --character-set-server=utf8mb4 \
+              --collation-server=utf8mb4_unicode_ci \
 
-          # docker run \
-          #   --rm \
-          #   -v ${GITHUB_WORKSPACE}/reusable-workflow/scripts/tests-container-entrypoint.sh:/entrypoint.sh \
-          #   -e DATABASE_HOST='test-db' \
-          #   -e DATABASE_PORT='3306' \
-          #   -e DATABASE_NAME='test' \
-          #   -e DATABASE_USER='test' \
-          #   -e DATABASE_PASSWORD='test' \
-          #   -e REDIS_HOST='test' \
-          #   -e REDIS_DB='test' \
-          #   --entrypoint /entrypoint.sh \
-          #   tests
+          docker run \
+            --rm \
+            -v ${GITHUB_WORKSPACE}/reusable-workflow/scripts/tests-container-entrypoint.sh:/entrypoint.sh \
+            -e DATABASE_HOST='test-db' \
+            -e DATABASE_PORT='3306' \
+            -e DATABASE_NAME='test' \
+            -e DATABASE_USER='test' \
+            -e DATABASE_PASSWORD='test' \
+            -e REDIS_HOST='test' \
+            -e REDIS_DB='test' \
+            --entrypoint /entrypoint.sh \
+            tests
 
       - name: Bring down the containers
         if: always()
