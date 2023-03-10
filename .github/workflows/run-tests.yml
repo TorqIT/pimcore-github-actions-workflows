@@ -27,6 +27,8 @@ jobs:
       - name: Run tests
         run: |
           docker run \
+            -d \
+            --rm \
             -e MYSQL_DATABASE='test' \
             -e MYSQL_USER='test' \
             -e MYSQL_PASSWORD='test' \
@@ -37,6 +39,7 @@ jobs:
               --collation-server=utf8mb4_unicode_ci \
 
           docker run \
+            --rm \
             -v ${{ github.action_path }}/scripts/tests-container-entrypoint.sh:/entrypoint.sh \
             -e DATABASE_HOST='test-db' \
             -e DATABASE_PORT='3306' \
