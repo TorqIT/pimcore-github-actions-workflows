@@ -2,7 +2,7 @@
 # Typically these are run on Pull Requests, in which case you can trigger this workflow as follows:
 # on:
 #   pull_request:
-#     types: [opened, reopened, ready_for_review, synchronize]
+#     types: [opened, reopened, synchronize]
 
 name: Run tests
 
@@ -48,7 +48,7 @@ jobs:
             -e DATABASE_PASSWORD='test' \
             -e REDIS_HOST='test' \
             -e REDIS_DB='test' \
-            --entrypoint /entrypoint.sh \
+            --entrypoint /bin/sh /entrypoint.sh \
             tests
 
       - name: Bring down the containers
