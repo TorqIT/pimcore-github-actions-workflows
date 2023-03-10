@@ -11,6 +11,10 @@ name: Deploy PRs to development environment once approved
 
 on:
   workflow_call:
+    inputs:
+      RUNNER:
+        required: false
+        type: string
     secrets:
       WORKFLOW_APP_ID:
         required: true
@@ -20,7 +24,7 @@ on:
 jobs:
   merge-pr-to-dev:
     name: Merge PR branch into development branch
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     if: github.event.review.state == 'approved'
 
     steps:

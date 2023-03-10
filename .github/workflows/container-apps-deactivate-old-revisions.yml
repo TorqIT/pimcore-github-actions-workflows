@@ -2,6 +2,10 @@ name: Deactivate old Container Apps revisions
 
 on: 
   workflow_call:
+    inputs:
+      RUNNER:
+        required: false
+        type: string
     secrets:
       SERVICE_PRINCIPAL_ID:
         required: true
@@ -10,11 +14,12 @@ on:
 
 jobs: 
   deactivate-old-revisions:
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ matrix.environment }}
     strategy:
       matrix: 
         environment: [development] # TODO prod env
-    runs-on: ubuntu-latest
-    environment: ${{ matrix.environment }}
+
     steps: 
       - name: Log into Azure CLI
         run: |

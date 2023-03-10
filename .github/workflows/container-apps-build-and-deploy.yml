@@ -3,6 +3,9 @@ name: Build, tag, and push Docker images, and deploy to Azure Container Apps
 on:
   workflow_call:
     inputs:
+      RUNNER:
+        required: false
+        type: string
       NPM_BUILD:
         required: false
         type: boolean
@@ -20,7 +23,8 @@ on:
 
 jobs:
   determine-environment:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+
     steps:
       - name: Determine environment based on branch
         id: branch-check

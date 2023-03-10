@@ -12,6 +12,10 @@ name: Reset develop branch to match main
 
 on:
   workflow_call:
+    inputs:
+      RUNNER:
+        required: false
+        type: string
     secrets:
       WORKFLOW_APP_ID:
         required: true
@@ -20,7 +24,7 @@ on:
 
 jobs:
   reset-dev-to-main:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
     steps:
       - name: Generate token
