@@ -29,8 +29,7 @@ jobs:
       - name: Determine environment based on branch
         id: branch-check
         run: |
-          # if [ "${{ github.ref }}" == "refs/heads/develop" ]; then
-          if [ "${{ github.ref }}" == "refs/heads/feat/faster-container-apps-build-deploy" ]; then
+          if [ "${{ github.ref }}" == "refs/heads/develop" ]; then
             echo "env=development" >> $GITHUB_OUTPUT
           elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "env=production" >> $GITHUB_OUTPUT
