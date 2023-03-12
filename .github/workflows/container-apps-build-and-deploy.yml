@@ -73,7 +73,7 @@ jobs:
         uses: docker/setup-buildx-action@v2
 
       - name: Log in to Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: ${{ vars.CONTAINER_REGISTRY }}
           username: '${{ secrets.SERVICE_PRINCIPAL_ID }}'
@@ -110,7 +110,7 @@ jobs:
         uses: docker/setup-buildx-action@v2
 
       - name: Log into Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: ${{ vars.CONTAINER_REGISTRY }}
           username: '${{ secrets.SERVICE_PRINCIPAL_ID }}'
