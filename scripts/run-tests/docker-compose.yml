@@ -4,7 +4,7 @@ services:
   tests:
     depends_on:
       - test-db
-    image: $TAG
+    image: ${TAG}
     environment:
       DATABASE_HOST: test-db
       DATABASE_PORT: 3306
