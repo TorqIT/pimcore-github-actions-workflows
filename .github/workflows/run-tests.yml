@@ -46,8 +46,7 @@ jobs:
         with:
           push: false
           load: true
-          # tags: local/pimcore-tests:${{ github.run_id }}
-          tags: local/pimcore-tests
+          tags: local/pimcore-tests:${{ github.run_id }}
           builder: ${{ steps.buildx.outputs.name }}
           file: ./docker/php-fpm/Dockerfile
           context: .
