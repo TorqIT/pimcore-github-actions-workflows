@@ -17,6 +17,9 @@ on:
         required: false
         type: string
 
+env:
+  TAG: ${{ github.run_id }}
+
 jobs:
   tests:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
@@ -45,7 +48,7 @@ jobs:
         with:
           push: false
           load: true
-          tags: ${{ github.run_id }}
+          tags: ${{ TAG }}
           builder: ${{ steps.buildx.outputs.name }}
           file: ./docker/php-fpm/Dockerfile
           context: .
@@ -54,9 +57,9 @@ jobs:
 
       - name: Run tests
         run: |
-          export TAG=${{ github.run_id }}
           docker compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml run tests
 
       - name: Bring down the containers
         if: always()
-        run: docker compose -f  ./reusable-workflow/scripts/run-tests/docker-compose.yml down
+        run: |
+          docker compose -f  ./reusable-workflow/scripts/run-tests/docker-compose.yml down
