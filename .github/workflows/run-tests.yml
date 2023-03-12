@@ -17,12 +17,12 @@ on:
         required: false
         type: string
 
-env:
-  TAG: ${{ github.run_id }}
-
 jobs:
   tests:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+
+    env:
+      TAG: ${{ github.run_id }}
 
     steps:
       # Checkout the caller repository as usual
