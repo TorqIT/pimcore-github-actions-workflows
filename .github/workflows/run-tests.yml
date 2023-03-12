@@ -54,6 +54,7 @@ jobs:
 
       - name: Run tests
         run: |
+          docker buildx use --default ${{ steps.buildx.outputs.name }}
           docker compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml run -e TAG=${{ github.run_id }} tests
 
       - name: Bring down the containers
