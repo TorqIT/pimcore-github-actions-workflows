@@ -50,7 +50,7 @@ jobs:
         with:
           push: false
           load: true
-          tags: ${{ github.run_id }}
+          tags: tests/tests:${{ github.run_id }}
           builder: ${{ steps.buildx.outputs.name }}
           file: ./docker/php-fpm/Dockerfile
           context: .
@@ -58,7 +58,7 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache
 
       - name: Run tests
-        run: docker-compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml run -e TAG=${{ github.run_id }} tests
+        run: docker-compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml run -e TAG=tests/tests:${{ github.run_id }} tests
 
       - name: Bring down the containers
         if: always()
