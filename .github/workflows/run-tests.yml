@@ -54,7 +54,7 @@ jobs:
 
       - name: Run tests
         run: |
-          export TAG=${{ gitub.run_id }}
+          export TAG=${{ github.run_id }}
           docker compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml run tests
 
       - name: Bring down the containers
