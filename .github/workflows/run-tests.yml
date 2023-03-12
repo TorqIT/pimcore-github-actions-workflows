@@ -49,7 +49,6 @@ jobs:
           push: false
           load: true
           tags: ${{ env.TAG }}
-          builder: ${{ steps.buildx.outputs.name }}
           file: ./docker/php-fpm/Dockerfile
           context: .
           cache-from: type=gha
