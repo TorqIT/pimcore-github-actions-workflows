@@ -6,10 +6,6 @@ do
   sleep 5
 done
 
-# Some repositories seem to require this
-echo Fixing permissions...
-chown -R www-data:www-data /var/www/html
-
 echo Installing Pimcore...
 runuser -u www-data -- /var/www/html/vendor/bin/pimcore-install \
   --admin-username=test \
