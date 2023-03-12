@@ -129,7 +129,7 @@ jobs:
 
   deploy-container-apps:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    needs: [build-php-fpm, build-supervisord]
+    needs: [determine-environment, build-php-fpm, build-supervisord]
     environment: ${{ needs.determine-environment.outputs.env }}
 
     steps:
