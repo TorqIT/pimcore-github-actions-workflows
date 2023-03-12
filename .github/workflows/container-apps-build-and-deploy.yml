@@ -52,7 +52,7 @@ jobs:
         with:
           node-version: 16
           cache: 'npm'
-          cache-dependency-path: 'pimcore-root/frontend/package-lock.json'
+          cache-dependency-path: pimcore-root/frontend/package-lock.json
 
       - name: Perform npm build
         if: ${{ inputs.NPM_BUILD }}
