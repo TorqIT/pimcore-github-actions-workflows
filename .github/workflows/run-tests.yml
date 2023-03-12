@@ -58,7 +58,6 @@ jobs:
       - name: Run tests
         run: |
           export TAG=local/pimcore-tests:${{ github.run_id }}
-          docker compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml pull
           docker compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml run tests --no-build
 
       - name: Bring down the containers
