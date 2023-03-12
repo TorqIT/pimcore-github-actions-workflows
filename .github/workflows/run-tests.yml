@@ -45,7 +45,7 @@ jobs:
         with:
           push: false
           load: true
-          tags: ${{ github.run_id }}
+          tags: local/pimcore-tests:${{ github.run_id }}
           builder: ${{ steps.buildx.outputs.name }}
           file: ./docker/php-fpm/Dockerfile
           context: .
@@ -54,7 +54,7 @@ jobs:
 
       - name: Run tests
         run: |
-          export TAG=${{ github.run_id }}
+          export TAG=local/pimcore-tests:${{ github.run_id }}
           docker compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml pull
           docker compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml run tests --no-build
 
