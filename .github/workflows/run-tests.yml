@@ -53,6 +53,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - run: docker image ls
+
       - name: Run tests
         run: |
           export TAG=local/pimcore-tests:${{ github.run_id }}
