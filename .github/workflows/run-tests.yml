@@ -30,12 +30,11 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: TorqIT/pimcore-github-actions-workflows
-          # ref: ${{ inputs.REUSABLE_WORKFLOW_REF }}
-          ref: feat/faster-pr-tests
+          ref: ${{ inputs.REUSABLE_WORKFLOW_REF }}
           path: reusable-workflow
 
-      # - name: Set up QEMU
-      #   uses: docker/setup-qemu-action@v1
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
 
       - name: Set up Docker Buildx
         id: buildx
@@ -46,19 +45,16 @@ jobs:
         with:
           push: false
           load: true
-          tags: local/pimcore-tests:${{ github.run_id }}
+          tags: ${{ github.run_id }}
           builder: ${{ steps.buildx.outputs.name }}
           file: ./docker/php-fpm/Dockerfile
           context: .
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - run: docker image ls
-
       - name: Run tests
         run: |
-          export TAG=local/pimcore-tests:${{ github.run_id }}
-          docker compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml run tests --no-build
+          docker compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml run -e ${{ github.run_id }} tests
 
       - name: Bring down the containers
         if: always()
