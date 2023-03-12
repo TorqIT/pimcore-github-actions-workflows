@@ -54,7 +54,6 @@ jobs:
 
       - name: Run tests
         run: |
-          docker compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml pull -e TAG=tests/tests:${{ github.run_id }} tests
           docker compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml run -e TAG=tests/tests:${{ github.run_id }} tests
 
       - name: Bring down the containers
