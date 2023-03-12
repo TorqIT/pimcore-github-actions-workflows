@@ -53,7 +53,7 @@ jobs:
           CI: "" # required to ensure warnings aren't treated as errors
         run: |
           cd pimcore-root/frontend
-          npm install --legacy-peer-deps
+          npm ci --legacy-peer-deps
           npm run ${{ inputs.NPM_RUN_CMD }}
           if ${{ inputs.NPM_SPA }}
           then
