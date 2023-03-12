@@ -48,7 +48,7 @@ jobs:
         with:
           push: false
           load: true
-          tags: ${{ TAG }}
+          tags: $TAG
           builder: ${{ steps.buildx.outputs.name }}
           file: ./docker/php-fpm/Dockerfile
           context: .
