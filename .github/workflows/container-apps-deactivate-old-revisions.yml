@@ -18,10 +18,10 @@ on:
 jobs: 
   deactivate-old-revisions:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    environment: ${{ matrix.environment }}
     strategy:
       matrix: 
-        environment: ${{ inputs.ENVIRONMENTS }} 
+        environment: [ "${{ inputs.ENVIRONMENTS }}" ]
+    environment: ${{ matrix.environment }}
 
     steps: 
       - name: Log into Azure CLI
