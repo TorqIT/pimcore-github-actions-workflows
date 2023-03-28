@@ -4,6 +4,7 @@
 #     types: [opened, reopened, synchronize]
 # 
 # Note this workflow assumes there is a buildable PHP-FPM Docker image located in the /docker/php-fpm directory of the calling repository.
+#
 
 name: Run tests
 

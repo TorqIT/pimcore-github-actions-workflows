@@ -1,3 +1,19 @@
+# Deactivates old revisions of the PHP-FPM Pimcore Container App in the given environments.
+# 
+# In typical situations, you would want to run this on a schedule such as the following which will 
+# trigger the workflow every 6 hours:
+# on:
+#   schedule:
+#     - cron: "0 */6 * * *" 
+#
+# The ENVIRONMENTS input requires an array of GitHub environments, formatted as follows:
+# jobs:
+#   deactivate-old-revisions:
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/container-apps-deactivate-old-revisions.yml@feat/clients-specify-environments
+#     with:
+#       ENVIRONMENTS: "['development', 'production']"
+#
+
 name: Deactivate old Container Apps revisions
 
 on: 
@@ -38,7 +54,7 @@ jobs:
           az config set extension.use_dynamic_install=yes_without_prompt
           az extension add --name containerapp
 
-      - name: Deactivate revisions that have been at 0% traffic for 24 hours
+      - name: Deactivate revisions that have been at 0% traffic for 12 hours
         run: |
           timestampOfLatestRevision=$(az containerapp revision list \
             --resource-group ${{ vars.RESOURCE_GROUP }} \
@@ -50,7 +66,7 @@ jobs:
           echo "Latest revision uptime in seconds $latestRevisionUptime"
           if [[ "$latestRevisionUptime" -gt "$cleanupInterval" ]]; then
             # If the latest revision has been up for longer than the cleanup interval, then all other revisions must have been at
-            # 0% traffic for that same amount of time (since we always set the latest revision to 100% traffic).Therefore, we can 
+            # 0% traffic for at least that amount of time (since we always set the latest revision to 100% traffic). Therefore, we can 
             # safely deactivate those revisions. 
             revisionsToDeactive=$(az containerapp revision list \
               --resource-group ${{ vars.RESOURCE_GROUP }} \
