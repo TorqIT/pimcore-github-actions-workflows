@@ -118,8 +118,7 @@ jobs:
   
   build-and-deploy-supervisord:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    needs: [determine-environment]
-    environment: ${{ needs.determine-environment.outputs.env }}
+    environment: ${{ inputs.ENVIRONMENT }}
 
     steps:
       - name: Checkout repository
