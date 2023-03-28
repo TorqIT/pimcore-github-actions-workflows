@@ -20,7 +20,7 @@ jobs:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     strategy:
       matrix: 
-        environment: [ "${{ inputs.ENVIRONMENTS }}" ]
+        environment: ${{ fromJson(inputs.ENVIRONMENTS) }}
     environment: ${{ matrix.environment }}
 
     steps: 
