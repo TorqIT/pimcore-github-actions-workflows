@@ -1,0 +1,24 @@
+on:
+  workflow_call:
+    inputs:
+      RUNNER:
+        required: false
+        type: string
+
+jobs:
+  determine-environment:
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+
+    steps:
+      - name: Determine environment based on branch
+        id: branch-check
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/develop" ]; then
+            echo "env=development" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/staging" ]; then
+            echo "env=staging" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "env=production" >> $GITHUB_OUTPUT
+          fi
+    outputs:
+      env: ${{ steps.branch-check.outputs.env }}

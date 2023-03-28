@@ -15,6 +15,10 @@ on:
       NPM_SPA:
         required: false
         type: boolean
+      ENVIRONMENT:
+        required: true
+        type: string
+
     secrets:
       SERVICE_PRINCIPAL_ID:
         required: true
@@ -22,25 +26,9 @@ on:
         required: true
 
 jobs:
-  determine-environment:
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-
-    steps:
-      - name: Determine environment based on branch
-        id: branch-check
-        run: |
-          if [ "${{ github.ref }}" == "refs/heads/develop" ]; then
-            echo "env=development" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "env=production" >> $GITHUB_OUTPUT
-          fi
-    outputs:
-      env: ${{ steps.branch-check.outputs.env }}
-
   build-and-deploy-php-fpm:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    needs: [determine-environment]
-    environment: ${{ needs.determine-environment.outputs.env }}
+    environment: ${{ inputs.ENVIRONMENT }}
 
     steps:
       - name: Checkout repository

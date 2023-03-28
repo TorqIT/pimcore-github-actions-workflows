@@ -6,6 +6,9 @@ on:
       RUNNER:
         required: false
         type: string
+      ENVIRONMENTS:
+        required: true
+        type: string
     secrets:
       SERVICE_PRINCIPAL_ID:
         required: true
@@ -18,7 +21,7 @@ jobs:
     environment: ${{ matrix.environment }}
     strategy:
       matrix: 
-        environment: [development] # TODO prod env
+        environment: ${{ inputs.ENVIRONMENTS }} 
 
     steps: 
       - name: Log into Azure CLI
