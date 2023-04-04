@@ -6,12 +6,13 @@
 #   schedule:
 #     - cron: "0 */6 * * *" 
 #
-# The ENVIRONMENTS input requires an array of GitHub environments, formatted as follows:
+# The ENVIRONMENTS input requires an array of GitHub Environments, formatted as follows:
 # jobs:
 #   deactivate-old-revisions:
 #     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/container-apps-deactivate-old-revisions.yml@feat/clients-specify-environments
 #     with:
 #       ENVIRONMENTS: "['development', 'production']"
+# See the "vars" variables used in this workflow for the variables that must be declared in these GitHub Environments.
 #
 
 name: Deactivate old Container Apps revisions
