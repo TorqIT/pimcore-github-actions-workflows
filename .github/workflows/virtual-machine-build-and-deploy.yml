@@ -1,0 +1,170 @@
+on:
+  workflow_call:
+    inputs:
+      ENVIRONMENT:
+        required: true
+        type: string
+      RUNNER:
+        required: false
+        type: string
+      NPM_BUILD:
+        required: false
+        type: boolean
+      NPM_RUN_CMD:
+        required: false
+        type: string
+      NPM_SPA:
+        required: false
+        type: boolean
+      ENV_VARS:
+        required: true
+        type: string
+
+    secrets:
+      CONTAINER_REGISTRY_USER:
+        required: true
+      CONTAINER_REGISTRY_PASSWORD:
+        required: true
+      SECRET_ENV_VARS:
+        required: true
+
+jobs:
+  docker-build-tag-push-run:
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Ensure .env file ends with a newline
+        run: |
+          echo ${{ vars.ENV_FILE }} | if grep --quiet ".env.*"
+          then
+            echo "Checking ${{ vars.ENV_FILE }}..."
+            if [ ! $(tail -c1 "${{ vars.ENV_FILE }}" | wc -l) -gt 0 ]
+            then
+              echo "${{ vars.ENV_FILE }} doesn't end with a newline - adding one so that it can be properly parsed"
+              echo "" >> ${{ vars.ENV_FILE }}
+              git add ${{ vars.ENV_FILE }}
+            fi
+          fi
+          if [[ -n $(git status -s) ]]
+          then
+            git config user.name "GitHub Actions Bot"
+            git config user.email "<>"
+            git commit -m "Adding missing newlines to ends of .env files"
+            git push
+          fi
+
+      - uses: actions/setup-node@v3
+        if: ${{ inputs.NPM_BUILD }}
+        with:
+          node-version: 16
+          cache: 'npm'
+          cache-dependency-path: pimcore-root/frontend/package-lock.json
+
+      - name: Cache node modules
+        if: ${{ inputs.NPM_BUILD }}
+        id: cache-npm
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+
+      - name: Copy in database.yaml file
+        run: cp pimcore-root/config/db/database-dev-prod.yaml pimcore-root/config/database.yaml
+
+      - name: Perform npm build
+        if: ${{ inputs.NPM_BUILD }}
+        env:
+          CI: "" # required to ensure warnings aren't treated as errors
+        run: |
+          cd pimcore-root/frontend
+          npm ci --legacy-peer-deps
+          npm run ${{ inputs.NPM_RUN_CMD }}
+          if ${{ inputs.NPM_SPA }}
+          then
+            cd ../../
+            mv pimcore-root/frontend/build/index.html pimcore-root/templates/default/default.html.twig
+            mv pimcore-root/frontend/build/* pimcore-root/public/
+          fi
+
+      - name: Log in to container registry ${{ vars.CONTAINER_REGISTRY }}
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ vars.CONTAINER_REGISTRY }}
+          username: ${{ secrets.CONTAINER_REGISTRY_USER }}
+          password: ${{ secrets.CONTAINER_REGISTRY_PASSWORD }}
+
+      - name: Build and push latest PHP-FPM image
+        uses: docker/build-push-action@v4
+        with:
+            context: .
+            file: ./docker/php-fpm/Dockerfile
+            push: true
+            tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:latest,
+                  ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
+            # TODO apply build-time secrets?
+
+      - name: Build and push latest supervisord image
+        uses: docker/build-push-action@v4
+        with:
+            context: .
+            file: ./docker/supervisord/Dockerfile
+            push: true
+            tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:latest,
+                  ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:${{ github.run_id }}
+            # TODO apply build-time secrets?
+
+      - name: Blue/green deployment
+        run: |
+          # TODO Apply env and secret values to .env file
+
+          docker compose \
+            --env-file ${{ vars.ENV_FILE }} \
+            -f docker-compose.yml -f ${{ vars.COMPOSE_FILE }} \
+            pull ${{ vars.PHP_FPM_CONTAINER }} ${{ vars.SUPERVISORD_CONTAINER }}
+
+          # We use different Docker "projects" for blue/green deployments (idea based on https://www.gistshare.com/notes/38/blue-green-deployment-script-docker-compose). 
+          # The reason this works is because our servers use a "smart" reverse proxy (https://github.com/nginx-proxy/nginx-proxy) which 
+          # automatically configures the DNS for new/removed containers. We can therefore simply start the new containers, wait for them to 
+          # get up and running, then stop the old containers, and the proxy will automatically handle routing client requests to the new containers.
+
+          # Start the Redis container separately since we don't need a different one for blue/green deployments
+          echo "Starting Redis container..."
+          docker compose \
+            --env-file ${{ vars.ENV_FILE }} \
+            -f docker-compose.yml -f ${{ vars.COMPOSE_FILE }} \
+            up -d ${{ vars.REDIS_CONTAINER }}
+
+          if [ "$(docker ps -f name=blue -q)" ]
+          then
+            NEW_DEPLOYMENT="green"
+            OLD_DEPLOYMENT="blue"
+          else
+            NEW_DEPLOYMENT="blue"
+            OLD_DEPLOYMENT="green"
+          fi
+
+          echo "Starting "$NEW_DEPLOYMENT" containers..."
+          docker compose \
+            --project-name=$NEW_DEPLOYMENT \
+            --env-file ${{ vars.ENV_FILE }} \
+            -f docker-compose.yml -f ${{ vars.COMPOSE_FILE }} \
+            up -d ${{ vars.PHP_FPM_CONTAINER }} ${{ vars.SUPERVISORD_CONTAINER }}
+
+          echo "Waiting for new deployment to be available..."
+          docker compose --project-name=$NEW_DEPLOYMENT exec -T ${{ vars.PHP_FPM_CONTAINER }} wget -q -O /dev/null -T 3 -t 0 localhost
+          # TODO bring down the new deployment if it fails
+
+          echo "Stopping "$OLD_DEPLOYMENT" containers..."
+          docker compose \
+            --project-name=$OLD_DEPLOYMENT \
+            rm --stop --force ${{ vars.PHP_FPM_CONTAINER }} ${{ vars.SUPERVISORD_CONTAINER }}
