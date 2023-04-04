@@ -78,9 +78,6 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
 
-      - name: Copy in database.yaml file
-        run: cp pimcore-root/config/db/database-dev-prod.yaml pimcore-root/config/database.yaml
-
       - name: Perform npm build
         if: ${{ inputs.NPM_BUILD }}
         env:
@@ -95,6 +92,9 @@ jobs:
             mv pimcore-root/frontend/build/index.html pimcore-root/templates/default/default.html.twig
             mv pimcore-root/frontend/build/* pimcore-root/public/
           fi
+
+      - name: Copy in database.yaml file
+        run: cp pimcore-root/config/db/database-dev-prod.yaml pimcore-root/config/database.yaml
 
       - name: Log in to container registry ${{ vars.CONTAINER_REGISTRY }}
         uses: docker/login-action@v2
