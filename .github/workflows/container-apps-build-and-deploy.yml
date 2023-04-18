@@ -24,6 +24,8 @@ on:
         required: true
       SERVICE_PRINCIPAL_PASSWORD:
         required: true
+      ENCRYPTION_SECRET:
+        required: false
 
 jobs:
   build-and-deploy-php-fpm:
@@ -87,6 +89,8 @@ jobs:
             push: true
             tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:latest,
                   ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
+            build-args: |
+              ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
 
       - name: Log into Azure CLI
         run: |
@@ -142,6 +146,8 @@ jobs:
             push: true
             tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:latest,
                   ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:${{ github.run_id }}
+            build-args: |
+              ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
 
       - name: Log into Azure CLI
         run: |
