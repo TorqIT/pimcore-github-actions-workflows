@@ -24,6 +24,8 @@ on:
         required: true
       SERVICE_PRINCIPAL_PASSWORD:
         required: true
+      PIMCORE_ENTERPRISE_TOKEN:
+        required: false
       ENCRYPTION_SECRET:
         required: false
 
@@ -90,6 +92,7 @@ jobs:
             tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:latest,
                   ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
             build-args: |
+              PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
               ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
 
       - name: Log into Azure CLI
@@ -147,6 +150,7 @@ jobs:
             tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:latest,
                   ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:${{ github.run_id }}
             build-args: |
+              PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
               ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
 
       - name: Log into Azure CLI
