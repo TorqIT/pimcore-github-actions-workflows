@@ -101,8 +101,6 @@ jobs:
             build-args: |
               PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
               ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
-            cache-from: type=gha
-            cache-to: type=gha,mode=max
 
       - name: Log into Azure CLI
         run: |
@@ -168,8 +166,6 @@ jobs:
             build-args: |
               PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
               ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
-            cache-from: type=gha
-            cache-to: type=gha,mode=max
 
       - name: Log into Azure CLI
         run: |
