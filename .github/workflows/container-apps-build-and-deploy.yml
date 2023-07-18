@@ -15,6 +15,10 @@ on:
       NPM_SPA:
         required: false
         type: boolean
+      SPA_TWIG:
+        required: false
+        type: string
+        default: 'default/default.html.twig'
       ENVIRONMENT:
         required: true
         type: string
@@ -69,7 +73,7 @@ jobs:
           if ${{ inputs.NPM_SPA }}
           then
             cd ../../
-            mv pimcore-root/frontend/build/index.html pimcore-root/templates/default/default.html.twig
+            mv pimcore-root/frontend/build/index.html pimcore-root/templates/${{ inputs.SPA_TWIG }}
             mv pimcore-root/frontend/build/* pimcore-root/public/
           fi
       
