@@ -42,6 +42,7 @@ jobs:
           docker compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml build tests
           
       - name: Run tests
+        timeout-minutes: 10 # This occasionally hangs when installing Pimcore for an unknown reason, so we arbitrarily kill after 10 minutes
         run: |
           docker compose -f ./reusable-workflow/scripts/run-tests/docker-compose.yml run tests
 
