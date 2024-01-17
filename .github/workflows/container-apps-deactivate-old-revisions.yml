@@ -12,6 +12,7 @@
 #     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/container-apps-deactivate-old-revisions.yml@v2
 #     with:
 #       ENVIRONMENTS: "['development', 'production']"
+# See the "vars" variables used in this workflow for the variables that must be declared in these GitHub Environments.
 #
 
 name: Deactivate old Container Apps revisions
