@@ -165,22 +165,55 @@ jobs:
   run-init-operations:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
-    needs: build-php-fpm
-    container:
-      image: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
-      credentials:
-        username: "${{ secrets.SERVICE_PRINCIPAL_ID }}"
-        password: "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}"
     steps:
-      - name: Run initialization steps
+      - name: Log into Azure CLI
         run: |
-          echo Running migrations...
-          runuser -u www-data -- /var/www/html/bin/console doctrine:migrations:migrate -n
-          echo Rebuilding classes...
-          runuser -u www-data -- /var/www/html/bin/console pimcore:deployment:classes-rebuild -c -d -n
-          echo Clearing caches...
-          runuser -u www-data -- /var/www/html/bin/console cache:clear 
-          runuser -u www-data -- /var/www/html/bin/console pimcore:cache:clear
+          echo Logging into Azure...
+          az login \
+            --tenant ${{ vars.TENANT }} \
+            --service-principal \
+            --username '${{ secrets.SERVICE_PRINCIPAL_ID }}' \
+            --password '${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}'
+
+      - name: Install Azure CLI containerapp extension
+        run: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az extension add --name containerapp
+
+      - name: Run init operations Container App Job
+        run: |
+          echo Running init operations Container App Job...
+          az containerapp job start \
+            --resource-group ${{ vars.RESOURCE_GROUP }} \
+            --name ${{ vars.INIT_OPERATIONS_CONTAINER_APP_JOB }}
+
+          executionName=$(az containerapp job execution list \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --name ${{ vars.INIT_OPERATIONS_CONTAINER_APP_JOB }} \
+            | jq -r '.[] | select(.properties.status | contains("Running")) | .name')
+          echo Waiting for $executionName to finish...
+
+          executionStatus=$(az containerapp job execution list \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --name ${{ vars.INIT_OPERATIONS_CONTAINER_APP_JOB }} \
+            | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
+          while [[ "$executionStatus" == "Running" ]]
+          do
+            echo Job execution $executionName is still running...
+            sleep 5
+            executionStatus=$(az containerapp job execution list \
+              --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+              --name ${{ vars.INIT_OPERATIONS_CONTAINER_APP_JOB }} \
+              | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
+          done
+
+          if [[ "$executionStatus" == "Succeeded" ]]
+          then
+            echo "Execution $executionName succeeded!"
+          else
+            echo "Execution $executionName failed!"
+            exit 1
+          fi
 
   deploy-php-fpm:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
