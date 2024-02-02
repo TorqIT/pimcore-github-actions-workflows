@@ -165,6 +165,7 @@ jobs:
   run-init-operations:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
+    needs: build-php-fpm
     steps:
       - name: Log into Azure CLI
         run: |
@@ -185,7 +186,8 @@ jobs:
           echo Running init operations Container App Job...
           az containerapp job start \
             --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --name ${{ vars.INIT_OPERATIONS_CONTAINER_APP_JOB }}
+            --name ${{ vars.INIT_OPERATIONS_CONTAINER_APP_JOB }} \
+            --image ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
 
           executionName=$(az containerapp job execution list \
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
