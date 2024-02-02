@@ -18,7 +18,7 @@ on:
       SPA_TWIG:
         required: false
         type: string
-        default: 'default/default.html.twig'
+        default: "default/default.html.twig"
       ENVIRONMENT:
         required: true
         type: string
@@ -38,7 +38,7 @@ on:
         required: false
 
 jobs:
-  build-and-deploy-php-fpm:
+  build-php-fpm:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
 
@@ -52,7 +52,7 @@ jobs:
         if: ${{ inputs.NPM_BUILD }}
         with:
           node-version: 16
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: pimcore-root/frontend/package-lock.json
 
       - name: Cache node modules
@@ -82,7 +82,7 @@ jobs:
             mv pimcore-root/frontend/build/index.html pimcore-root/templates/${{ inputs.SPA_TWIG }}
             mv pimcore-root/frontend/build/* pimcore-root/public/
           fi
-      
+
       - name: Copy in database.yaml file
         run: cp pimcore-root/config/db/database-dev-prod.yaml pimcore-root/config/database.yaml
 
@@ -91,14 +91,14 @@ jobs:
           if [ -e pimcore-root/config/flysystem/flysystem-dev-prod.yaml ]; then
             cp pimcore-root/config/flysystem/flysystem-dev-prod.yaml pimcore-root/config/packages/flysystem.yaml
           fi
-          
+
       - name: Log in to Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
         uses: docker/login-action@v2
         with:
           registry: ${{ vars.CONTAINER_REGISTRY }}
-          username: '${{ secrets.SERVICE_PRINCIPAL_ID }}'
-          password: '${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}'
-          
+          username: "${{ secrets.SERVICE_PRINCIPAL_ID }}"
+          password: "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
@@ -109,15 +109,84 @@ jobs:
       - name: Build and push latest PHP-FPM image
         uses: docker/build-push-action@v4
         with:
-            context: .
-            file: ./docker/php-fpm/Dockerfile
-            push: true
-            tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:latest,
-                  ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
-            build-args: |
-              PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-              ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
+          context: .
+          file: ./docker/php-fpm/Dockerfile
+          push: true
+          tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:latest,
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
+          build-args: |
+            PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+            ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
 
+  build-supervisord:
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Copy in database.yaml file
+        run: cp pimcore-root/config/db/database-dev-prod.yaml pimcore-root/config/database.yaml
+
+      - name: Copy in flysystem.yaml file
+        run: |
+          if [ -e pimcore-root/config/flysystem/flysystem-dev-prod.yaml ]; then
+            cp pimcore-root/config/flysystem/flysystem-dev-prod.yaml pimcore-root/config/packages/flysystem.yaml
+          fi
+
+      - name: Log into Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ vars.CONTAINER_REGISTRY }}
+          username: "${{ secrets.SERVICE_PRINCIPAL_ID }}"
+          password: "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and push latest supervisord image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./docker/supervisord/Dockerfile
+          push: true
+          tags:
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:latest,
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:${{ github.run_id }}
+          build-args: |
+            PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+            ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
+
+  run-init-operations:
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+    needs: build-php-fpm
+    container:
+      image: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
+      credentials:
+        username: "${{ secrets.SERVICE_PRINCIPAL_ID }}"
+        password: "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}"
+    steps:
+      - name: Run initialization steps
+        run: |
+          echo Running migrations...
+          runuser -u www-data -- /var/www/html/bin/console doctrine:migrations:migrate -n
+          echo Rebuilding classes...
+          runuser -u www-data -- /var/www/html/bin/console pimcore:deployment:classes-rebuild -c -d -n
+          echo Clearing caches...
+          runuser -u www-data -- /var/www/html/bin/console cache:clear 
+          runuser -u www-data -- /var/www/html/bin/console pimcore:cache:clear
+
+  deploy-php-fpm:
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+    needs: [build-php-fpm, run-init-operations]
+    steps:
       - name: Log into Azure CLI
         run: |
           echo Logging into Azure...
@@ -145,50 +214,12 @@ jobs:
             --resource-group ${{ vars.RESOURCE_GROUP }} \
             --name ${{ vars.PHP_FPM_CONTAINER_APP }} \
             --revision-weight latest=100
-  
-  build-and-deploy-supervisord:
+
+  deploy-supervisord:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
-
+    needs: [build-supervisord, run-init-operations]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Copy in database.yaml file
-        run: cp pimcore-root/config/db/database-dev-prod.yaml pimcore-root/config/database.yaml
-
-      - name: Copy in flysystem.yaml file
-        run: |
-          if [ -e pimcore-root/config/flysystem/flysystem-dev-prod.yaml ]; then
-            cp pimcore-root/config/flysystem/flysystem-dev-prod.yaml pimcore-root/config/packages/flysystem.yaml
-          fi
-
-      - name: Log into Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
-        uses: docker/login-action@v2
-        with:
-          registry: ${{ vars.CONTAINER_REGISTRY }}
-          username: '${{ secrets.SERVICE_PRINCIPAL_ID }}'
-          password: '${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}'
-          
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Build and push latest supervisord image
-        uses: docker/build-push-action@v4
-        with:
-            context: .
-            file: ./docker/supervisord/Dockerfile
-            push: true
-            tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:latest,
-                  ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:${{ github.run_id }}
-            build-args: |
-              PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-              ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
-
       - name: Log into Azure CLI
         run: |
           echo Logging into Azure...
