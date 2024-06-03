@@ -110,7 +110,8 @@ jobs:
         uses: docker/build-push-action@v4
         with:
             context: .
-            file: ./docker/php-fpm/Dockerfile
+            file: ./.docker/Dockerfile
+            target: supervisord
             push: true
             tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:latest,
                   ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
@@ -183,7 +184,8 @@ jobs:
         uses: docker/build-push-action@v4
         with:
             context: .
-            file: ./docker/supervisord/Dockerfile
+            file: ./.docker/Dockerfile
+            target: php
             push: true
             tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:latest,
                   ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:${{ github.run_id }}
