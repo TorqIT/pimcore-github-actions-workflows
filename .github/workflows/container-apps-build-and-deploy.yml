@@ -113,7 +113,7 @@ jobs:
           az config set extension.use_dynamic_install=yes_without_prompt
           az extension add --name containerapp
 
-      - name: Run database operations (migration and seeding) Container App Job
+      - name: Run init (migration and seeding) Container App Job
         run: |
           echo Creating new revision of ${{ vars.INIT_CONTAINER_APP_JOB }} Container App Job
           az containerapp job update \
@@ -121,9 +121,9 @@ jobs:
             --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
             --image ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE }}:${{ github.run_id }}
 
-          echo Running database operations Container App Job...
+          echo Running init Container App Job...
           az containerapp job start \
-            --resource-group ${{ vars.RE_RESOURCE_GROUP }} \
+            --resource-group ${{ vars.RESOURCE_GROUP }} \
             --name ${{ vars.INIT_CONTAINER_APP_JOB }}
 
           executionName=$(az containerapp job execution list \
