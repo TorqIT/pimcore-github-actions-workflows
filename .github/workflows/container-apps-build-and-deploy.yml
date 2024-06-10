@@ -98,6 +98,15 @@ jobs:
           tags: |
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE }}:latest,
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE }}:${{ github.run_id }}
+
+      - name: Log into Azure CLI
+        run: |
+          echo Logging into Azure...
+          az login \
+            --tenant ${{ vars.TENANT }} \
+            --service-principal \
+            --username '${{ secrets.SERVICE_PRINCIPAL_ID }}' \
+            --password '${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}'
       
       - name: Install Azure CLI containerapp extension
         run: |
