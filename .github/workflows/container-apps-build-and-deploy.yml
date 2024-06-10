@@ -127,13 +127,13 @@ jobs:
             --name ${{ vars.INIT_CONTAINER_APP_JOB }}
 
           executionName=$(az containerapp job execution list \
-            --resource-group ${{ vars.RE_RESOURCE_GROUP }} \
+            --resource-group ${{ vars.RESOURCE_GROUP }} \
             --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
             | jq -r '.[] | select(.properties.status | contains("Running")) | .name')
           echo Waiting for $executionName to finish...
 
           executionStatus=$(az containerapp job execution list \
-            --resource-group ${{ vars.RE_RESOURCE_GROUP }} \
+            --resource-group ${{ vars.RESOURCE_GROUP }} \
             --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
             | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
           while [[ "$executionStatus" == "Running" ]]
