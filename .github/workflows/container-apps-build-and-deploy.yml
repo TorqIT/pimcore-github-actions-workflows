@@ -26,6 +26,30 @@ on:
         required: false
         type: boolean
         default: false
+      INIT:
+        required: false
+        type: boolean
+        default: false
+      PIMCORE_ROOT:
+        required: false
+        type: string
+        default: 'pimcore-root'
+      PHP_DOCKERFILE:
+        required: false
+        type: string
+        default: 'docker/php-fpm/Dockerfile'
+      PHP_DOCKER_TARGET:
+        required: false
+        type: string
+        default: ''
+      SUPERVISORD_DOCKERFILE:
+        required: false
+        type: string
+        default: 'docker/supervisord/Dockerfile'
+      SUPERVISORD_TARGET:
+        required: false
+        type: string
+        default: ''
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -38,25 +62,24 @@ on:
         required: false
 
 jobs:
-  build-docker-init-image:
+  run-init-job:
+    if: ${{ inputs.INIT }}
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
 
     steps:
-      # This is a workaround for the fact there is no way to do a conditional "needs"
-      - name: Fail fast if release approval checks failed
-        if: ${{ needs.release-approval.result == 'failure' }}
-        run: exit 1
-
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Log in to Azure Container Registry ${{ vars.AZURE_CONTAINER_REGISTRY }}
+      - name: Copy in database.yaml file
+        run: cp ${{ inputs.PIMCORE_ROOT }}/config/db/database-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
+
+      - name: Log in to Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
         uses: docker/login-action@v2
         with:
-          registry: ${{ vars.AZURE_CONTAINER_REGISTRY }}
-          username: "${{ vars.AZURE_CONTAINER_REGISTRY_USERNAME }}"
-          password: "${{ secrets.AZURE_CONTAINER_REGISTRY_PASSWORD }}"
+          registry: ${{ vars.CONTAINER_REGISTRY }}
+          username: "${{ vars.SERVICE_PRINCIPAL_ID }}"
+          password: "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -69,22 +92,70 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./.docker/Dockerfile
+          file: .docker/Dockerfile
           target: init
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           push: true
           tags: |
-            ${{ vars.AZURE_CONTAINER_REGISTRY }}/${{ vars.AZURE_CONTAINER_REGISTRY_IMAGE }}:latest,
-            ${{ vars.AZURE_CONTAINER_REGISTRY }}/${{ vars.AZURE_CONTAINER_REGISTRY_IMAGE }}:${{ github.run_id }}
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE }}:latest,
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE }}:${{ github.run_id }}
+      
+      - name: Install Azure CLI containerapp extension
+        run: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az extension add --name containerapp
+
+      - name: Run database operations (migration and seeding) Container App Job
+        run: |
+          echo Creating new revision of ${{ vars.INIT_CONTAINER_APP_JOB }} Container App Job
+          az containerapp job update \
+            --resource-group ${{ vars.RESOURCE_GROUP }} \
+            --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
+            --image ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE }}:${{ github.run_id }}
+
+          echo Running database operations Container App Job...
+          az containerapp job start \
+            --resource-group ${{ vars.RE_RESOURCE_GROUP }} \
+            --name ${{ vars.INIT_CONTAINER_APP_JOB }}
+
+          executionName=$(az containerapp job execution list \
+            --resource-group ${{ vars.RE_RESOURCE_GROUP }} \
+            --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
+            | jq -r '.[] | select(.properties.status | contains("Running")) | .name')
+          echo Waiting for $executionName to finish...
+
+          executionStatus=$(az containerapp job execution list \
+            --resource-group ${{ vars.RE_RESOURCE_GROUP }} \
+            --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
+            | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
+          while [[ "$executionStatus" == "Running" ]]
+          do
+            echo Job execution $executionName is still running...
+            sleep 5
+            executionStatus=$(az containerapp job execution list \
+              --resource-group ${{ vars.RESOURCE_GROUP }} \
+              --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
+              | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
+          done
+
+          if [[ "$executionStatus" == "Succeeded" ]]
+          then
+            echo "Execution $executionName succeeded!"
+          else
+            echo "Execution $executionName failed!"
+            exit 1
+          fi
 
   build-and-deploy-php-fpm:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
+    needs: 
+      - run-init-job
+    if: always()
 
     steps:
+      # This is a workaround for the fact there is no way to do a conditional "needs"
       - name: Fail fast if necessary jobs failed
-        if: ${{ needs.release-approval.result == 'failure' || needs.build-docker-init-image.result == 'failure' }}
+        if: ${{ needs.run-init-job.result == 'failure' }}
         run: exit 1
 
       - name: Checkout repository
@@ -95,9 +166,9 @@ jobs:
       - uses: actions/setup-node@v3
         if: ${{ inputs.NPM_BUILD }}
         with:
-          node-version: 16
+          node-version: 18
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: ${{ inputs.PIMCORE_ROOT }}/frontend/package-lock.json
 
       - name: Cache node modules
         id: cache-npm
@@ -123,17 +194,17 @@ jobs:
           if ${{ inputs.NPM_SPA }}
           then
             cd ../
-            mv frontend/build/index.html templates/${{ inputs.SPA_TWIG }}
-            mv frontend/build/* public/
+            mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/index.html ${{ inputs.PIMCORE_ROOT }}/templates/${{ inputs.SPA_TWIG }}
+            mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/* ${{ inputs.PIMCORE_ROOT }}/public/
           fi
       
       - name: Copy in database.yaml file
-        run: cp config/db/database-dev-prod.yaml config/database.yaml
+        run: cp ${{ inputs.PIMCORE_ROOT }}/config/db/database-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
 
       - name: Copy in flysystem.yaml file
         run: |
-          if [ -e config/flysystem/flysystem-dev-prod.yaml ]; then
-            cp config/flysystem/flysystem-dev-prod.yaml config/packages/flysystem.yaml
+          if [ -e ${{ inputs.PIMCORE_ROOT }}/config/flysystem/flysystem-dev-prod.yaml ]; then
+            cp ${{ inputs.PIMCORE_ROOT }}/config/flysystem/flysystem-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/packages/flysystem.yaml
           fi
           
       - name: Log in to Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
@@ -154,8 +225,8 @@ jobs:
         uses: docker/build-push-action@v4
         with:
             context: .
-            file: ./.docker/Dockerfile
-            target: supervisord
+            file: ${{ inputs.PHP_DOCKERFILE }}
+            target: ${{ inputs.PHP_DOCKER_TARGET }}
             push: true
             tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:latest,
                   ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
@@ -194,24 +265,22 @@ jobs:
   build-and-deploy-supervisord:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
+    needs:
+      - run-init-job
 
     steps:
-      - name: Fail fast if necessary jobs failed
-        if: ${{ needs.release-approval.result == 'failure' || needs.build-docker-init-image.result == 'failure' }}
-        run: exit 1
-
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           submodules: ${{ inputs.SUBMODULES }}
 
       - name: Copy in database.yaml file
-        run: cp config/db/database-dev-prod.yaml config/database.yaml
+        run: cp ${{ inputs.PIMCORE_ROOT }}/config/db/database-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
 
       - name: Copy in flysystem.yaml file
         run: |
-          if [ -e config/flysystem/flysystem-dev-prod.yaml ]; then
-            cp config/flysystem/flysystem-dev-prod.yaml config/packages/flysystem.yaml
+          if [ -e ${{ inputs.PIMCORE_ROOT }}/config/flysystem/flysystem-dev-prod.yaml ]; then
+            cp ${{ inputs.PIMCORE_ROOT }}/config/flysystem/flysystem-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/packages/flysystem.yaml
           fi
 
       - name: Log into Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
@@ -232,8 +301,8 @@ jobs:
         uses: docker/build-push-action@v4
         with:
             context: .
-            file: ./.docker/Dockerfile
-            target: php
+            file: ${{ inputs.SUPERVISORD_DOCKERFILE }}
+            target: ${{ inputs.SUPERVISORD_TARGET }}
             push: true
             tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:latest,
                   ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:${{ github.run_id }}
