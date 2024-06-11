@@ -239,6 +239,8 @@ jobs:
             file: ${{ inputs.PHP_DOCKERFILE }}
             target: ${{ inputs.PHP_DOCKER_TARGET }}
             push: true
+            cache-from: type=gha
+            cache-to: type=gha,mode=max
             tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:latest,
                   ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
             build-args: |
@@ -315,6 +317,8 @@ jobs:
             file: ${{ inputs.SUPERVISORD_DOCKERFILE }}
             target: ${{ inputs.SUPERVISORD_TARGET }}
             push: true
+            cache-from: type=gha
+            cache-to: type=gha,mode=max
             tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:latest,
                   ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:${{ github.run_id }}
             build-args: |
