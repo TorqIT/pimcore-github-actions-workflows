@@ -204,9 +204,9 @@ jobs:
           npm run ${{ inputs.NPM_RUN_CMD }}
           if ${{ inputs.NPM_SPA }}
           then
-            cd ../
-            mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/index.html ${{ inputs.PIMCORE_ROOT }}/templates/${{ inputs.SPA_TWIG }}
-            mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/* ${{ inputs.PIMCORE_ROOT }}/public/
+            cd ${{ inputs.PIMCORE_ROOT }}
+            mv frontend/build/index.html templates/${{ inputs.SPA_TWIG }}
+            mv frontend/build/* public/
           fi
       
       - name: Copy in database.yaml file
@@ -280,8 +280,14 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT }}
     needs:
       - run-init-job
+    if: always()
 
     steps:
+      # This is a workaround for the fact there is no way to do a conditional "needs"
+      - name: Fail fast if necessary jobs failed
+        if: ${{ needs.run-init-job.result == 'failure' }}
+        run: exit 1
+
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
