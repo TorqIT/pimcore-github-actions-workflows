@@ -199,7 +199,7 @@ jobs:
         env:
           CI: "" # required to ensure warnings aren't treated as errors
         run: |
-          cd frontend
+          cd ${{ inputs.PIMCORE_ROOT }}/frontend
           npm ci --legacy-peer-deps
           npm run ${{ inputs.NPM_RUN_CMD }}
           if ${{ inputs.NPM_SPA }}
