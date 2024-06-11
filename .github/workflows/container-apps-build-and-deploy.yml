@@ -199,14 +199,12 @@ jobs:
         env:
           CI: "" # required to ensure warnings aren't treated as errors
         run: |
-          cd ${{ inputs.PIMCORE_ROOT }}/frontend
-          npm ci --legacy-peer-deps
-          npm run ${{ inputs.NPM_RUN_CMD }}
+          npm --prefix ${{ inputs.PIMCORE_ROOT }}/frontend ci --legacy-peer-deps
+          npm --prefix ${{ inputs.PIMCORE_ROOT }}/frontend run ${{ inputs.NPM_RUN_CMD }}
           if ${{ inputs.NPM_SPA }}
           then
-            cd ${{ inputs.PIMCORE_ROOT }}
-            mv frontend/build/index.html templates/${{ inputs.SPA_TWIG }}
-            mv frontend/build/* public/
+            mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/index.html ${{ inputs.PIMCORE_ROOT }}/templates/${{ inputs.SPA_TWIG }}
+            mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/* ${{ inputs.PIMCORE_ROOT }}/public/
           fi
       
       - name: Copy in database.yaml file
