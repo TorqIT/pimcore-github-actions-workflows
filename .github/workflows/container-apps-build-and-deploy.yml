@@ -232,7 +232,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push latest PHP-FPM image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
             context: .
             file: ${{ inputs.PHP_DOCKERFILE }}
@@ -316,7 +316,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push latest supervisord image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
             context: .
             file: ${{ inputs.SUPERVISORD_DOCKERFILE }}
