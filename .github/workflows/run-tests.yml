@@ -34,11 +34,11 @@ jobs:
 
     steps:
       # Checkout the caller repository as usual
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # Checkout the workflow repository itself so that we can access the extra script files
       - name: Checkout workflow repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ inputs.REUSABLE_WORKFLOW_REF }}
