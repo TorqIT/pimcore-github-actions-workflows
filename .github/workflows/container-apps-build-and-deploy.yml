@@ -118,6 +118,7 @@ jobs:
           az extension add --name containerapp
 
       - name: Run init (migration and seeding) Container App Job
+        id: run-init
         run: |
           echo Creating new revision of ${{ vars.INIT_CONTAINER_APP_JOB }} Container App Job
           az containerapp job update \
@@ -134,6 +135,7 @@ jobs:
             --resource-group ${{ vars.RESOURCE_GROUP }} \
             --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
             | jq -r '.[] | select(.properties.status | contains("Running")) | .name')
+          echo "executionName=$executionName" >> $GITHUB_OUTPUT
           echo Waiting for $executionName to finish...
 
           executionStatus=$(az containerapp job execution list \
@@ -157,6 +159,15 @@ jobs:
             echo "Execution $executionName failed!"
             exit 1
           fi
+
+      - name: Stop execution of the init Container App Job
+        if: always()
+        run: |
+          echo Creating new revision of ${{ vars.INIT_CONTAINER_APP_JOB }} Container App Job
+          az containerapp job stop \
+            --resource-group ${{ vars.RESOURCE_GROUP }} \
+            --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
+            --job-execution-name ${{ steps.run-init.outputs.executionName }}
 
   build-and-deploy-php-fpm:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
