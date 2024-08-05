@@ -8,4 +8,4 @@ on:
 
 jobs:
   tag-major-release:
-    uses: ./.github/workflows/update-major-release-tag.yml
+    uses: TorqIT/github-actions-workflows/.github/workflows/update-major-release-tag.yml@v0
