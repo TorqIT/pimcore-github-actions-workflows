@@ -16,6 +16,7 @@
 #
 
 on:
+  workflow_dispatch: 
   workflow_call:
     inputs:
       RUNNER:
@@ -27,18 +28,6 @@ on:
 
 jobs:
   determine-environment:
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-
-    steps:
-      - name: Determine environment based on branch
-        id: branch-check
-        run: |
-          if [ "${{ github.ref }}" == "refs/heads/develop" ]; then
-            echo "environment=development" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" == "refs/heads/staging" ]; then
-            echo "environment=staging" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "environment=production" >> $GITHUB_OUTPUT
-          fi
-    outputs:
-      environment: ${{ steps.branch-check.outputs.environment }}
+    uses: TorqIT/github-actions-workflows/.github/workflows/determine-environment-based-on-branch.yml@v0
+    with:
+      RUNNER: ${{ inputs.RUNNER }}
