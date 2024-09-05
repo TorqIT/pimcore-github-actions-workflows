@@ -18,7 +18,7 @@ on:
       SPA_TWIG:
         required: false
         type: string
-        default: 'default/default.html.twig'
+        default: "default/default.html.twig"
       ENVIRONMENT:
         required: true
         type: string
@@ -33,23 +33,23 @@ on:
       PIMCORE_ROOT:
         required: false
         type: string
-        default: 'pimcore-root'
+        default: "pimcore-root"
       PHP_DOCKERFILE:
         required: false
         type: string
-        default: 'docker/php-fpm/Dockerfile'
+        default: "docker/php-fpm/Dockerfile"
       PHP_DOCKER_TARGET:
         required: false
         type: string
-        default: ''
+        default: ""
       SUPERVISORD_DOCKERFILE:
         required: false
         type: string
-        default: 'docker/supervisord/Dockerfile'
+        default: "docker/supervisord/Dockerfile"
       SUPERVISORD_TARGET:
         required: false
         type: string
-        default: ''
+        default: ""
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -59,6 +59,8 @@ on:
       PIMCORE_ENTERPRISE_TOKEN:
         required: false
       ENCRYPTION_SECRET:
+        required: false
+      TORQ_GITHUB_TOKEN:
         required: false
 
 jobs:
@@ -95,7 +97,8 @@ jobs:
           file: .docker/Dockerfile
           target: init
           build-args: |
-              PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+            PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+            TORQ_GITHUB_TOKEN=${{ secrets.TORQ_GITHUB_TOKEN }}
           push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -111,7 +114,7 @@ jobs:
             --service-principal \
             --username '${{ secrets.SERVICE_PRINCIPAL_ID }}' \
             --password '${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}'
-      
+
       - name: Install Azure CLI containerapp extension
         run: |
           az config set extension.use_dynamic_install=yes_without_prompt
@@ -172,7 +175,7 @@ jobs:
   build-and-deploy-php-fpm:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
-    needs: 
+    needs:
       - run-init-job
     if: always()
 
@@ -191,7 +194,7 @@ jobs:
         if: ${{ inputs.NPM_BUILD }}
         with:
           node-version: 20
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: ${{ inputs.PIMCORE_ROOT }}/frontend/package-lock.json
 
       - name: Cache node modules
@@ -220,7 +223,7 @@ jobs:
             mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/index.html ${{ inputs.PIMCORE_ROOT }}/templates/${{ inputs.SPA_TWIG }}
             mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/* ${{ inputs.PIMCORE_ROOT }}/public/
           fi
-      
+
       - name: Copy in database.yaml file
         run: cp ${{ inputs.PIMCORE_ROOT }}/config/db/database-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
 
@@ -229,14 +232,14 @@ jobs:
           if [ -e ${{ inputs.PIMCORE_ROOT }}/config/flysystem/flysystem-dev-prod.yaml ]; then
             cp ${{ inputs.PIMCORE_ROOT }}/config/flysystem/flysystem-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/packages/flysystem.yaml
           fi
-          
+
       - name: Log in to Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
         uses: docker/login-action@v3
         with:
           registry: ${{ vars.CONTAINER_REGISTRY }}
-          username: '${{ secrets.SERVICE_PRINCIPAL_ID }}'
-          password: '${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}'
-          
+          username: "${{ secrets.SERVICE_PRINCIPAL_ID }}"
+          password: "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -247,17 +250,18 @@ jobs:
       - name: Build and push latest PHP-FPM image
         uses: docker/build-push-action@v5
         with:
-            context: .
-            file: ${{ inputs.PHP_DOCKERFILE }}
-            target: ${{ inputs.PHP_DOCKER_TARGET }}
-            push: true
-            cache-from: type=gha
-            cache-to: type=gha,mode=max
-            tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:latest,
-                  ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
-            build-args: |
-              PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-              ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
+          context: .
+          file: ${{ inputs.PHP_DOCKERFILE }}
+          target: ${{ inputs.PHP_DOCKER_TARGET }}
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:latest,
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
+          build-args: |
+            PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+            ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
+            TORQ_GITHUB_TOKEN=${{ secrets.TORQ_GITHUB_TOKEN }}
 
       - name: Log into Azure CLI
         run: |
@@ -286,7 +290,7 @@ jobs:
             --resource-group ${{ vars.RESOURCE_GROUP }} \
             --name ${{ vars.PHP_FPM_CONTAINER_APP }} \
             --revision-weight latest=100
-  
+
   build-and-deploy-supervisord:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
@@ -318,9 +322,9 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ vars.CONTAINER_REGISTRY }}
-          username: '${{ secrets.SERVICE_PRINCIPAL_ID }}'
-          password: '${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}'
-          
+          username: "${{ secrets.SERVICE_PRINCIPAL_ID }}"
+          password: "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -331,17 +335,19 @@ jobs:
       - name: Build and push latest supervisord image
         uses: docker/build-push-action@v5
         with:
-            context: .
-            file: ${{ inputs.SUPERVISORD_DOCKERFILE }}
-            target: ${{ inputs.SUPERVISORD_TARGET }}
-            push: true
-            cache-from: type=gha
-            cache-to: type=gha,mode=max
-            tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:latest,
-                  ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:${{ github.run_id }}
-            build-args: |
-              PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-              ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
+          context: .
+          file: ${{ inputs.SUPERVISORD_DOCKERFILE }}
+          target: ${{ inputs.SUPERVISORD_TARGET }}
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags:
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:latest,
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:${{ github.run_id }}
+          build-args: |
+            PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+            ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
+            TORQ_GITHUB_TOKEN=${{ secrets.TORQ_GITHUB_TOKEN }}
 
       - name: Log into Azure CLI
         run: |
