@@ -163,15 +163,16 @@ jobs:
             exit 1
           fi
 
-      - name: Stop execution of the init Container App Job
-        if: always()
-        run: |
-          az --version
-          echo Stopping execution ${{ steps.run-init.outputs.EXECUTION_NAME }}
-          az containerapp job stop \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
-            --job-execution-name ${{ steps.run-init.outputs.EXECUTION_NAME }}
+      - name: Stop execution 
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            echo Stopping execution ${{ steps.run-init.outputs.EXECUTION_NAME }}
+            az containerapp job stop \
+              --resource-group ${{ vars.RESOURCE_GROUP }} \
+              --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
+              --job-execution-name ${{ steps.run-init.outputs.EXECUTION_NAME }}
 
   build-and-deploy-php-fpm:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
