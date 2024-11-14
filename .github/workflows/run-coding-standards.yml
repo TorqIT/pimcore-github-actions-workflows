@@ -35,6 +35,8 @@ jobs:
     steps:
       # Checkout the caller repository as usual
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
 
       # Checkout the workflow repository itself so that we can access the extra script files
       - name: Checkout workflow repository
