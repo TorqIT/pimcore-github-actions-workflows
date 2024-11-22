@@ -56,8 +56,6 @@ on:
         required: true
       SERVICE_PRINCIPAL_PASSWORD:
         required: true
-      KERNEL_SECRET:
-        required: false
       PIMCORE_ENTERPRISE_TOKEN:
         required: false
       ENCRYPTION_SECRET:
@@ -105,8 +103,9 @@ jobs:
             PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
             TORQ_GITHUB_TOKEN=${{ secrets.TORQ_GITHUB_TOKEN }}
           secrets: |
-            kernel-secret=${{ secrets.KERNEL_SECRET }}
             pimcore-enterprise-token=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+            # During the build, the kernel secret's value is not important but it still must be set
+            kernel-secret=secret
           push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -270,9 +269,10 @@ jobs:
           cache-to: type=gha,mode=max
           tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:latest,
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
-          secrets:
-            kernel-secret=${{ secrets.KERNEL_SECRET }}
+          secrets: |
             pimcore-enterprise-token=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+            # During the build, the kernel secret's value is not important but it still must be set
+            kernel-secret=secret
           build-args: |
             PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
             ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
@@ -359,9 +359,10 @@ jobs:
           tags:
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:latest,
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:${{ github.run_id }}
-          secrets:
-            kernel-secret=${{ secrets.KERNEL_SECRET }}
+          secrets: |
             pimcore-enterprise-token=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+            # During the build, the kernel secret's value is not important but it still must be set
+            kernel-secret=secret
           build-args: |
             PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
             ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
