@@ -43,7 +43,3 @@ flysystem:
             # Storage for application logs
             adapter: 'application_log_adapter'
             visibility: private
-        pimcore.portalEngine.download.storage:
-            # Storage for Portal Engine downloads
-            adapter: 'portal_engine_downloads_adapter'
-            visibility: public
