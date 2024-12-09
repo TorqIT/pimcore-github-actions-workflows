@@ -81,6 +81,7 @@ jobs:
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
           file-name: container-apps-build-and-deploy.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # Checkout the workflow repository itself so that we can access the composite Action
       - uses: actions/checkout@v4
@@ -257,6 +258,7 @@ jobs:
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
           file-name: container-apps-build-and-deploy.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # Checkout the workflow repository itself so that we can access the composite Action
       - uses: actions/checkout@v4
@@ -356,6 +358,7 @@ jobs:
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
           file-name: container-apps-build-and-deploy.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # Checkout the workflow repository itself so that we can access the composite Action
       - uses: actions/checkout@v4
