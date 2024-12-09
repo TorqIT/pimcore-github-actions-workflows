@@ -29,7 +29,7 @@ runs:
 
     - name: Copy in config files
       shell: bash
-      run: cp -r ./reusable-workflow/config/. ${{ inputs.PIMCORE_ROOT }}
+      run: cp -r ./reusable-workflow/config/* ${{ inputs.PIMCORE_ROOT }}/config
 
     - name: If the client repository contains its own config files, copy those in as well
       shell: bash
