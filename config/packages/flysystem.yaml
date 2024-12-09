@@ -1,0 +1,45 @@
+flysystem:
+    storages:
+        pimcore.document_static.storage:
+            # Storage for generated static document pages, e.g. .html files generated out of Pimcore documents
+            # which are then delivered directly by the web-server
+            adapter: 'document_static_adapter'
+            visibility: public
+        pimcore.asset.storage:
+            # Storage for asset source files, directory structure is equal to the asset tree structure
+            adapter: 'assets_adapter'
+            visibility: public
+        pimcore.asset_cache.storage:
+            # Storage for cached asset files, e.g. PDF and image files generated out of Office files or videos
+            # which are then used by the thumbnail engine as source files
+            adapter: 'asset_cache_adapter'
+            visibility: private
+        pimcore.thumbnail.storage:
+            # Storage for image and video thumbnails, directory structure is equal to the source asset tree
+            adapter: 'thumbnail_adapter'
+            visibility: public
+        pimcore.version.storage:
+            # Storage for serialized versioning data of documents/asset/data objects
+            adapter: 'version_adapter'
+            visibility: private
+        pimcore.recycle_bin.storage:
+            # Storage for serialized recycle bin data of documents/asset/data objects
+            adapter: 'recycle_bin_adapter'
+            visibility: private
+        pimcore.admin.storage:
+            # Storage for shared admin resources, such as the user avatar, custom logos, ...
+            adapter: 'admin_adapter'
+            visibility: private
+        pimcore.email_log.storage:
+            # Storage for email logs
+            adapter: 'email_log_adapter'
+            visibility: private
+        pimcore.temp.storage:
+            # Storage for temporary files that work under a batch process, such as export csv
+            # must not be `local` for stateless environment
+            adapter: 'tmp_adapter'
+            visibility: private
+        pimcore.application_log.storage:
+            # Storage for application logs
+            adapter: 'application_log_adapter'
+            visibility: private
