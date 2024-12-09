@@ -3,7 +3,11 @@ description: 'Copy in common configuration files required for a Pimcore deployme
 inputs:
   PIMCORE_ROOT:
     required: true
-    default: 'pimcore-root'
+    description: "Root of the Pimcore application in the client repository"
+  GITHUB_TOKEN:
+    required: true
+    description: "GitHub token"
+
 runs:
   using: "composite"
   steps:
@@ -13,7 +17,7 @@ runs:
       with:
         repository-name: TorqIT/pimcore-github-actions-workflows
         file-name: container-apps-build-and-deploy.yml
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ inputs.GITHUB_TOKEN }}
 
     # Checkout the workflow repository itself so that we can access the extra script files
     - uses: actions/checkout@v4
@@ -24,9 +28,11 @@ runs:
         fetch-depth: 1
 
     - name: Copy in config files
+      shell: bash
       run: cp ./reusable-workflow/config/. ${{ inputs.PIMCORE_ROOT }}
 
     - name: If the client repository contains its own config files, copy those in as well
+      shell: bash
       run: |
         if [ -e ${{ inputs.PIMCORE_ROOT }}/config/db/database-dev-prod.yaml ]; then
           cp ${{ inputs.PIMCORE_ROOT }}/config/db/database-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
