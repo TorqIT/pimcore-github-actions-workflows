@@ -75,8 +75,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Copy in database.yaml file
-        run: cp ${{ inputs.PIMCORE_ROOT }}/config/db/database-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: container-apps-build-and-deploy.yml
+
+      # Checkout the workflow repository itself so that we can access the composite Action
+      - uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - uses: ./reusable-workflow/.github/actions/container-apps-copy-config-files.yml
+        with:
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
       - name: Log in to Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
         uses: docker/login-action@v3
@@ -235,14 +251,24 @@ jobs:
             mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/* ${{ inputs.PIMCORE_ROOT }}/public/
           fi
 
-      - name: Copy in database.yaml file
-        run: cp ${{ inputs.PIMCORE_ROOT }}/config/db/database-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: container-apps-build-and-deploy.yml
 
-      - name: Copy in flysystem.yaml file
-        run: |
-          if [ -e ${{ inputs.PIMCORE_ROOT }}/config/flysystem/flysystem-dev-prod.yaml ]; then
-            cp ${{ inputs.PIMCORE_ROOT }}/config/flysystem/flysystem-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/packages/flysystem.yaml
-          fi
+      # Checkout the workflow repository itself so that we can access the composite Action
+      - uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - uses: ./reusable-workflow/.github/actions/container-apps-copy-config-files.yml
+        with:
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
       - name: Log in to Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
         uses: docker/login-action@v3
@@ -324,14 +350,24 @@ jobs:
         with:
           submodules: ${{ inputs.SUBMODULES }}
 
-      - name: Copy in database.yaml file
-        run: cp ${{ inputs.PIMCORE_ROOT }}/config/db/database-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: container-apps-build-and-deploy.yml
 
-      - name: Copy in flysystem.yaml file
-        run: |
-          if [ -e ${{ inputs.PIMCORE_ROOT }}/config/flysystem/flysystem-dev-prod.yaml ]; then
-            cp ${{ inputs.PIMCORE_ROOT }}/config/flysystem/flysystem-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/packages/flysystem.yaml
-          fi
+      # Checkout the workflow repository itself so that we can access the composite Action
+      - uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - uses: ./reusable-workflow/.github/actions/container-apps-copy-config-files.yml
+        with:
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
       - name: Log into Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
         uses: docker/login-action@v3
