@@ -91,7 +91,7 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - uses: ./reusable-workflow/.github/actions/container-apps-copy-config-files.yml
+      - uses: ./reusable-workflow/.github/actions/container-apps-copy-config
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
@@ -268,7 +268,7 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - uses: ./reusable-workflow/.github/actions/container-apps-copy-config-files.yml
+      - uses: ./reusable-workflow/.github/actions/container-apps-copy-config
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
@@ -368,7 +368,7 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - uses: ./reusable-workflow/.github/actions/container-apps-copy-config-files.yml
+      - uses: ./reusable-workflow/.github/actions/container-apps-copy-config
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
