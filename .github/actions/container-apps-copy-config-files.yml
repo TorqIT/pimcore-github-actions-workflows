@@ -1,0 +1,35 @@
+name: 'Copy Config Files'
+description: 'Copy in common configuration files required for a Pimcore deployment to Container Apps'
+inputs:
+  PIMCORE_ROOT:
+    required: true
+    default: 'pimcore-root'
+runs:
+  using: "composite"
+  steps:
+    - name: Get workflow version
+      id: workflow-version
+      uses: canonical/get-workflow-version-action@v1
+      with:
+        repository-name: TorqIT/pimcore-github-actions-workflows
+        file-name: container-apps-build-and-deploy.yml
+
+    # Checkout the workflow repository itself so that we can access the extra script files
+    - uses: actions/checkout@v4
+      with:
+        repository: TorqIT/pimcore-github-actions-workflows
+        ref: ${{ steps.workflow-version.outputs.sha }}
+        path: reusable-workflow
+        fetch-depth: 1
+
+    - name: Copy in config files
+      run: cp ./reusable-workflow/config/. ${{ inputs.PIMCORE_ROOT }}
+
+    - name: If the client repository contains its own config files, copy those in as well
+      run: |
+        if [ -e ${{ inputs.PIMCORE_ROOT }}/config/db/database-dev-prod.yaml ]; then
+          cp ${{ inputs.PIMCORE_ROOT }}/config/db/database-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
+        fi
+        if [ -e ${{ inputs.PIMCORE_ROOT }}/config/flysystem/flysystem-dev-prod.yaml ]; then
+          cp ${{ inputs.PIMCORE_ROOT }}/config/flysystem/flysystem-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/packages/flysystem.yaml
+        fi
