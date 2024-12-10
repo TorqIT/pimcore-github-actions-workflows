@@ -1,0 +1,14 @@
+doctrine:
+  dbal:
+    connections:
+      default:
+        host: "%env(string:DATABASE_HOST)%"
+        port: "3306"
+        user: "%env(string:DATABASE_USER)%"
+        password: "%env(string:DATABASE_PASSWORD)%"
+        dbname: "%env(string:DATABASE_NAME)%"
+        mapping_types: { enum: string, bit: boolean }
+        server_version: "8.0"
+        options:
+          !php/const:PDO::MYSQL_ATTR_SSL_CA: '/var/www/html/config/db/DigiCertGlobalRootCA.crt.pem'
+          1001: true
