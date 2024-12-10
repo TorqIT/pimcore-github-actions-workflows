@@ -1,3 +1,10 @@
+# Builds, tags, and pushes Pimcore Docker images to an Azure Container Registry, and deploys them to Container Apps.
+#
+# Requires the following permissions to be set in the callig job:
+# permissions:
+#   contents: read
+#   actions: read
+
 name: Build, tag, and push Docker images, and deploy to Azure Container Apps
 
 on:
