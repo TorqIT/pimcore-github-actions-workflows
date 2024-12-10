@@ -70,8 +70,6 @@ jobs:
     if: ${{ inputs.INIT }}
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
-    permissions: 
-      actions: read
 
     steps:
       - name: Checkout repository
@@ -204,8 +202,6 @@ jobs:
   build-and-deploy-php-fpm:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
-    permissions: 
-      actions: read
     needs:
       - run-init-job
     if: always()
@@ -343,8 +339,6 @@ jobs:
   build-and-deploy-supervisord:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
-    permissions: 
-      actions: read
     needs:
       - run-init-job
     if: always()
