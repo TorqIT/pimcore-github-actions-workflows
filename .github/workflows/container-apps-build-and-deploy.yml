@@ -194,6 +194,8 @@ jobs:
           NPM_SPA: ${{ inputs.NPM_SPA }}
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
     
   deploy-php-container-app:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
@@ -278,6 +280,8 @@ jobs:
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=max
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
 
   deploy-supervisord:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
