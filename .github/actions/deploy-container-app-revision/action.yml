@@ -54,7 +54,7 @@ runs:
 
     - name: If using a multi-revision setup, ensure that 100% of traffic is set to the latest...
       shell: bash
-      if: ${{ inputs.MULTI_REVISION == 'true' }}
+      if: inputs.MULTI_REVISION == 'true'
       run: |
         az containerapp ingress traffic set \
           --resource-group ${{ inputs.RESOURCE_GROUP }} \

@@ -53,7 +53,7 @@ runs:
         cache-dependency-path: ${{ inputs.PIMCORE_ROOT }}/frontend/package-lock.json
 
     - name: Cache node modules
-      if: ${{ inputs.NPM_BUILD == 'true' }}
+      if: inputs.NPM_BUILD == 'true'
       id: cache-npm
       uses: actions/cache@v4
       env:
@@ -68,7 +68,7 @@ runs:
 
     - name: Perform npm build
       shell: bash
-      if: ${{ inputs.NPM_BUILD == 'true' }}
+      if: inputs.NPM_BUILD == 'true'
       env:
         CI: "" # required to ensure warnings aren't treated as errors
       run: |
