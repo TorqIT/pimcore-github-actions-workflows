@@ -73,7 +73,7 @@ on:
         required: false
 
 jobs:
-  run-init-job:
+  build-and-push-init-image:
     if: ${{ inputs.INIT }}
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
@@ -90,8 +90,8 @@ jobs:
           file-name: container-apps-build-and-deploy.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Checkout the workflow repository itself so that we can access the composite Action
-      - uses: actions/checkout@v4
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -103,162 +103,29 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
-        uses: docker/login-action@v3
+      - uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
-          registry: ${{ vars.CONTAINER_REGISTRY }}
-          username: "${{ secrets.SERVICE_PRINCIPAL_ID }}"
-          password: "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}"
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          DOCKERFILE_PATH: ./.docker/Dockerfile
+          DOCKERFILE_TARGET: init
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          IMAGE: ${{ vars.INIT_IMAGE }}
+          CACHE_FROM: type=gha
+          CACHE_TO: type=gha,mode=max
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: .docker/Dockerfile
-          target: init
-          build-args: |
-            # TODO continuing to support for legacy projects, but these should not be injected as args
-            PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-            TORQ_GITHUB_TOKEN=${{ secrets.TORQ_GITHUB_TOKEN }}
-          # During the build, the kernel secret's value is not important but it still must be set
-          secrets: |
-            pimcore-enterprise-token=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}            
-            kernel-secret=secret
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE }}:latest,
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE }}:${{ github.run_id }}
-
-      - name: Log into Azure CLI
-        run: |
-          echo Logging into Azure...
-          az login \
-            --tenant ${{ vars.TENANT }} \
-            --service-principal \
-            --username '${{ secrets.SERVICE_PRINCIPAL_ID }}' \
-            --password '${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}'
-
-      - name: Install Azure CLI containerapp extension
-        run: |
-          az config set extension.use_dynamic_install=yes_without_prompt
-          az extension add --name containerapp
-
-      - name: Run init (migration and seeding) Container App Job
-        id: run-init
-        run: |
-          echo Creating new revision of ${{ vars.INIT_CONTAINER_APP_JOB }} Container App Job
-          az containerapp job update \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
-            --image ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE }}:${{ github.run_id }}
-
-          echo Running init Container App Job...
-          az containerapp job start \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --name ${{ vars.INIT_CONTAINER_APP_JOB }}
-
-          executionName=$(az containerapp job execution list \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
-            | jq -r '.[] | select(.properties.status | contains("Running")) | .name')
-          echo "EXECUTION_NAME=$executionName" >> $GITHUB_OUTPUT
-          echo Waiting for $executionName to finish...
-
-          executionStatus=$(az containerapp job execution list \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
-            | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
-          while [[ "$executionStatus" == "Running" ]]
-          do
-            echo Job execution $executionName is still running...
-            sleep 5
-            executionStatus=$(az containerapp job execution list \
-              --resource-group ${{ vars.RESOURCE_GROUP }} \
-              --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
-              | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
-          done
-
-          if [[ "$executionStatus" == "Succeeded" ]]
-          then
-            echo "Execution $executionName succeeded!"
-          else
-            echo "Execution $executionName failed!"
-            exit 1
-          fi
-
-      # - name: Stop execution 
-      #   uses: azure/cli@v2
-      #   with:
-      #     azcliversion: latest
-      #     inlineScript: |
-      #       echo Stopping execution ${{ steps.run-init.outputs.EXECUTION_NAME }}
-      #       az containerapp job stop \
-      #         --resource-group ${{ vars.RESOURCE_GROUP }} \
-      #         --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
-      #         --job-execution-name ${{ steps.run-init.outputs.EXECUTION_NAME }}
-
-  build-and-deploy-php-fpm:
+  deploy-and-run-init:
+    if: ${{ inputs.INIT }}
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
     needs:
-      - run-init-job
-    if: always()
-
+      - build-and-push-init-image
     steps:
-      # This is a workaround for the fact there is no way to do a conditional "needs"
-      - name: Fail fast if necessary jobs failed
-        if: ${{ needs.run-init-job.result == 'failure' || needs.run-init-job.result == 'cancelled' }}
-        run: exit 1
-
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: ${{ inputs.SUBMODULES }}
-
-      - uses: actions/setup-node@v4
-        if: ${{ inputs.NPM_BUILD }}
-        with:
-          node-version: 20
-          cache: "npm"
-          cache-dependency-path: ${{ inputs.PIMCORE_ROOT }}/frontend/package-lock.json
-
-      - name: Cache node modules
-        if: ${{ inputs.NPM_BUILD }}
-        id: cache-npm
-        uses: actions/cache@v4
-        env:
-          cache-name: cache-node-modules
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-
-      - name: Perform npm build
-        if: ${{ inputs.NPM_BUILD }}
-        env:
-          CI: "" # required to ensure warnings aren't treated as errors
-        run: |
-          # If the application supports ReCAPTCHA, ensure the client key is present so that it is available for the constructed SPA HTML file
-          export VITE_RECAPTCHA_CLIENT_KEY=${{ secrets.RECAPTCHA_CLIENT_KEY }}
-          npm --prefix ${{ inputs.PIMCORE_ROOT }}/frontend ci --legacy-peer-deps
-          npm --prefix ${{ inputs.PIMCORE_ROOT }}/frontend run ${{ inputs.NPM_RUN_CMD }}
-          if ${{ inputs.NPM_SPA }}
-          then
-            mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/index.html ${{ inputs.PIMCORE_ROOT }}/templates/${{ inputs.SPA_TWIG }}
-            mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/* ${{ inputs.PIMCORE_ROOT }}/public/
-          fi
 
       - name: Get workflow version
         id: workflow-version
@@ -268,8 +135,39 @@ jobs:
           file-name: container-apps-build-and-deploy.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Checkout the workflow repository itself so that we can access the composite Action
-      - uses: actions/checkout@v4
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - uses: ./reusable-workflow/.github/actions/deploy-and-run-init-container-app-job
+        with:
+          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          INIT_CONTAINER_APP_JOB: ${{ vars.INIT_CONTAINER_APP_JOB }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+
+  build-and-push-php-image:
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: container-apps-build-and-deploy.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -281,79 +179,31 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
-        uses: docker/login-action@v3
+      - uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
-          registry: ${{ vars.CONTAINER_REGISTRY }}
-          username: "${{ secrets.SERVICE_PRINCIPAL_ID }}"
-          password: "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}"
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push latest PHP-FPM image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ${{ inputs.PHP_DOCKERFILE }}
-          target: ${{ inputs.PHP_DOCKER_TARGET }}
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:latest,
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
-          # During the build, the kernel secret's value is not important but it still must be set
-          secrets: |
-            pimcore-enterprise-token=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-            kernel-secret=secret
-          build-args: |
-            PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-            ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
-            TORQ_GITHUB_TOKEN=${{ secrets.TORQ_GITHUB_TOKEN }}
-
-      - name: Log into Azure CLI
-        run: |
-          echo Logging into Azure...
-          az login \
-            --tenant ${{ vars.TENANT }} \
-            --service-principal \
-            --username '${{ secrets.SERVICE_PRINCIPAL_ID }}' \
-            --password '${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}'
-
-      - name: Install Azure CLI containerapp extension
-        run: |
-          az config set extension.use_dynamic_install=yes_without_prompt
-          az extension add --name containerapp
-
-      - name: Create new revision of PHP-FPM Container App
-        run: |
-          echo Creating new revision of PHP-FPM container...
-          az containerapp revision copy \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --name ${{ vars.PHP_FPM_CONTAINER_APP }} \
-            --image ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }} \
-            --revision-suffix run-${{ github.run_id }}
-          echo Ensuring 100% of traffic is set to the latest revision...
-          az containerapp ingress traffic set \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --name ${{ vars.PHP_FPM_CONTAINER_APP }} \
-            --revision-weight latest=100
-
-  build-and-deploy-supervisord:
+          DOCKERFILE_PATH: ./.docker/Dockerfile
+          DOCKERFILE_TARGET: php
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          IMAGE: ${{ vars.PHP_FPM_IMAGE }}
+          CACHE_FROM: type=gha
+          CACHE_TO: type=gha,mode=max
+          NPM_BUILD: ${{ inputs.NPM_BUILD }}
+          RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+    
+  deploy-php-container-app:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
     needs:
-      - run-init-job
-    if: always()
-
+      - deploy-and-run-init
+      - build-and-push-php-image
+    if: success() || failure()
     steps:
       # This is a workaround for the fact there is no way to do a conditional "needs"
       - name: Fail fast if necessary jobs failed
-        if: ${{ needs.run-init-job.result == 'failure' || needs.run-init-job.result == 'cancelled' }}
+        if: ${{ needs.deploy-and-run-init.result == 'failure' || needs.deploy-and-run-init.result == 'cancelled' || needs.build-and-push-php-image.result == 'failure' || needs.build-and-push-php-image == 'cancelled' }}
         run: exit 1
 
       - name: Checkout repository
@@ -369,8 +219,41 @@ jobs:
           file-name: container-apps-build-and-deploy.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Checkout the workflow repository itself so that we can access the composite Action
-      - uses: actions/checkout@v4
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - uses: ./reusable-workflow/.github/actions/deploy-container-app-revision
+        with:
+          TENANT: ${{ vars.TENANT }}
+          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          CONTAINER_APP: ${{ vars.PHP_FPM_CONTAINER_APP }}
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          MULTI_REVISION: "true"
+
+  build-and-push-supervisord-image:
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: container-apps-build-and-deploy.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -382,60 +265,57 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log into Azure Container Registry ${{ vars.CONTAINER_REGISTRY }}
-        uses: docker/login-action@v3
+      - uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
-          registry: ${{ vars.CONTAINER_REGISTRY }}
-          username: "${{ secrets.SERVICE_PRINCIPAL_ID }}"
-          password: "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}"
+          DOCKERFILE_PATH: ./.docker/Dockerfile
+          DOCKERFILE_TARGET: supervisord
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
+          CACHE_FROM: type=gha
+          CACHE_TO: type=gha,mode=max
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+  deploy-supervisord:
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+    needs:
+      - deploy-and-run-init
+      - build-and-push-supervisord-image
+    steps:
+      # This is a workaround for the fact there is no way to do a conditional "needs"
+      - name: Fail fast if necessary jobs failed
+        if: ${{ needs.deploy-and-run-init.result == 'failure' || needs.deploy-and-run-init.result == 'cancelled' || needs.build-and-push-supervisord-image.result == 'failure' || needs.build-and-push-supervisord-image.result == 'cancelled' }}
+        run: exit 1
 
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push latest supervisord image
-        uses: docker/build-push-action@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          context: .
-          file: ${{ inputs.SUPERVISORD_DOCKERFILE }}
-          target: ${{ inputs.SUPERVISORD_TARGET }}
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags:
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:latest,
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:${{ github.run_id }}
-          # During the build, the kernel secret's value is not important but it still must be set
-          secrets: |
-            pimcore-enterprise-token=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}        
-            kernel-secret=secret
-          build-args: |
-            PIMCORE_ENTERPRISE_TOKEN=${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-            ENCRYPTION_SECRET=${{ secrets.ENCRYPTION_SECRET }}
-            TORQ_GITHUB_TOKEN=${{ secrets.TORQ_GITHUB_TOKEN }}
+          submodules: ${{ inputs.SUBMODULES }}
 
-      - name: Log into Azure CLI
-        run: |
-          echo Logging into Azure...
-          az login \
-            --tenant ${{ vars.TENANT }} \
-            --service-principal \
-            --username '${{ secrets.SERVICE_PRINCIPAL_ID }}' \
-            --password '${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}'
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: container-apps-build-and-deploy.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install Azure CLI containerapp extension
-        run: |
-          az config set extension.use_dynamic_install=yes_without_prompt
-          az extension add --name containerapp
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
 
-      - name: Create new revision of supervisord Container App
-        run: |
-          echo Creating new revision of supervisord container...
-          az containerapp revision copy \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --name ${{ vars.SUPERVISORD_CONTAINER_APP }} \
-            --image ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:${{ github.run_id }} \
-            --revision-suffix run-${{ github.run_id }}
+      - uses: ./reusable-workflow/.github/actions/deploy-container-app-revision
+        with:
+          TENANT: ${{ vars.TENANT }}
+          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          CONTAINER_APP: ${{ vars.SUPERVISORD_CONTAINER_APP }}
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          MULTI_REVISION: "false"

@@ -1,0 +1,119 @@
+name: ''
+description: ''
+inputs:
+  DOCKERFILE_PATH:
+    required: true
+    description: ""
+  DOCKERFILE_TARGET:
+    required: true
+    description: ""
+  PIMCORE_ENTERPRISE_TOKEN:
+    required: true
+    description: ""
+  TORQ_GITHUB_TOKEN:
+    required: true
+    description: ""
+  CONTAINER_REGISTRY:
+    required: true
+    description: ""
+  CONTAINER_REGISTRY_USERNAME:
+    required: true
+    description: ""
+  CONTAINER_REGISTRY_PASSWORD:
+    required: true
+    description: ""
+  IMAGE:
+    required: true
+    description: ""
+  CACHE_FROM:
+    required: true
+    description: ""
+  CACHE_TO:
+    required: true
+    description: ""
+  NPM_BUILD:
+    required: false
+    default: "false"
+    description: ""
+  RECAPTCHA_CLIENT_KEY:
+    required: false
+    description: ""
+  PIMCORE_ROOT:
+    required: true
+    description: ""
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-node@v4
+      if: ${{ inputs.NPM_BUILD }}
+      with:
+        node-version: 20
+        cache: "npm"
+        cache-dependency-path: ${{ inputs.PIMCORE_ROOT }}/frontend/package-lock.json
+
+    - name: Cache node modules
+      if: ${{ inputs.NPM_BUILD }}
+      id: cache-npm
+      uses: actions/cache@v4
+      env:
+        cache-name: cache-node-modules
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+
+    - name: Perform npm build
+      shell: bash
+      if: ${{ inputs.NPM_BUILD }}
+      env:
+        CI: "" # required to ensure warnings aren't treated as errors
+      run: |
+        # If the application supports ReCAPTCHA, ensure the client key is present so that it is available for the constructed SPA HTML file
+        export VITE_RECAPTCHA_CLIENT_KEY=${{ inputs.RECAPTCHA_CLIENT_KEY }}
+        npm --prefix ${{ inputs.PIMCORE_ROOT }}/frontend ci --legacy-peer-deps
+        npm --prefix ${{ inputs.PIMCORE_ROOT }}/frontend run ${{ inputs.NPM_RUN_CMD }}
+        if ${{ inputs.NPM_SPA }}
+        then
+          mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/index.html ${{ inputs.PIMCORE_ROOT }}/templates/${{ inputs.SPA_TWIG }}
+          mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/* ${{ inputs.PIMCORE_ROOT }}/public/
+        fi
+
+    - name: Log in to Container Registry ${{ inputs.CONTAINER_REGISTRY }}
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ inputs.CONTAINER_REGISTRY }}
+        username: "${{ inputs.CONTAINER_REGISTRY_USERNAME }}"
+        password: "${{ inputs.CONTAINER_REGISTRY_PASSWORD }}"
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build and push image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ${{ inputs.DOCKERFILE_PATH }}
+        target: ${{ inputs.DOCKERFILE_TARGET }}
+        build-args: |
+          # TODO continuing to support for legacy projects, but these should not be injected as args
+          PIMCORE_ENTERPRISE_TOKEN=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
+          TORQ_GITHUB_TOKEN=${{ inputs.TORQ_GITHUB_TOKEN }}
+        # During the build, the kernel secret's value is not important but it still must be set
+        secrets: |
+          pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
+          torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
+          kernel-secret=secret
+        push: true
+        cache-from: ${{ inputs.CACHE_FROM }}
+        cache-to: ${{ inputs.CACHE_TO }}
+        tags: |
+          ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.IMAGE }}:latest,
+          ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.IMAGE }}:${{ github.run_id }}
