@@ -35,6 +35,12 @@ inputs:
     required: false
     default: "false"
     description: ""
+  NPM_SPA:
+    required: false
+    description: ""
+  SPA_TWIG:
+    required: false
+    description: ""
   RECAPTCHA_CLIENT_KEY:
     required: false
     description: ""

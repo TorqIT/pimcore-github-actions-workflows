@@ -191,6 +191,8 @@ jobs:
           CACHE_TO: type=gha,mode=max
           NPM_BUILD: ${{ inputs.NPM_BUILD }}
           RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
+          NPM_SPA: ${{ inputs.NPM_SPA }}
+          SPA_TWIG: ${{ inputs.SPA_TWIG }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
     
   deploy-php-container-app:
