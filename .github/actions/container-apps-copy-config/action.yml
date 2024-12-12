@@ -29,7 +29,11 @@ runs:
 
     - name: Copy in config files
       shell: bash
-      run: cp -r ./reusable-workflow/.azure/config/* ${{ inputs.PIMCORE_ROOT }}/config
+      run: |
+        ls -la ${{ inputs.PIMCORE_ROOT }}/config
+        cp -r ./reusable-workflow/.azure/config/* ${{ inputs.PIMCORE_ROOT }}/config
+        ls -la ${{ inputs.PIMCORE_ROOT }}/config/db
+        cat ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
 
     - name: If the client repository contains its own config files, copy those in as well
       shell: bash
