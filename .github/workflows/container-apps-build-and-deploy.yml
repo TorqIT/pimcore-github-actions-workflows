@@ -150,6 +150,7 @@ jobs:
           INIT_CONTAINER_APP_JOB: ${{ vars.INIT_CONTAINER_APP_JOB }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          TENANT: ${{ vars.TENANT }}
 
   build-and-push-php-image:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}

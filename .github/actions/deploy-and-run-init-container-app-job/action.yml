@@ -16,6 +16,9 @@ inputs:
   CONTAINER_REGISTRY:
     required: true
     description: ""
+  TENANT:
+    required: true
+    description: ""
 
 runs:
   using: "composite"
