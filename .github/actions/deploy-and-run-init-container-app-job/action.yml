@@ -7,6 +7,9 @@ inputs:
   SERVICE_PRINCIPAL_PASSWORD:
     required: true
     description: ""
+  INIT_IMAGE:
+    required: true
+    description: ""
   INIT_CONTAINER_APP_JOB:
     required: true
     description: ""
