@@ -156,7 +156,7 @@ jobs:
         id: run-init
         run: |
           ls -la ${{ inputs.PIMCORE_ROOT }}/config/db
-          cat ${{ inputs.PIMCORE_ROOT }}/database.yaml
+          cat ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
 
           echo Creating new revision of ${{ vars.INIT_CONTAINER_APP_JOB }} Container App Job
           az containerapp job update \
