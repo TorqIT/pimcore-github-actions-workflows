@@ -124,8 +124,8 @@ jobs:
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.INIT_IMAGE }}
-          # CACHE_FROM: type=gha
-          # CACHE_TO: type=gha,mode=max
+          CACHE_FROM: type=registry,ref=user/app:buildcache
+          CACHE_TO: type=registry,ref=user/app:buildcache,mode=max
 
       - name: Build and push PHP image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -142,6 +142,8 @@ jobs:
           NPM_SPA: ${{ inputs.NPM_SPA }}
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
+          CACHE_FROM: type=registry,ref=user/app:buildcache
+          CACHE_TO: type=registry,ref=user/app:buildcache,mode=max
 
       - name: Build and push supervisord image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -153,6 +155,8 @@ jobs:
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
+          CACHE_FROM: type=registry,ref=user/app:buildcache
+          CACHE_TO: type=registry,ref=user/app:buildcache,mode=max
 
       - name: Deploy and run init Container App Job
         uses: ./reusable-workflow/.github/actions/container-apps-deploy-and-run-init
