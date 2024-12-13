@@ -81,6 +81,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: ${{ inputs.SUBMODULES }}
 
       - name: Get workflow version
         id: workflow-version
@@ -98,12 +100,14 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - uses: ./reusable-workflow/.github/actions/container-apps-copy-config
+      - name: Copy config files required for running in Azure
+        uses: ./reusable-workflow/.github/actions/container-apps-copy-config
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: ./reusable-workflow/.github/actions/setup-docker
+      - name: Set up Docker
+        uses: ./reusable-workflow/.github/actions/setup-docker
         with:
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
@@ -174,7 +178,8 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - uses: ./reusable-workflow/.github/actions/container-apps-deploy-and-run-init
+      - name: Deploy and run init Container App Job
+        uses: ./reusable-workflow/.github/actions/container-apps-deploy-and-run-init
         with:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
@@ -184,32 +189,20 @@ jobs:
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           TENANT: ${{ vars.TENANT }}
     
-  deploy-container-app-revisions:
+  deploy-php-container-app-revision:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
-    strategy:
-      matrix:
-        app:
-          - image: ${{ vars.PHP_FPM_IMAGE }}
-            container-app: ${{ vars.PHP_FPM_CONTAINER_APP }}
-            multi-revision: "true"
-          - image: ${{ vars.SUPERVISORD_IMAGE }}
-            container-app: ${{ vars.SUPERVISORD_CONTAINER_APP }}
-            multi-revision: "false"
     needs:
       - build-and-push-images
       - deploy-and-run-init
     if: success() || failure()
     steps:
-      # This is a workaround for the fact there is no way to do a conditional "needs"
       - name: Fail fast if necessary jobs failed
         if: ${{ needs.build-and-push-images == 'failure' || needs.build-and-push-images == 'cancelled' || needs.deploy-and-run-init.result == 'failure' || needs.deploy-and-run-init.result == 'cancelled' }}
         run: exit 1
 
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: ${{ inputs.SUBMODULES }}
 
       - name: Get workflow version
         id: workflow-version
@@ -227,13 +220,67 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - uses: ./reusable-workflow/.github/actions/container-apps-deploy-revision
+      - name: Deploy new revision of Container App
+        uses: ./reusable-workflow/.github/actions/container-apps-deploy-revision
         with:
           TENANT: ${{ vars.TENANT }}
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          CONTAINER_APP: ${{ matrix.app.container-app }}
-          MULTI_REVISION: ${{ matrix.app.multi-revision }}
-          IMAGE: ${{ matrix.app.image }}
+          CONTAINER_APP: ${{ vars.PHP_FPM_CONTAINER_APP }}
+          MULTI_REVISION: "true"
+          IMAGE: ${{ vars.PHP_FPM_IMAGE }}
+
+  # TODO using a matrix to de-duplicate these two jobs does not seem possible as we are using the "vars" context, which matrices seem to be unable to access (inputs appear empty)
+  deploy-supervisord-container-app-revision:
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+    strategy:
+      matrix:
+        app:
+          - image: ${{ vars.PHP_FPM_IMAGE }}
+            container-app: ${{ vars.PHP_FPM_CONTAINER_APP }}
+            multi-revision: "true"
+          - image: ${{ vars.SUPERVISORD_IMAGE }}
+            container-app: ${{ vars.SUPERVISORD_CONTAINER_APP }}
+            multi-revision: "false"
+    needs:
+      - build-and-push-images
+      - deploy-and-run-init
+    if: success() || failure()
+    steps:
+      - name: Fail fast if necessary jobs failed
+        if: ${{ needs.build-and-push-images == 'failure' || needs.build-and-push-images == 'cancelled' || needs.deploy-and-run-init.result == 'failure' || needs.deploy-and-run-init.result == 'cancelled' }}
+        run: exit 1
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: container-apps-build-and-deploy.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Deploy new revision of Container App
+        uses: ./reusable-workflow/.github/actions/container-apps-deploy-revision
+        with:
+          TENANT: ${{ vars.TENANT }}
+          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          CONTAINER_APP: ${{ vars.SUPERVISORD_CONTAINER_APP }}
+          MULTI_REVISION: "false"
+          IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
