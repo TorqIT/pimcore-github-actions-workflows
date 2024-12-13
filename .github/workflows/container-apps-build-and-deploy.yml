@@ -210,12 +210,13 @@ jobs:
           }
         ]
     needs:
+      - build-and-push-images
       - deploy-and-run-init
     if: success() || failure()
     steps:
       # This is a workaround for the fact there is no way to do a conditional "needs"
       - name: Fail fast if necessary jobs failed
-        if: ${{ needs.deploy-and-run-init.result == 'failure' || needs.deploy-and-run-init.result == 'cancelled' }}
+        if: ${{ needs.build-and-push-images == 'failure' || needs.build-and-push-images == 'cancelled' || needs.deploy-and-run-init.result == 'failure' || needs.deploy-and-run-init.result == 'cancelled' }}
         run: exit 1
 
       - name: Checkout repository
