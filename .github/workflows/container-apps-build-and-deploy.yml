@@ -131,15 +131,11 @@ jobs:
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.PHP_FPM_IMAGE }}
-          CACHE_FROM: type=local,src=/tmp/.buildx-cache
-          CACHE_TO: type=local,dest=/tmp/.buildx-cache-new,mode=max
           NPM_BUILD: ${{ inputs.NPM_BUILD }}
           RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
           NPM_SPA: ${{ inputs.NPM_SPA }}
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
 
       - name: Build and push supervisord image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -150,11 +146,7 @@ jobs:
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
-          CACHE_FROM: type=local,src=/tmp/.buildx-cache
-          CACHE_TO: type=gha,mode=max
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
 
   deploy-and-run-init:
     if: ${{ inputs.INIT }}
@@ -200,12 +192,12 @@ jobs:
         apps: [
           {
             image: "${{ vars.PHP_FPM_IMAGE }}",
-            container-app: "{{ vars.PHP_FPM_CONTAINER_APP }}",
+            container-app: "${{ vars.PHP_FPM_CONTAINER_APP }}",
             multi-revision: "true"
           },
           {
             image: "${{ vars.SUPERVISORD_IMAGE }}",
-            container-app: "{{ vars.SUPERVISORD_CONTAINER_APP }}",
+            container-app: "${{ vars.SUPERVISORD_CONTAINER_APP }}",
             multi-revision: "false"
           }
         ]

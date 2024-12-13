@@ -20,10 +20,10 @@ inputs:
     required: true
     description: ""
   CACHE_FROM:
-    required: true
+    required: false
     description: ""
   CACHE_TO:
-    required: true
+    required: false
     description: ""
   NPM_BUILD:
     required: false
