@@ -125,7 +125,7 @@ jobs:
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.INIT_IMAGE }}
           CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=max
+          CACHE_TO: type=gha,mode=min
 
       - name: Build and push PHP image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
