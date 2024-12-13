@@ -74,6 +74,7 @@ on:
 
 jobs:
   build-and-push-images-and-run-init:
+    name: Build and push Pimcore Docker images, and run init job
     if: ${{ inputs.INIT }}
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
@@ -164,6 +165,7 @@ jobs:
           TENANT: ${{ vars.TENANT }}
     
   deploy-php-container-app-revision:
+    name: Deploy new revision of PHP Container App
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
     needs:
@@ -207,6 +209,7 @@ jobs:
 
   # TODO using a matrix to de-duplicate these two jobs does not seem possible as we are using the "vars" context, which matrices seem to be unable to access (inputs appear empty)
   deploy-supervisord-container-app-revision:
+    name: Deploy new revision of supervisord Container App
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
     needs:
