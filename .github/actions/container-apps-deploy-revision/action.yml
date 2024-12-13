@@ -31,35 +31,32 @@ runs:
   using: "composite"
   steps:
     - name: Log into Azure CLI
-      shell: bash
-      run: |
-        echo Logging into Azure...
-        az login \
-          --tenant ${{ inputs.TENANT }} \
-          --service-principal \
-          --username '${{ inputs.SERVICE_PRINCIPAL_ID }}' \
-          --password '${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}'
-
-    - name: Install Azure CLI containerapp extension
-      shell: bash
-      run: |
-        az config set extension.use_dynamic_install=yes_without_prompt
-        az extension add --name containerapp
+      uses: azure/cli@v2
+      with:
+        inlineScript: |
+          echo Logging into Azure...
+          az login \
+            --tenant ${{ inputs.TENANT }} \
+            --service-principal \
+            --username '${{ inputs.SERVICE_PRINCIPAL_ID }}' \
+            --password '${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}'
 
     - name: Create new revision of Container App
-      shell: bash
-      run: |
-        az containerapp revision copy \
-          --resource-group ${{ inputs.RESOURCE_GROUP }} \
-          --name ${{ inputs.CONTAINER_APP }} \
-          --image ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.IMAGE }}:${{ github.run_id }} \
-          --revision-suffix run-${{ github.run_id }}
+      uses: azure/cli@v2
+      with:
+        inlineScript: |
+          az containerapp revision copy \
+            --resource-group ${{ inputs.RESOURCE_GROUP }} \
+            --name ${{ inputs.CONTAINER_APP }} \
+            --image ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.IMAGE }}:${{ github.run_id }} \
+            --revision-suffix run-${{ github.run_id }}
 
     - name: If using a multi-revision setup, ensure that 100% of traffic is set to the latest revision
-      shell: bash
       if: inputs.MULTI_REVISION == true
-      run: |
-        az containerapp ingress traffic set \
-          --resource-group ${{ inputs.RESOURCE_GROUP }} \
-          --name ${{ inputs.CONTAINER_APP }} \
-          --revision-weight latest=100
+      uses: azure/cli@v2
+      with:
+        inlineScript: |
+          az containerapp ingress traffic set \
+            --resource-group ${{ inputs.RESOURCE_GROUP }} \
+            --name ${{ inputs.CONTAINER_APP }} \
+            --revision-weight latest=100
