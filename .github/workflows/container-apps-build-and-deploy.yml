@@ -140,6 +140,7 @@ jobs:
           RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
           NPM_SPA: ${{ inputs.NPM_SPA }}
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
+          NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
       - name: Build and push supervisord image

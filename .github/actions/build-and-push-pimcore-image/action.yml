@@ -32,6 +32,9 @@ inputs:
   NPM_SPA:
     required: false
     description: ""
+  NPM_RUN_CMD:
+    required: false
+    description: ""
   SPA_TWIG:
     required: false
     description: ""
