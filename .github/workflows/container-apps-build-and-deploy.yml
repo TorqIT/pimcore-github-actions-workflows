@@ -73,7 +73,7 @@ on:
         required: false
 
 jobs:
-  build-and-push-init-image:
+  build-and-push-images:
     if: ${{ inputs.INIT }}
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
@@ -103,7 +103,8 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+      - name: Build and push init image
+        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
           CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
@@ -117,12 +118,46 @@ jobs:
           CACHE_TO: type=gha,mode=max
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
+      - name: Build and push PHP image
+        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+        with:
+          DOCKERFILE_PATH: ./.docker/Dockerfile
+          DOCKERFILE_TARGET: php
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          IMAGE: ${{ vars.PHP_FPM_IMAGE }}
+          CACHE_FROM: type=local
+          CACHE_TO: type=local
+          NPM_BUILD: ${{ inputs.NPM_BUILD }}
+          RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
+          NPM_SPA: ${{ inputs.NPM_SPA }}
+          SPA_TWIG: ${{ inputs.SPA_TWIG }}
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+
+      - name: Build and push supervisord image
+        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+        with:
+          DOCKERFILE_PATH: ./.docker/Dockerfile
+          DOCKERFILE_TARGET: supervisord
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
+          CACHE_FROM: type=local
+          CACHE_TO: type=gha,mode=max
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+
   deploy-and-run-init:
     if: ${{ inputs.INIT }}
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
     needs:
-      - build-and-push-init-image
+      - build-and-push-images
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -152,64 +187,31 @@ jobs:
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           TENANT: ${{ vars.TENANT }}
-
-  build-and-push-php-image:
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    environment: ${{ inputs.ENVIRONMENT }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@v1
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: container-apps-build-and-deploy.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
-
-      - uses: ./reusable-workflow/.github/actions/container-apps-copy-config
-        with:
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
-        with:
-          DOCKERFILE_PATH: ./.docker/Dockerfile
-          DOCKERFILE_TARGET: php
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          IMAGE: ${{ vars.PHP_FPM_IMAGE }}
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=max
-          NPM_BUILD: ${{ inputs.NPM_BUILD }}
-          RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
-          NPM_SPA: ${{ inputs.NPM_SPA }}
-          SPA_TWIG: ${{ inputs.SPA_TWIG }}
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
     
-  deploy-php-container-app:
+  deploy-container-app-revisions:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
+    strategy:
+      matrix:
+        apps: [
+          {
+            image: "${{ vars.PHP_FPM_IMAGE }}",
+            container-app: "{{ vars.PHP_FPM_CONTAINER_APP }}",
+            multi-revision: "true"
+          },
+          {
+            image: "${{ vars.SUPERVISORD_IMAGE }}",
+            container-app: "{{ vars.SUPERVISORD_CONTAINER_APP }}",
+            multi-revision: "false"
+          }
+        ]
     needs:
       - deploy-and-run-init
-      - build-and-push-php-image
     if: success() || failure()
     steps:
       # This is a workaround for the fact there is no way to do a conditional "needs"
       - name: Fail fast if necessary jobs failed
-        if: ${{ needs.deploy-and-run-init.result == 'failure' || needs.deploy-and-run-init.result == 'cancelled' || needs.build-and-push-php-image.result == 'failure' || needs.build-and-push-php-image == 'cancelled' }}
+        if: ${{ needs.deploy-and-run-init.result == 'failure' || needs.deploy-and-run-init.result == 'cancelled' }}
         run: exit 1
 
       - name: Checkout repository
@@ -239,93 +241,7 @@ jobs:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
-          CONTAINER_APP: ${{ vars.PHP_FPM_CONTAINER_APP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          MULTI_REVISION: "true"
-          IMAGE: ${{ vars.PHP_FPM_IMAGE }}
-
-  build-and-push-supervisord-image:
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    environment: ${{ inputs.ENVIRONMENT }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@v1
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: container-apps-build-and-deploy.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
-
-      - uses: ./reusable-workflow/.github/actions/container-apps-copy-config
-        with:
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
-        with:
-          DOCKERFILE_PATH: ./.docker/Dockerfile
-          DOCKERFILE_TARGET: supervisord
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=max
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-
-  deploy-supervisord:
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    environment: ${{ inputs.ENVIRONMENT }}
-    needs:
-      - deploy-and-run-init
-      - build-and-push-supervisord-image
-    steps:
-      # This is a workaround for the fact there is no way to do a conditional "needs"
-      - name: Fail fast if necessary jobs failed
-        if: ${{ needs.deploy-and-run-init.result == 'failure' || needs.deploy-and-run-init.result == 'cancelled' || needs.build-and-push-supervisord-image.result == 'failure' || needs.build-and-push-supervisord-image.result == 'cancelled' }}
-        run: exit 1
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: ${{ inputs.SUBMODULES }}
-
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@v1
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: container-apps-build-and-deploy.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
-
-      - uses: ./reusable-workflow/.github/actions/container-apps-deploy
-        with:
-          TENANT: ${{ vars.TENANT }}
-          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
-          CONTAINER_APP: ${{ vars.SUPERVISORD_CONTAINER_APP }}
-          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          MULTI_REVISION: "false"
-          IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
+          CONTAINER_APP: ${{ matrix.apps.container-app }}
+          MULTI_REVISION: ${{ matrix.apps.multi-revision }}
+          IMAGE: ${{ matrix.apps.image }}
