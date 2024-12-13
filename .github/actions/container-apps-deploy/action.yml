@@ -23,6 +23,9 @@ inputs:
     required: false
     default: "false"
     description: ""
+  IMAGE:
+    required: true
+    description: ""
 
 runs:
   using: "composite"
