@@ -242,6 +242,7 @@ jobs:
           CONTAINER_APP: ${{ vars.PHP_FPM_CONTAINER_APP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           MULTI_REVISION: "true"
+          IMAGE: ${{ vars.PHP_FPM_IMAGE }}
 
   build-and-push-supervisord-image:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
@@ -327,3 +328,4 @@ jobs:
           CONTAINER_APP: ${{ vars.SUPERVISORD_CONTAINER_APP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           MULTI_REVISION: "false"
+          IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
