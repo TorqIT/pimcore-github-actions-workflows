@@ -11,22 +11,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Get workflow version
-      id: workflow-version
-      uses: canonical/get-workflow-version-action@v1
-      with:
-        repository-name: TorqIT/pimcore-github-actions-workflows
-        file-name: container-apps-build-and-deploy.yml
-        github-token: ${{ inputs.GITHUB_TOKEN }}
-
-    # Checkout the workflow repository itself so that we can access the extra script files
-    - uses: actions/checkout@v4
-      with:
-        repository: TorqIT/pimcore-github-actions-workflows
-        ref: ${{ steps.workflow-version.outputs.sha }}
-        path: reusable-workflow
-        fetch-depth: 1
-
     - name: Copy in config files
       shell: bash
       run: cp -r ./reusable-workflow/.azure/config/* ${{ inputs.PIMCORE_ROOT }}/config
