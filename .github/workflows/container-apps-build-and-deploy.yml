@@ -236,15 +236,6 @@ jobs:
   deploy-supervisord-container-app-revision:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
-    strategy:
-      matrix:
-        app:
-          - image: ${{ vars.PHP_FPM_IMAGE }}
-            container-app: ${{ vars.PHP_FPM_CONTAINER_APP }}
-            multi-revision: "true"
-          - image: ${{ vars.SUPERVISORD_IMAGE }}
-            container-app: ${{ vars.SUPERVISORD_CONTAINER_APP }}
-            multi-revision: "false"
     needs:
       - build-and-push-images
       - deploy-and-run-init
