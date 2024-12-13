@@ -189,7 +189,7 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT }}
     strategy:
       matrix:
-        include:
+        app:
           - image: ${{ vars.PHP_FPM_IMAGE }}
             container-app: ${{ vars.PHP_FPM_CONTAINER_APP }}
             multi-revision: "true"
@@ -234,6 +234,6 @@ jobs:
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          CONTAINER_APP: ${{ matrix.apps.container-app }}
-          MULTI_REVISION: ${{ matrix.apps.multi-revision }}
-          IMAGE: ${{ matrix.apps.image }}
+          CONTAINER_APP: ${{ matrix.app.container-app }}
+          MULTI_REVISION: ${{ matrix.app.multi-revision }}
+          IMAGE: ${{ matrix.app.image }}
