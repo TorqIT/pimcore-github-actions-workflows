@@ -123,8 +123,8 @@ jobs:
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.INIT_IMAGE }}
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=max
+          # CACHE_FROM: type=gha
+          # CACHE_TO: type=gha,mode=max
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
       - name: Build and push PHP image
