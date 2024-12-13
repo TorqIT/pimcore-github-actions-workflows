@@ -143,7 +143,7 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - uses: ./reusable-workflow/.github/actions/deploy-and-run-init-container-app-job
+      - uses: ./reusable-workflow/.github/actions/container-apps-deploy-and-run-init
         with:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
@@ -233,7 +233,7 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - uses: ./reusable-workflow/.github/actions/deploy-container-app-revision
+      - uses: ./reusable-workflow/.github/actions/container-apps-deploy
         with:
           TENANT: ${{ vars.TENANT }}
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
@@ -319,7 +319,7 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - uses: ./reusable-workflow/.github/actions/deploy-container-app-revision
+      - uses: ./reusable-workflow/.github/actions/container-apps-deploy
         with:
           TENANT: ${{ vars.TENANT }}
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
