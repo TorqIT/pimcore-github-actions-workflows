@@ -103,11 +103,15 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - uses: ./reusable-workflow/.github/actions/setup-docker
+        with:
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+
       - name: Build and push init image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
-          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           DOCKERFILE_PATH: ./.docker/Dockerfile
           DOCKERFILE_TARGET: init
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
@@ -127,8 +131,8 @@ jobs:
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.PHP_FPM_IMAGE }}
-          CACHE_FROM: type=local
-          CACHE_TO: type=local
+          CACHE_FROM: type=local,src=/tmp/.buildx-cache
+          CACHE_TO: type=local,dest=/tmp/.buildx-cache-new,mode=max
           NPM_BUILD: ${{ inputs.NPM_BUILD }}
           RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
           NPM_SPA: ${{ inputs.NPM_SPA }}
@@ -146,7 +150,7 @@ jobs:
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
-          CACHE_FROM: type=local
+          CACHE_FROM: type=local,src=/tmp/.buildx-cache
           CACHE_TO: type=gha,mode=max
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
