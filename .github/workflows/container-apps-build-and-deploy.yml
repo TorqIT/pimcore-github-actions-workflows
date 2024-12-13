@@ -73,7 +73,7 @@ on:
         required: false
 
 jobs:
-  build-and-push-images:
+  build-and-push-images-and-run-init:
     if: ${{ inputs.INIT }}
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
@@ -152,32 +152,6 @@ jobs:
           IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
-  deploy-and-run-init:
-    if: ${{ inputs.INIT }}
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    environment: ${{ inputs.ENVIRONMENT }}
-    needs:
-      - build-and-push-images
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@v1
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: container-apps-build-and-deploy.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
-
       - name: Deploy and run init Container App Job
         uses: ./reusable-workflow/.github/actions/container-apps-deploy-and-run-init
         with:
@@ -193,8 +167,7 @@ jobs:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
     needs:
-      - build-and-push-images
-      - deploy-and-run-init
+      - build-and-push-images-and-run-init
     if: success() || failure()
     steps:
       - name: Fail fast if necessary jobs failed
@@ -237,8 +210,7 @@ jobs:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
     needs:
-      - build-and-push-images
-      - deploy-and-run-init
+      - build-and-push-images-and-run-init
     if: success() || failure()
     steps:
       - name: Fail fast if necessary jobs failed
