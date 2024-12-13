@@ -119,19 +119,20 @@ jobs:
         with:
           DOCKERFILE_PATH: ./.docker/Dockerfile
           DOCKERFILE_TARGET: init
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.INIT_IMAGE }}
           # CACHE_FROM: type=gha
           # CACHE_TO: type=gha,mode=max
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
       - name: Build and push PHP image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
-          DOCKERFILE_PATH: ./.docker/Dockerfile
-          DOCKERFILE_TARGET: php
+          DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
+          DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
@@ -141,18 +142,17 @@ jobs:
           NPM_SPA: ${{ inputs.NPM_SPA }}
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
       - name: Build and push supervisord image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
-          DOCKERFILE_PATH: ./.docker/Dockerfile
-          DOCKERFILE_TARGET: supervisord
+          DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
+          DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
       - name: Deploy and run init Container App Job
         uses: ./reusable-workflow/.github/actions/container-apps-deploy-and-run-init
