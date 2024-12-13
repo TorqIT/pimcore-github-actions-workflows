@@ -171,7 +171,7 @@ jobs:
     if: success() || failure()
     steps:
       - name: Fail fast if necessary jobs failed
-        if: ${{ needs.build-and-push-images == 'failure' || needs.build-and-push-images == 'cancelled' || needs.deploy-and-run-init.result == 'failure' || needs.deploy-and-run-init.result == 'cancelled' }}
+        if: ${{ needs.build-and-push-images-and-run-init == 'failure' || needs.build-and-push-images-and-run-init == 'cancelled' }}
         run: exit 1
 
       - name: Checkout repository
@@ -214,7 +214,7 @@ jobs:
     if: success() || failure()
     steps:
       - name: Fail fast if necessary jobs failed
-        if: ${{ needs.build-and-push-images == 'failure' || needs.build-and-push-images == 'cancelled' || needs.deploy-and-run-init.result == 'failure' || needs.deploy-and-run-init.result == 'cancelled' }}
+        if: ${{ needs.build-and-push-images-and-run-init == 'failure' || needs.build-and-push-images-and-run-init == 'cancelled' }}
         run: exit 1
 
       - name: Checkout repository
