@@ -205,7 +205,6 @@ jobs:
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_APP: ${{ vars.PHP_FPM_CONTAINER_APP }}
-          MULTI_REVISION: "true"
           IMAGE: ${{ vars.PHP_FPM_IMAGE }}
 
   # TODO using a matrix to de-duplicate these two jobs does not seem possible as we are using the "vars" context, which matrices seem to be unable to access (inputs appear empty)
@@ -249,5 +248,4 @@ jobs:
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_APP: ${{ vars.SUPERVISORD_CONTAINER_APP }}
-          MULTI_REVISION: "false"
           IMAGE: ${{ vars.SUPERVISORD_IMAGE }}

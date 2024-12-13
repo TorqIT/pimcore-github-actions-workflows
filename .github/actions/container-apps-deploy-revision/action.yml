@@ -19,10 +19,6 @@ inputs:
   CONTAINER_REGISTRY:
     required: true
     description: ""
-  MULTI_REVISION:
-    required: false
-    default: "false"
-    description: ""
   IMAGE:
     required: true
     description: ""
@@ -51,14 +47,3 @@ runs:
             --name ${{ inputs.CONTAINER_APP }} \
             --image ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.IMAGE }}:${{ github.run_id }} \
             --revision-suffix run-${{ github.run_id }}
-
-    - name: If using a multi-revision setup, ensure that 100% of ingress traffic is set to the latest revision
-      if: inputs.MULTI_REVISION == true
-      uses: azure/cli@v2
-      with:
-        inlineScript: |
-          echo Setting ingress traffic of new revision to 100%...
-          az containerapp ingress traffic set \
-            --resource-group ${{ inputs.RESOURCE_GROUP }} \
-            --name ${{ inputs.CONTAINER_APP }} \
-            --revision-weight latest=100
