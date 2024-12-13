@@ -81,14 +81,13 @@ runs:
             exit 1
           fi
 
-    # TODO this has been failing for a while with no explanation, try again at some point to see if it has been fixed on the CLI side
-      # - name: Stop execution 
-      #   uses: azure/cli@v2
-      #   with:
-      #     azcliversion: latest
-      #     inlineScript: |
-      #       echo Stopping execution ${{ steps.run-init.outputs.EXECUTION_NAME }}
-      #       az containerapp job stop \
-      #         --resource-group ${{ vars.RESOURCE_GROUP }} \
-      #         --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
-      #         --job-execution-name ${{ steps.run-init.outputs.EXECUTION_NAME }}
+    - name: Stop execution 
+      uses: azure/cli@v2
+      if: always()
+      with:
+        inlineScript: |
+          echo Stopping execution ${{ steps.run-init.outputs.EXECUTION_NAME }}
+          az containerapp job stop \
+            --resource-group ${{ vars.RESOURCE_GROUP }} \
+            --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
+            --job-execution-name ${{ steps.run-init.outputs.EXECUTION_NAME }}
