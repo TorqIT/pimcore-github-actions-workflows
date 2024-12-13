@@ -37,7 +37,7 @@ runs:
             --username '${{ inputs.SERVICE_PRINCIPAL_ID }}' \
             --password '${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}'
 
-    - name: Deploy new revision of init Container App Job and run
+    - name: Deploy new revision of init Container App Job
       uses: azure/cli@v2
       with:
         inlineScript: |
@@ -47,6 +47,11 @@ runs:
             --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
             --image ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE }}:${{ github.run_id }}
 
+    - name: Run init job
+      uses: azure/cli@v2
+      id: run-init
+      with:
+        inlineScript: |
           echo Running init Container App Job...
           az containerapp job start \
             --resource-group ${{ inputs.RESOURCE_GROUP }} \
@@ -88,6 +93,6 @@ runs:
         inlineScript: |
           echo Stopping execution ${{ steps.run-init.outputs.EXECUTION_NAME }}
           az containerapp job stop \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --name ${{ vars.INIT_CONTAINER_APP_JOB }} \
+            --resource-group ${{ inputs.RESOURCE_GROUP }} \
+            --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
             --job-execution-name ${{ steps.run-init.outputs.EXECUTION_NAME }}
