@@ -63,28 +63,31 @@ runs:
             --vault-name ${{ inputs.KEY_VAULT }} \
             --query value -o tsv \
             2>/dev/null)
-          if [[ -z $kernelSecret ]]; then
+          if [[ -n $kernelSecret ]]; then
+            echo "::add-mask::$kernelSecret" 
+          else
             echo "::warning Key Vault secret kernel-secret not found"
           fi
-          echo "::add-mask::$kernelSecret" 
           echo "kernel-secret=$kernelSecret" >> $GITHUB_ENV
           pimcoreEnterpriseToken=$(az keyvault secret show \
             --name pimcore-enterprise-token \
             --vault-name ${{ inputs.KEY_VAULT }} \\
             2>/dev/null)
-          if [[ -z $pimcoreEnterpriseToken ]]; then
+          if [[ -n $pimcoreEnterpriseToken ]]; then
+            echo "::add-mask::$pimcoreEnterpriseToken" 
+          else
             echo "::warning Key Vault secret pimcore-enterprise-token not found"
           fi
-          echo "::add-mask::$pimcoreEnterpriseToken" 
           echo "pimcore-enterprise-token=$pimcoreEnterpriseToken" >> $GITHUB_ENV
           torqGithubToken=$(az keyvault secret show \
             --name torq-github-token \
             --vault-name ${{ inputs.KEY_VAULT }} \
             2>/dev/null)
-          if [[ -z $torqGithubToken ]]; then
+          if [[ -n $pimcoreEnterpriseToken ]]; then
+            echo "::add-mask::$torqGithubToken" 
+          else
             echo "::warning Key Vault secret torq-github-token not found"
           fi
-          echo "::add-mask::$torqGithubToken" 
           echo "torq-github-token=$torqGithubToken" >> $GITHUB_ENV
 
     - name: Always remove network rule for this runner from Key Vault's firewall...
