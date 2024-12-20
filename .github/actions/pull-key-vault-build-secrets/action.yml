@@ -32,8 +32,8 @@ runs:
           az login \
             --tenant ${{ inputs.TENANT }} \
             --service-principal \
-            --username '${{ inputs.SERVICE_PRINCIPAL_ID }}' \
-            --password '${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}'
+            --username ${{ inputs.SERVICE_PRINCIPAL_ID }} \
+            --password ${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}
           
     - name: Add temporary network rule for this runner to Key Vault's firewall
       uses: azure/cli@v2
