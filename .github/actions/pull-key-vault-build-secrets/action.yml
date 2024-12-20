@@ -58,42 +58,25 @@ runs:
       with:
         continueOnError: true
         inlineScript: |
-          # TODO for loop?
-          echo Pulling kernel secret from Key Vault...
-          kernelSecret=$(az keyvault secret show \
-            --name kernel-secret \
-            --vault-name ${{ inputs.KEY_VAULT }} \
-            --query value -o tsv 2>/dev/null)
-          if [[ -n $kernelSecret ]]; then
-            echo "::add-mask::$kernelSecret" 
-          else
-            echo "::warning Key Vault secret kernel-secret not found"
-          fi
-          echo "kernel-secret=$kernelSecret" >> $GITHUB_ENV
-
-          echo Pulling Pimcore Enterprise token from Key Vault...
-          pimcoreEnterpriseToken=$(az keyvault secret show \
-            --name pimcore-enterprise-token \
-            --vault-name ${{ inputs.KEY_VAULT }} \
-            --query value -o tsv 2>/dev/null)
-          if [[ -n $pimcoreEnterpriseToken ]]; then
-            echo "::add-mask::$pimcoreEnterpriseToken" 
-          else
-            echo "::warning Key Vault secret pimcore-enterprise-token not found"
-          fi
-          echo "pimcore-enterprise-token=$pimcoreEnterpriseToken" >> $GITHUB_ENV
-
-          echo Pulling TORQ GitHub token from Key Vault...
-          torqGithubToken=$(az keyvault secret show \
-            --name torq-github-token \
-            --vault-name ${{ inputs.KEY_VAULT }} \
-            --query value -o tsv 2>/dev/null)
-          if [[ -n $pimcoreEnterpriseToken ]]; then
-            echo "::add-mask::$torqGithubToken" 
-          else
-            echo "::warning Key Vault secret torq-github-token not found"
-          fi
-          echo "torq-github-token=$torqGithubToken" >> $GITHUB_ENV
+          secrets=( kernel-secret pimcore-enterprise-token torq-github-token )
+          for secretName in "${[secrets@]}"
+          do
+            secretValue=
+            echo Pulling $secretName from Key Vault...
+            secretExists=$(az keyvault secret list \
+              --vault-name ${{ inputs.KEY_VAULT }}  \
+              --query "contains([].id, 'https://${{ inputs.KEY_VAULT }}.vault.azure.net/secrets/$secretName')")
+            if [ $secretExists == true ]; then
+              secretValue=$(az keyvault secret show \
+                --name $secretName \
+                --vault-name ${{ inputs.KEY_VAULT }} \
+                --query value -o tsv)
+              echo "::add-mask::$secretValue" 
+            else
+              echo "::warning Secret $secretName not found in Key Vault"
+            fi
+            echo "$secretName=$secretValue" >> $GITHUB_ENV
+          done
 
     - name: Always remove network rule for this runner from Key Vault's firewall...
       if: always()
