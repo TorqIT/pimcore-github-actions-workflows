@@ -39,7 +39,7 @@ runs:
       uses: azure/cli@v2
       with:
         inlineScript: |
-          echo Adding temporary network rule for this runner to the Key Vault's firewall...
+          echo Adding temporary network rule for this runner to the Key Vault firewall...
           az keyvault network-rule add \
             --name ${{ inputs.KEY_VAULT }} \
             --resource-group ${{ inputs.RESOURCE_GROUP }} \
@@ -69,7 +69,7 @@ runs:
       uses: azure/cli@v2
       with: 
         inlineScript: |
-          echo Removing network rule for this runner from the Key Vault's firewall...
+          echo Removing network rule for this runner from the Key Vault firewall...
           az keyvault network-rule remove \
             --name ${{ inputs.KEY_VAULT }} \
             --resource-group ${{ inputs.RESOURCE_GROUP }} \
