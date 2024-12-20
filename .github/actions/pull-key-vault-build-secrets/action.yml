@@ -53,7 +53,8 @@ runs:
           # TODO for loop?
           kernelSecret=$(az keyvault secret show \
             --name kernel-secret \
-            --vault-name ${{ inputs.KEY_VAULT }})
+            --vault-name ${{ inputs.KEY_VAULT }}) \
+            --query value -o tsv
           echo "::add-mask::$kernelSecret" 
           echo "kernel-secret=$kernelSecret" >> $GITHUB_ENV
           # TODO handle if these are not needed for build
