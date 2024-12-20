@@ -59,6 +59,7 @@ runs:
         continueOnError: true
         inlineScript: |
           # TODO for loop?
+          echo Pulling kernel secret from Key Vault...
           kernelSecret=$(az keyvault secret show \
             --name kernel-secret \
             --vault-name ${{ inputs.KEY_VAULT }} \
@@ -70,6 +71,7 @@ runs:
           fi
           echo "kernel-secret=$kernelSecret" >> $GITHUB_ENV
 
+          echo Pulling Pimcore Enterprise token from Key Vault...
           pimcoreEnterpriseToken=$(az keyvault secret show \
             --name pimcore-enterprise-token \
             --vault-name ${{ inputs.KEY_VAULT }} \
@@ -81,6 +83,7 @@ runs:
           fi
           echo "pimcore-enterprise-token=$pimcoreEnterpriseToken" >> $GITHUB_ENV
 
+          echo Pulling TORQ GitHub token from Key Vault...
           torqGithubToken=$(az keyvault secret show \
             --name torq-github-token \
             --vault-name ${{ inputs.KEY_VAULT }} \
