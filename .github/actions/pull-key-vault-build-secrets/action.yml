@@ -56,6 +56,7 @@ runs:
       uses: azure/cli@v2
       id: secrets
       with:
+        continueOnError: true
         inlineScript: |
           # TODO for loop?
           kernelSecret=$(az keyvault secret show \
