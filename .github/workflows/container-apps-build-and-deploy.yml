@@ -131,8 +131,8 @@ jobs:
           DOCKERFILE_TARGET: init
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           KERNEL_SECRET: ${{ steps.key-vault-secrets.outputs.kernel-secret }}
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          PIMCORE_ENTERPRISE_TOKEN: ${{ steps.key-vault-secrets.outputs.pimcore-enterprise-token }}
+          TORQ_GITHUB_TOKEN: ${{ steps.key-vault-secrets.outputs.torq-github-token }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.INIT_IMAGE }}
           CACHE_FROM: type=gha
@@ -145,8 +145,8 @@ jobs:
           DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           KERNEL_SECRET: ${{ steps.key-vault-secrets.outputs.kernel-secret }}
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          PIMCORE_ENTERPRISE_TOKEN: ${{ steps.key-vault-secrets.outputs.pimcore-enterprise-token }}
+          TORQ_GITHUB_TOKEN: ${{ steps.key-vault-secrets.outputs.torq-github-token }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.PHP_FPM_IMAGE }}
           NPM_BUILD: ${{ inputs.NPM_BUILD }}
@@ -162,8 +162,8 @@ jobs:
           DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           KERNEL_SECRET: ${{ steps.key-vault-secrets.outputs.kernel-secret }}
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          PIMCORE_ENTERPRISE_TOKEN: ${{ steps.key-vault-secrets.outputs.pimcore-enterprise-token }}
+          TORQ_GITHUB_TOKEN: ${{ steps.key-vault-secrets.outputs.torq-github-token }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
 

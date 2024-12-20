@@ -20,6 +20,13 @@ outputs:
   kernel-secret:
     description: "Symfony kernel secret"
     value: ${{ steps.secrets.outputs.kernel-secret }}
+  pimcore-enterprise-token:
+    description: "Pimcore Enterprise token"
+    value: ${{ steps.secrets.outputs.pimcore-enterprise-token }}
+  torq-github-token:
+    description: "TORQ GitHub token"
+    value: ${{ steps.secrets.outputs.torq-github-token }}
+  
 
 runs:
   using: "composite"
@@ -54,16 +61,31 @@ runs:
           kernelSecret=$(az keyvault secret show \
             --name kernel-secret \
             --vault-name ${{ inputs.KEY_VAULT }} \
-            --query value -o tsv)
+            --query value -o tsv \
+            2>/dev/null)
+          if [[ -z $kernelSecret ]]; then
+            echo "::warning Key Vault secret kernel-secret not found"
+          fi
           echo "::add-mask::$kernelSecret" 
           echo "kernel-secret=$kernelSecret" >> $GITHUB_ENV
-          # TODO handle if these are not needed for build
-          # pimcoreEnterpriseToken=$(az keyvault secret show \
-          #   --name pimcore-enterprise-token \
-          #   --vault-name ${{ inputs.KEY_VAULT }})
-          # torqGithubToken=$(az keyvault secret show \
-          #   --name torq-github-token \
-          #   --vault-name ${{ inputs.KEY_VAULT }})
+          pimcoreEnterpriseToken=$(az keyvault secret show \
+            --name pimcore-enterprise-token \
+            --vault-name ${{ inputs.KEY_VAULT }} \\
+            2>/dev/null)
+          if [[ -z $pimcoreEnterpriseToken ]]; then
+            echo "::warning Key Vault secret pimcore-enterprise-token not found"
+          fi
+          echo "::add-mask::$pimcoreEnterpriseToken" 
+          echo "pimcore-enterprise-token=$pimcoreEnterpriseToken" >> $GITHUB_ENV
+          torqGithubToken=$(az keyvault secret show \
+            --name torq-github-token \
+            --vault-name ${{ inputs.KEY_VAULT }} \
+            2>/dev/null)
+          if [[ -z $torqGithubToken ]]; then
+            echo "::warning Key Vault secret torq-github-token not found"
+          fi
+          echo "::add-mask::$torqGithubToken" 
+          echo "torq-github-token=$torqGithubToken" >> $GITHUB_ENV
 
     - name: Always remove network rule for this runner from Key Vault's firewall...
       if: always()
