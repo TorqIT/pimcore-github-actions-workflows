@@ -59,7 +59,7 @@ runs:
         continueOnError: true
         inlineScript: |
           secrets=( kernel-secret pimcore-enterprise-token torq-github-token )
-          for secretName in "${[secrets@]}"
+          for secretName in "${secrets[@]}"
           do
             secretValue=
             echo Pulling $secretName from Key Vault...
