@@ -63,12 +63,6 @@ on:
         required: true
       SERVICE_PRINCIPAL_PASSWORD:
         required: true
-      PIMCORE_ENTERPRISE_TOKEN:
-        required: false
-      ENCRYPTION_SECRET:
-        required: false
-      TORQ_GITHUB_TOKEN:
-        required: false
       RECAPTCHA_CLIENT_KEY:
         required: false
 
