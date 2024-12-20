@@ -1,0 +1,76 @@
+name: ''
+description: ''
+inputs:
+  TENANT:
+    required: true
+    description: ""
+  SERVICE_PRINCIPAL_ID:
+    required: true
+    description: ""
+  SERVICE_PRINCIPAL_PASSWORD:
+    required: true
+    description: ""
+  RESOURCE_GROUP:
+    required: true
+    description: ""
+  KEY_VAULT:
+    required: true
+    description: ""
+outputs:
+  kernel-secret:
+    description: "Symfony kernel secret"
+    value: ${{ steps.secrets.outputs.kernel-secret }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Log into Azure CLI
+      uses: azure/cli@v2
+      with:
+        inlineScript: |
+          echo Logging into Azure...
+          az login \
+            --tenant ${{ inputs.TENANT }} \
+            --service-principal \
+            --username '${{ inputs.SERVICE_PRINCIPAL_ID }}' \
+            --password '${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}'
+          
+    - name: Add temporary network rule for this runner to Key Vault's firewall
+      uses: azure/cli@v2
+      with:
+        inlineScript: |
+          echo Adding temporary network rule for this runner to the Key Vault's firewall...
+          az keyvault network-rule add \
+            --name ${{ inputs.KEY_VAULT }} \
+            --resource-group ${{ inputs.RESOURCE_GROUP }} \
+            --ip-address $(curl ipinfo.io/ip)
+
+    - name: Pull built-time secrets from Key Vault
+      uses: azure/cli@v2
+      id: secrets
+      with:
+        inlineScript: |
+          # TODO for loop?
+          kernelSecret=$(az keyvault secret show \
+            --name kernel-secret \
+            --vault-name ${{ inputs.KEY_VAULT }})
+          echo "::add-mask::$kernelSecret" 
+          echo "kernel-secret=$kernelSecret" >> $GITHUB_ENV
+          # TODO handle if these are not needed for build
+          # pimcoreEnterpriseToken=$(az keyvault secret show \
+          #   --name pimcore-enterprise-token \
+          #   --vault-name ${{ inputs.KEY_VAULT }})
+          # torqGithubToken=$(az keyvault secret show \
+          #   --name torq-github-token \
+          #   --vault-name ${{ inputs.KEY_VAULT }})
+
+    - name: Always remove network rule for this runner from Key Vault's firewall...
+      if: always()
+      uses: azure/cli@v2
+      with: 
+        inlineScript: |
+          echo Removing network rule for this runner from the Key Vault's firewall...
+          az keyvault network-rule remove \
+            --name ${{ inputs.KEY_VAULT }} \
+            --resource-group ${{ inputs.RESOURCE_GROUP }} \
+            --ip-address $(curl ipinfo.io/ip)
