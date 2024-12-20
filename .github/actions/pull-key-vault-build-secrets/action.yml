@@ -56,7 +56,6 @@ runs:
       uses: azure/cli@v2
       id: secrets
       with:
-        continueOnError: true
         inlineScript: |
           secrets=( kernel-secret pimcore-enterprise-token torq-github-token )
           for secretName in "${secrets[@]}"
