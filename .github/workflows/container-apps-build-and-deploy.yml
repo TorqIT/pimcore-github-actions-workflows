@@ -107,6 +107,16 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Pull build-time secrets from Azure Key Vault
+        id: key-vault-secrets
+        uses: ./reusable-workflow/.github/actions/pull-key-vault-build-secrets
+        with:
+          TENANT: ${{ vars.TENANT }}
+          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          KEY_VAULT: ${{ vars.KEY_VAULT }}
+
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
         with:
@@ -120,6 +130,7 @@ jobs:
           DOCKERFILE_PATH: ./.docker/Dockerfile
           DOCKERFILE_TARGET: init
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          KERNEL_SECRET: ${{ steps.key-vault-secrets.outputs.kernel-secret }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
@@ -133,6 +144,7 @@ jobs:
           DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          KERNEL_SECRET: ${{ steps.key-vault-secrets.outputs.kernel-secret }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
@@ -149,6 +161,7 @@ jobs:
           DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          KERNEL_SECRET: ${{ steps.key-vault-secrets.outputs.kernel-secret }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
