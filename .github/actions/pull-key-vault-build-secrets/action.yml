@@ -52,7 +52,7 @@ runs:
             --resource-group ${{ inputs.RESOURCE_GROUP }} \
             --ip-address $(curl ipinfo.io/ip)
 
-    - name: Pull built-time secrets from Key Vault
+    - name: Pull build-time secrets from Key Vault
       uses: azure/cli@v2
       id: secrets
       with:
