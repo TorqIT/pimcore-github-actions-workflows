@@ -97,7 +97,6 @@ runs:
         secrets: |
           pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
           torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
-          kernel-secret=${{ inputs.KERNEL_SECRET }}
         push: true
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
