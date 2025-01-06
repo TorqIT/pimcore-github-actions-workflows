@@ -1,4 +1,4 @@
-name: Install Run coding standards
+name: Install run coding standards
 
 on:
   workflow_call:
@@ -42,16 +42,13 @@ jobs:
         run: composer require symplify/easy-coding-standard
         working-directory: app/pimcore-root
 
-      - name: Move ecs.php file
-        run: mv reusable-workflow/.ecs.php app/pimcore-root
-
-       - name: List Files
+      - name: List Files
         run: ls -la
         working-directory: app/pimcore-root
 
-      - name: Coding Standards Check
-        run: vendor/bin/ecs check src
-        working-directory: app/pimcore-root
+      - name: Move ecs.php file
+        run: mv reusable-workflow/.ecs.php app/pimcore-root
 
       - name: Coding Standards Check
         run: vendor/bin/ecs check src
+        working-directory: app/pimcore-root
