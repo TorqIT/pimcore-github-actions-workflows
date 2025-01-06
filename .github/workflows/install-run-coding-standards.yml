@@ -35,6 +35,7 @@ jobs:
 
       - name: List Files 0
         run: ls -la
+        working-directory: reusable-workflow
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
