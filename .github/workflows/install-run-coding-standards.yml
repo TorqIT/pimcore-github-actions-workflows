@@ -51,7 +51,7 @@ jobs:
         working-directory: app/pimcore-root
 
       - name: Move ecs.php file
-        run: mv reusable-workflow/scripts/ecs.php app/pimcore-root
+        run: mv reusable-workflow/ecs.php app/pimcore-root
 
       - name: Coding Standards Check
         run: vendor/bin/ecs check src
