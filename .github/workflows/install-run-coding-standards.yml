@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: TorqIT/pimcore-github-actions-workflows
-          ref: easyCoduingStandards
+          ref: easyCodingStandards
           path: reusable-workflow
 
       - name: List Files 0
