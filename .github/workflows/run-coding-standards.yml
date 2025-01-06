@@ -19,10 +19,16 @@ jobs:
 
     steps:
       # Checkout the caller repository as usual
+       - name: List files 0
+        run: ls -la
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
+          path: app
 
+       - name: List files 1
+        run: ls -la
       # Checkout the workflow repository itself so that we can access the extra script files
       - name: Checkout workflow repository
         uses: actions/checkout@v4
@@ -36,8 +42,12 @@ jobs:
         with:
           php-version: 8.3
 
+      - name: List files 2
+        run: ls -la
+
       - name: Install Composer dependencies
         run: composer install
+        working-directory: app
 
       - name: Coding Standards Check
         run: vendor/bin/ecs check src
