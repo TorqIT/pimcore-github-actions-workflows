@@ -1,0 +1,46 @@
+name: Run coding standards
+
+on:
+  workflow_call:
+    inputs:
+      RUNNER:
+        required: false
+        type: string
+      REUSABLE_WORKFLOW_REF:
+        required: false
+        type: string
+
+jobs:
+  tests:
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+
+    env:
+      TAG: ${{ github.run_id }}
+
+    steps:
+      # Checkout the caller repository as usual
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      # Checkout the workflow repository itself so that we can access the extra script files
+      - name: Checkout workflow repository
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ inputs.REUSABLE_WORKFLOW_REF }}
+          path: reusable-workflow
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.3
+
+      - name: Install Coding Standards package
+        run: composer require symplify/easy-coding-standard
+
+      - name: Move configuration file
+        run: mv reusable-workflow/.ecs.php .
+
+      - name: Coding Standards Check
+        run: vendor/bin/ecs check src
