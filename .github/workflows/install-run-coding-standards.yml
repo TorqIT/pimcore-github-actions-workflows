@@ -35,7 +35,7 @@ jobs:
 
       - name: List Files 0
         run: ls -la
-        working-directory: reusable-workflow/scripts
+        working-directory: reusable-workflow/scripts/run-tests
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
