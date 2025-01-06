@@ -19,7 +19,7 @@ jobs:
 
     steps:
       # Checkout the caller repository as usual
-       - name: List files 0
+      - name: List files 0
         run: ls -la
 
       - uses: actions/checkout@v4
@@ -27,7 +27,7 @@ jobs:
           ref: ${{ github.head_ref }}
           path: app
 
-       - name: List files 1
+      - name: List files 1
         run: ls -la
       # Checkout the workflow repository itself so that we can access the extra script files
       - name: Checkout workflow repository
