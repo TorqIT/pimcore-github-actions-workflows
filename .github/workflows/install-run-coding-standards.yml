@@ -36,9 +36,8 @@ jobs:
       - name: List Files 0
         run: ls -la
 
-       - name: Move ecs.php file
+      - name: Move ecs.php file
         run: mv reusable-workflow/ecs.php app/pimcore-root
-
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -53,7 +52,6 @@ jobs:
         run: ls -la
         working-directory: app/pimcore-root
 
-     
       - name: Coding Standards Check
         run: vendor/bin/ecs check src
         working-directory: app/pimcore-root
