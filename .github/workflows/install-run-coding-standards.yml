@@ -39,14 +39,8 @@ jobs:
       - name: Move ecs.php file
         run: mv reusable-workflow/ecs.php app/pimcore-root
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: 8.2
-
-      # - name: Install Coding Standards package
-      #   run: composer require symplify/easy-coding-standard
-      #   working-directory: app/pimcore-root
+      - name: Install Coding Standards package
+        run: composer require symplify/easy-coding-standard
 
       - name: List Files
         run: ls -la
