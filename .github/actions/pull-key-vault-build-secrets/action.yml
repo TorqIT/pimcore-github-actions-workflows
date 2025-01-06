@@ -60,7 +60,6 @@ runs:
           secrets=( kernel-secret pimcore-enterprise-token torq-github-token )
           for secretName in "${secrets[@]}"
           do
-            secretValue=
             echo Pulling $secretName from Key Vault...
             secretExists=$(az keyvault secret list \
               --vault-name ${{ inputs.KEY_VAULT }}  \
@@ -71,10 +70,11 @@ runs:
                 --vault-name ${{ inputs.KEY_VAULT }} \
                 --query value -o tsv)
               echo "::add-mask::$secretValue" 
+              echo "$secretName=$secretValue" >> $GITHUB_ENV
             else
               echo "::warning Secret $secretName not found in Key Vault"
+              echo "$secretName=" >> $GITHUB_ENV
             fi
-            echo "$secretName=$secretValue" >> $GITHUB_ENV
           done
 
     - name: Always remove network rule for this runner from Key Vault's firewall...
