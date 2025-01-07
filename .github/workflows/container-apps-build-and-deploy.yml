@@ -178,7 +178,7 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT }}
     needs:
       - build-and-push-images-and-run-init
-    if: success() || failure()
+    if: always()
     steps:
       - name: Fail fast if necessary jobs failed
         if: ${{ needs.build-and-push-images-and-run-init.result == 'failure' || needs.build-and-push-images-and-run-init.result == 'cancelled' }}
@@ -221,7 +221,7 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT }}
     needs:
       - build-and-push-images-and-run-init
-    if: success() || failure()
+    if: always()
     steps:
       - name: Fail fast if necessary jobs failed
         if: ${{ needs.build-and-push-images-and-run-init.result == 'failure' || needs.build-and-push-images-and-run-init.result == 'cancelled' }}
