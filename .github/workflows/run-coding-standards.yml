@@ -40,15 +40,8 @@ jobs:
 
       - name: Install Composer dependencies
         run: composer install
-        working-directory: app/pimcore-root
-
-      - name: List Files
-        run: ls -la
-        working-directory: app/pimcore-root
-
-      - name: Move ecs.php file
-        run: mv reusable-workflow/.ecs.php app/pimcore-root
+        working-directory: app
 
       - name: Coding Standards Check
         run: vendor/bin/ecs check src
-        working-directory: app/pimcore-root
+        working-directory: app

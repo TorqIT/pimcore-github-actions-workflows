@@ -37,9 +37,6 @@ jobs:
           ref: easyCodingStandards
           path: reusable-workflow
 
-      - name: List Files 0
-        run: ls -la
-
       - name: Move ecs.php file
         run: mv reusable-workflow/ecs.php app/pimcore-root
 
