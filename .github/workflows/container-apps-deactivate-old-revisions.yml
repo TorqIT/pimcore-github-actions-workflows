@@ -55,6 +55,8 @@ jobs:
         uses: azure/cli@v2
         with:
           inlineScript: |
+            set -e
+
             echo "Installing awk..."
             tdnf install -y gawk
 
