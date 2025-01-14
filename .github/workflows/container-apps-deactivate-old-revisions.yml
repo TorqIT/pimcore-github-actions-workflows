@@ -80,10 +80,10 @@ jobs:
                 --resource-group ${{ vars.RESOURCE_GROUP }} \
                 --name ${{ vars.PHP_FPM_CONTAINER_APP }} \
                 --output table | sed 1,2d | head -n -1 | awk '{ print $7 }')
+              echo "Revisions to deactivate: ${revisionsToDeactivate[*]}"
               if [ ${#revisionsToDeactivate[@]} -eq 0 ]; then
                 echo "No revisions to deactivate"
               else
-                printf '%s\n' "${revisionsToDeactivate[@]}"
                 echo "Deactivating revisions..."
                 for revision in $revisionsToDeactivate
                 do 
