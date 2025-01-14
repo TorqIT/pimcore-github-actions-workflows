@@ -41,45 +41,44 @@ jobs:
 
     steps: 
       - name: Log into Azure CLI
-        run: |
-          echo Logging into Azure...
-          az login \
-            --tenant ${{ vars.TENANT }} \
-            --service-principal \
-            --username ${{ secrets.SERVICE_PRINCIPAL_ID }} \
-            --password ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-
-      - name: Install Azure CLI containerapp extension
-        run: |
-          az config set extension.use_dynamic_install=yes_without_prompt
-          az extension add --name containerapp
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            echo Logging into Azure...
+            az login \
+              --tenant ${{ vars.TENANT }} \
+              --service-principal \
+              --username ${{ secrets.SERVICE_PRINCIPAL_ID }} \
+              --password ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
 
       - name: Deactivate revisions that have been at 0% traffic for 12 hours
-        run: |
-          timestampOfLatestRevision=$(az containerapp revision list \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --name ${{ vars.PHP_FPM_CONTAINER_APP }} \
-            --output table | tail -n 1 | awk '{ print $1 }')
-          echo "Timestamp of latest revision: $timestampOfLatestRevision"
-          cleanupInterval=$((12 * 60 * 60))
-          latestRevisionUptime=$(($(date '+%s') - $(date -d "$timestampOfLatestRevision" '+%s')))
-          echo "Latest revision uptime in seconds $latestRevisionUptime"
-          if [[ "$latestRevisionUptime" -gt "$cleanupInterval" ]]; then
-            # If the latest revision has been up for longer than the cleanup interval, then all other revisions must have been at
-            # 0% traffic for at least that amount of time (since we always set the latest revision to 100% traffic). Therefore, we can 
-            # safely deactivate those revisions. 
-            revisionsToDeactive=$(az containerapp revision list \
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            timestampOfLatestRevision=$(az containerapp revision list \
               --resource-group ${{ vars.RESOURCE_GROUP }} \
               --name ${{ vars.PHP_FPM_CONTAINER_APP }} \
-              --output table | sed 1,2d | head -n -1 | awk '{ print $7 }')
-            for revision in $revisionsToDeactive
-            do 
-              echo "Deactivating revision $revision"
-              az containerapp revision deactivate \
+              --output table | tail -n 1 | awk '{ print $1 }')
+            echo "Timestamp of latest revision: $timestampOfLatestRevision"
+            cleanupInterval=$((12 * 60 * 60))
+            latestRevisionUptime=$(($(date '+%s') - $(date -d "$timestampOfLatestRevision" '+%s')))
+            echo "Latest revision uptime in seconds $latestRevisionUptime"
+            if [[ "$latestRevisionUptime" -gt "$cleanupInterval" ]]; then
+              # If the latest revision has been up for longer than the cleanup interval, then all other revisions must have been at
+              # 0% traffic for at least that amount of time (since we always set the latest revision to 100% traffic). Therefore, we can 
+              # safely deactivate those revisions. 
+              revisionsToDeactive=$(az containerapp revision list \
                 --resource-group ${{ vars.RESOURCE_GROUP }} \
                 --name ${{ vars.PHP_FPM_CONTAINER_APP }} \
-                --revision $revision
-            done
-          else 
-            echo "No revisions to deactivate"
-          fi
+                --output table | sed 1,2d | head -n -1 | awk '{ print $7 }')
+              for revision in $revisionsToDeactive
+              do 
+                echo "Deactivating revision $revision"
+                az containerapp revision deactivate \
+                  --resource-group ${{ vars.RESOURCE_GROUP }} \
+                  --name ${{ vars.PHP_FPM_CONTAINER_APP }} \
+                  --revision $revision
+              done
+            else 
+              echo "No revisions to deactivate"
+            fi
