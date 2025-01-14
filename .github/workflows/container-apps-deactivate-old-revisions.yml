@@ -51,6 +51,12 @@ jobs:
               --username ${{ secrets.SERVICE_PRINCIPAL_ID }} \
               --password ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
 
+      - name: Install awk (package gawk)
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            tdnf install -y gawk
+
       - name: Deactivate revisions that have been at 0% traffic for 12 hours
         uses: azure/cli@v2
         with:
