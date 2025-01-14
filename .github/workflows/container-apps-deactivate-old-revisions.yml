@@ -67,12 +67,15 @@ jobs:
             echo "Timestamp of latest revision: $timestampOfLatestRevision"
 
             cleanupInterval=$((12 * 60 * 60)) # 12 hours
+
             latestRevisionUptime=$(($(date '+%s') - $(date -d "$timestampOfLatestRevision" '+%s')))
             echo "Latest revision uptime in seconds $latestRevisionUptime"
+
             if [[ "$latestRevisionUptime" -gt "$cleanupInterval" ]]; then
               # If the latest revision has been up for longer than the cleanup interval, then all other revisions must have been at
               # 0% traffic for at least that amount of time (since we always set the latest revision to 100% traffic). Therefore, we can 
               # safely deactivate those revisions. 
+              echo "Fetching revisions to deactivate..."
               revisionsToDeactivate=$(az containerapp revision list \
                 --resource-group ${{ vars.RESOURCE_GROUP }} \
                 --name ${{ vars.PHP_FPM_CONTAINER_APP }} \
@@ -80,6 +83,7 @@ jobs:
               if [ ${#revisionsToDeactivate[@]} -eq 0 ]; then
                 echo "No revisions to deactivate"
               else
+                echo "Deactivating revisions..."
                 for revision in $revisionsToDeactivate
                 do 
                   echo "Deactivating revision $revision"
@@ -88,6 +92,7 @@ jobs:
                     --name ${{ vars.PHP_FPM_CONTAINER_APP }} \
                     --revision $revision
                 done
+                echo "Successfully deactivated all eligible revisions"
               fi
             else 
               echo "No revisions to deactivate"
