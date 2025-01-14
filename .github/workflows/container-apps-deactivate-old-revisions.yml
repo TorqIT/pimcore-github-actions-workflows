@@ -83,6 +83,7 @@ jobs:
               if [ ${#revisionsToDeactivate[@]} -eq 0 ]; then
                 echo "No revisions to deactivate"
               else
+                printf '%s\n' "${revisionsToDeactivate[@]}"
                 echo "Deactivating revisions..."
                 for revision in $revisionsToDeactivate
                 do 
