@@ -55,13 +55,16 @@ jobs:
         uses: azure/cli@v2
         with:
           inlineScript: |
+            echo "Installing awk..."
             tdnf install -y gawk
+
             timestampOfLatestRevision=$(az containerapp revision list \
               --resource-group ${{ vars.RESOURCE_GROUP }} \
               --name ${{ vars.PHP_FPM_CONTAINER_APP }} \
               --output table | tail -n 1 | awk '{ print $1 }')
             echo "Timestamp of latest revision: $timestampOfLatestRevision"
-            cleanupInterval=$((12 * 60 * 60))
+
+            cleanupInterval=$((12 * 60 * 60)) # 12 hours
             latestRevisionUptime=$(($(date '+%s') - $(date -d "$timestampOfLatestRevision" '+%s')))
             echo "Latest revision uptime in seconds $latestRevisionUptime"
             if [[ "$latestRevisionUptime" -gt "$cleanupInterval" ]]; then
