@@ -44,7 +44,7 @@ runs:
           --arg subscriptionId "${{ inputs.SUBSCRIPTION }}" \
           --arg tenantId "${{ inputs.TENANT }}" \
           --arg clientId "${{ inputs.SERVICE_PRINCIPAL_ID }}" \
-          '{clientId: $clientId, clientSecret: $clientSecret, tenantId: $tenantId, subscriptionId: $subscriptionId}')
+          '{clientSecret: $clientSecret, subscriptionId: $subscriptionId, tenantId: $tenantId, clientId: $clientId}')
         echo "::add-mask::$azureCreds" 
         echo "azureCreds=$azureCreds" >> $GITHUB_OUTPUT
     
