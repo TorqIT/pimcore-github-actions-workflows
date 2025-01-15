@@ -164,14 +164,10 @@ jobs:
       - name: Deploy and run init Container App Job
         uses: ./reusable-workflow/.github/actions/container-apps-deploy-and-run-init
         with:
-          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           INIT_IMAGE: ${{ vars.INIT_IMAGE }}
           INIT_CONTAINER_APP_JOB: ${{ vars.INIT_CONTAINER_APP_JOB }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          TENANT: ${{ vars.TENANT }}
-          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
     
   deploy-php-container-app-revision:
     name: Deploy new revision of PHP Container App
@@ -210,9 +206,6 @@ jobs:
       - name: Deploy new revision of Container App
         uses: ./reusable-workflow/.github/actions/container-apps-deploy-revision
         with:
-          TENANT: ${{ vars.TENANT }}
-          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_APP: ${{ vars.PHP_FPM_CONTAINER_APP }}
@@ -257,9 +250,6 @@ jobs:
       - name: Deploy new revision of Container App
         uses: ./reusable-workflow/.github/actions/container-apps-deploy-revision
         with:
-          TENANT: ${{ vars.TENANT }}
-          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_APP: ${{ vars.SUPERVISORD_CONTAINER_APP }}
