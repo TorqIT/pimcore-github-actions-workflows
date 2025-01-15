@@ -22,6 +22,9 @@ inputs:
   TENANT:
     required: true
     description: ""
+  SUBSCRIPTION:
+    required: true
+    description: ""
 
 runs:
   using: "composite"
@@ -40,7 +43,8 @@ runs:
           --arg clientId "${{ inputs.SERVICE_PRINCIPAL_ID }}" \
           --arg clientSecret "${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}" \
           --arg tenantId "${{ inputs.TENANT }}" \
-          '{clientId: $clientId, clientSecret: $clientSecret, tenantId: $tenantId}')
+          --arg subscriptionId "${{ inputs.SUBSCRIPTION }}"
+          '{clientId: $clientId, clientSecret: $clientSecret, tenantId: $tenantId, subscriptionId: $subscriptionId}')
         echo "::add-mask::$azureCreds" 
         echo "azureCreds=$azureCreds" >> $GITHUB_OUTPUT
     

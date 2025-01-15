@@ -163,6 +163,7 @@ jobs:
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           TENANT: ${{ vars.TENANT }}
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
     
   deploy-php-container-app-revision:
     name: Deploy new revision of PHP Container App
