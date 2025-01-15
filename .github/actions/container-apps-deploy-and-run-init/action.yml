@@ -39,7 +39,7 @@ runs:
       shell: bash
       id: build-creds
       run: |
-        azureCreds=$(jq -n \
+        azureCreds=$(jq -c -n \
           --arg clientSecret "${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}" \
           --arg subscriptionId "${{ inputs.SUBSCRIPTION }}" \
           --arg tenantId "${{ inputs.TENANT }}" \
