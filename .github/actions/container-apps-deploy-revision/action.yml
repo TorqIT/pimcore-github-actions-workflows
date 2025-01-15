@@ -47,6 +47,10 @@ runs:
           '{clientId: $clientId, clientSecret: $clientSecret, tenantId: $tenantId}')
         echo "::add-mask::$azureCreds" 
         echo "azureCreds=$azureCreds" >> $GITHUB_OUTPUT
+    
+    - uses: azure/login@v2
+      with:
+        creds: ${{ steps.build-creds.outputs.azureCreds }}
 
     - name: Create new revision of Container App
       uses: azure/cli@v2
