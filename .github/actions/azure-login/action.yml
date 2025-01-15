@@ -29,6 +29,7 @@ runs:
       run: |
         azureCreds=$(jq -c -n \
           --arg clientSecret "${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}" \
+          --arg subscriptionId "${{ inputs.SUBSCRIPTION }}" \
           --arg tenantId "${{ inputs.TENANT }}" \
           --arg clientId "${{ inputs.SERVICE_PRINCIPAL_ID }}" \
           '{clientSecret: $clientSecret, subscriptionId: $subscriptionId, tenantId: $tenantId, clientId: $clientId}')
