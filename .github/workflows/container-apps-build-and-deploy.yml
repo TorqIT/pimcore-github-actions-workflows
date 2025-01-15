@@ -113,14 +113,6 @@ jobs:
           CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
 
-      - name: Log in to Azure
-        uses: ./reusable-workflow/.github/actions/azure-login
-        with:
-          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ vars.TENANT }}
-          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
       - name: Build and push init image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
@@ -153,6 +145,10 @@ jobs:
       - name: Build and push supervisord image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
+          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          TENANT: ${{ vars.TENANT }}
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
@@ -195,17 +191,13 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - name: Log in to Azure
-        uses: ./reusable-workflow/.github/actions/azure-login
+      - name: Deploy new revision of Container App
+        uses: ./reusable-workflow/.github/actions/container-apps-deploy-revision
         with:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           TENANT: ${{ vars.TENANT }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Deploy new revision of Container App
-        uses: ./reusable-workflow/.github/actions/container-apps-deploy-revision
-        with:
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_APP: ${{ vars.PHP_FPM_CONTAINER_APP }}
@@ -239,17 +231,13 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - name: Log in to Azure
-        uses: ./reusable-workflow/.github/actions/azure-login
+      - name: Deploy new revision of Container App
+        uses: ./reusable-workflow/.github/actions/container-apps-deploy-revision
         with:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           TENANT: ${{ vars.TENANT }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Deploy new revision of Container App
-        uses: ./reusable-workflow/.github/actions/container-apps-deploy-revision
-        with:
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_APP: ${{ vars.SUPERVISORD_CONTAINER_APP }}
