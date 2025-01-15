@@ -1,12 +1,6 @@
 name: ''
 description: ''
 inputs:
-  SERVICE_PRINCIPAL_ID:
-    required: true
-    description: ""
-  SERVICE_PRINCIPAL_PASSWORD:
-    required: true
-    description: ""
   INIT_IMAGE:
     required: true
     description: ""
@@ -19,38 +13,10 @@ inputs:
   CONTAINER_REGISTRY:
     required: true
     description: ""
-  TENANT:
-    required: true
-    description: ""
-  SUBSCRIPTION:
-    required: true
-    description: ""
 
 runs:
   using: "composite"
   steps:
-    - name: Setup jq for parsing JSON
-      uses: dcarbone/install-jq-action@v3
-      with:
-        version: '1.7'
-        force: true
-
-    - name: Build Azure credentials string
-      shell: bash
-      id: build-creds
-      run: |
-        azureCreds=$(jq -c -n \
-          --arg clientSecret "${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}" \
-          --arg tenantId "${{ inputs.TENANT }}" \
-          --arg clientId "${{ inputs.SERVICE_PRINCIPAL_ID }}" \
-          '{clientSecret: $clientSecret, subscriptionId: $subscriptionId, tenantId: $tenantId, clientId: $clientId}')
-        echo "::add-mask::$azureCreds" 
-        echo "azureCreds=$azureCreds" >> $GITHUB_OUTPUT
-    
-    - uses: azure/login@v2
-      with:
-        creds: ${{ steps.build-creds.outputs.azureCreds }}
-
     - name: Deploy new revision of init Container App Job
       uses: azure/cli@v2
       with:

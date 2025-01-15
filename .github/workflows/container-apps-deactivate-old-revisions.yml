@@ -40,16 +40,29 @@ jobs:
     environment: ${{ matrix.environment }}
 
     steps: 
-      - name: Log into Azure CLI
-        uses: azure/cli@v2
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
         with:
-          inlineScript: |
-            echo Logging into Azure...
-            az login \
-              --tenant ${{ vars.TENANT }} \
-              --service-principal \
-              --username ${{ secrets.SERVICE_PRINCIPAL_ID }} \
-              --password ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: container-apps-build-and-deploy.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Log in to Azure
+        uses: ./reusable-workflow/.github/actions/azure-login
+        with:
+          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          TENANT: ${{ vars.TENANT }}
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deactivate revisions that have been at 0% traffic for 12 hours
         uses: azure/cli@v2
