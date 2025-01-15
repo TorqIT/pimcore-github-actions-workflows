@@ -26,16 +26,27 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Deploy new revision of init Container App Job and run
-      uses: azure/cli@v2
+    - name: Setup jq for parsing JSON
+      uses: dcarbone/install-jq-action@v3
       with:
-        inlineScript: |
-          echo Logging into Azure...
-          az login \
-            --tenant ${{ inputs.TENANT }} \
-            --service-principal \
-            --username '${{ inputs.SERVICE_PRINCIPAL_ID }}' \
-            --password '${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}'
+        version: '1.7'
+        force: true
+
+    - name: Build Azure credentials string
+      shell: bash
+      id: build-creds
+      run: |
+        azureCreds=$(jq -n \
+          --arg clientId "${{ inputs.SERVICE_PRINCIPAL_ID }}" \
+          --arg clientSecret "${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}" \
+          --arg tenantId "${{ inputs.TENANT }}" \
+          '{clientId: $clientId, clientSecret: $clientSecret, tenantId: $tenantId}')
+        echo "::add-mask::$azureCreds" 
+        echo "azureCreds=$azureCreds" >> $GITHUB_OUTPUT
+    
+    - uses: azure/login@v2
+      with:
+        creds: ${{ steps.build-creds.outputs.azureCreds }}
 
     - name: Deploy new revision of init Container App Job
       uses: azure/cli@v2
