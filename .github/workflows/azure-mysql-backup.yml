@@ -17,6 +17,8 @@ on:
         required: true
       SERVICE_PRINCIPAL_PASSWORD:
         required: true
+      AZURE_MYSQL_PASSWORD:
+        required: true   
 
 jobs:
   back-up-db:
