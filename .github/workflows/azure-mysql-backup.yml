@@ -82,6 +82,7 @@ jobs:
             -p${{ secrets.AZURE_MYSQL_PASSWORD }} \
             ${{ vars.AZURE_MYSQL_DATABASE }} \
             > $fileName
+          echo "Dumped .sql file is $(stat -c%s $fileName) bytes"
           echo Uploading dumped file to Storage Account...
           az storage blob upload \
             --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
