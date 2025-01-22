@@ -83,8 +83,8 @@ jobs:
             ${{ vars.AZURE_MYSQL_DATABASE }} \
             > $fileName
           echo "Dumped .sql file is $(stat -c%s $fileName) bytes"
-          echo "Sleep for 60 seconds to allow network rule to propagate to Storage Account..."
-          sleep 60
+          echo "Sleep for 120 seconds to allow network rule to propagate to Storage Account..."
+          sleep 120
           echo "Uploading dumped file to Storage Account..."
           az storage blob upload \
             --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
