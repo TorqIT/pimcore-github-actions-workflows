@@ -56,7 +56,7 @@ jobs:
           inlineScript: |
             set -e
             runnerIp=$(curl ipinfo.io/ip)
-            echo Adding temporary network rule for this runner to database server's firewall...
+            echo "Adding temporary network rule for this runner ($runnerIp) to database server's firewall..."
             az mysql flexible-server firewall-rule create \
               --name ${{ vars.AZURE_MYSQL_SERVER }} \
               --resource-group ${{ vars.RESOURCE_GROUP }} \
@@ -64,7 +64,7 @@ jobs:
               --start-ip-address $runnerIp \
               --end-ip-address $runnerIp \
               --verbose
-            echo Adding temporary network rule for this runner to Storage Account's firewall...
+            echo "Adding temporary network rule for this runner ($runnerIp) to Storage Account's firewall..."
             az storage account network-rule add \
               --resource-group ${{ vars.RESOURCE_GROUP }} \
               --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
