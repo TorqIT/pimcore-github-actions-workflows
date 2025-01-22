@@ -62,12 +62,14 @@ jobs:
               --resource-group ${{ vars.RESOURCE_GROUP }} \
               --rule-name allow-runner-ip \
               --start-ip-address $runnerIp \
-              --end-ip-address $runnerIp
+              --end-ip-address $runnerIp \
+              --verbose
             echo Adding temporary network rule for this runner to Storage Account's firewall...
             az storage account network-rule add \
               --resource-group ${{ vars.RESOURCE_GROUP }} \
               --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
-              --ip-address $runnerIp
+              --ip-address $runnerIp \
+              --verbose
 
       - name: Perform a MySQL dump and save the result to Storage Account
         run: |
