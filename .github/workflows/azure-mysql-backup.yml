@@ -94,11 +94,7 @@ jobs:
         uses: azure/cli@v2
         with:
           inlineScript: |
-            az mysql flexible-server firewall-rule delete \ 
-              --resource-group ${{ vars.RESOURCE_GROUP }} \
-              --name ${{ vars.AZURE_MYSQL_SERVER }} \
-              --rule-name allow-runner-ip \
-              --yes
+            az mysql flexible-server firewall-rule delete --resource-group ${{ vars.RESOURCE_GROUP }} --name ${{ vars.AZURE_MYSQL_SERVER }} --rule-name allow-runner-ip --ye
 
       - name: Remove temporary network rule from Storage Account firewall
         if: always()
