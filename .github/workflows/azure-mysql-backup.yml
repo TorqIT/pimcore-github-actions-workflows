@@ -74,7 +74,7 @@ jobs:
       - name: Perform a MySQL dump and save the result to Storage Account
         run: |
           set -e
-          fileName=$(date --iso-8601).sql
+          fileName=$(date -u +"%Y-%m-%dT%H:%M:%SZ").sql
           echo Performing MySQL dump...
           mysqldump \
             -h "${{ vars.AZURE_MYSQL_SERVER }}.mysql.database.azure.com" \
