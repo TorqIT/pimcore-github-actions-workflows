@@ -96,7 +96,7 @@ jobs:
           inlineScript: |
             az mysql flexible-server firewall-rule delete \ 
               --resource-group ${{ vars.RESOURCE_GROUP }} \
-              --name ${{ vars.AZURE_MYSQL_SERVER }}
+              --name ${{ vars.AZURE_MYSQL_SERVER }} \
               --rule-name allow-runner-ip \
               --yes
 
