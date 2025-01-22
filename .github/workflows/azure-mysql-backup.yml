@@ -54,9 +54,10 @@ jobs:
         uses: azure/cli@v2
         with:
           inlineScript: |
+            set -e
             runnerIp=$(curl ipinfo.io/ip)
             echo Adding temporary network rule for this runner to database server's firewall...
-            az mysql server firewall-rule create \
+            az mysql flexible-server firewall-rule create \
               --server-name ${{ vars.AZURE_MYSQL_SERVER }} \
               --resource-group ${{ vars.RESOURCE_GROUP }} \
               --name allow-runner-ip \
@@ -93,10 +94,10 @@ jobs:
         uses: azure/cli@v2
         with:
           inlineScript: |
-            az mysql server firewall-rule delete \ 
-              --name allow-runner-ip \
+            az mysql flexible-server firewall-rule delete \ 
               --resource-group ${{ vars.RESOURCE_GROUP }} \
-              --server-name ${{ vars.AZURE_MYSQL_SERVER }} \
+              --name ${{ vars.AZURE_MYSQL_SERVER }}
+              --rule-name allow-runner-ip \
               --yes
 
       - name: Remove temporary network rule from Storage Account firewall
