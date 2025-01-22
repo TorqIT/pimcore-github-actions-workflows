@@ -58,9 +58,9 @@ jobs:
             runnerIp=$(curl ipinfo.io/ip)
             echo Adding temporary network rule for this runner to database server's firewall...
             az mysql flexible-server firewall-rule create \
-              --server-name ${{ vars.AZURE_MYSQL_SERVER }} \
+              --name ${{ vars.AZURE_MYSQL_SERVER }} \
               --resource-group ${{ vars.RESOURCE_GROUP }} \
-              --name allow-runner-ip \
+              --rule-name allow-runner-ip \
               --start-ip-address $runnerIp \
               --end-ip-address $runnerIp
             echo Adding temporary network rule for this runner to Storage Account's firewall...
