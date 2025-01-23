@@ -85,10 +85,15 @@ jobs:
             -p${{ secrets.AZURE_MYSQL_PASSWORD }} \
             ${{ vars.AZURE_MYSQL_DATABASE }} \
             > $fileName
-          fileSize=$(stat -c%s $fileName)
-          # echo "fileSize=$fileSize" >> $GITHUB_OUTPUT
-          echo "fileSize=0" >> $GITHUB_OUTPUT
+
+          # fileSize=$(stat -c%s $fileName)
+          fileSize=0
+          echo "fileSize=$fileSize" >> $GITHUB_OUTPUT
           echo "Dumped .sql file is $fileSize bytes"
+          if [ "$fileSize" -le 0 ]; then
+            exit 1;
+          fi
+
           echo "Sleep for 120 seconds to allow network rule to propagate to Storage Account..."
           sleep 120
           echo "Uploading dumped file to Storage Account..."
@@ -133,7 +138,7 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Database backup job for ${{ github.repository }}*: ${{ (job.status == 'success' && steps.dump.outputs.fileSize > 0) && 'Success! :white_check_mark:' || 'Failed :x:' }}\n
+                  text: "*Database backup job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n
                           Dumped file was *${{ steps.dump.outputs.fileSize }}* bytes\n
                           ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           
