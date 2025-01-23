@@ -86,6 +86,7 @@ jobs:
             ${{ vars.AZURE_MYSQL_DATABASE }} \
             > $fileName
 
+          echo "fileName=$fileName" >> $GITHUB_OUTPUT
           fileSize=$(stat -c%s $fileName)
           echo "Dumped .sql file is $fileSize bytes"
           echo "fileSize=$fileSize" >> $GITHUB_OUTPUT
@@ -129,8 +130,6 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
-          # TODO format message
-          # TODO include file size
           payload: |
             text: "*Azure MySQL Database backup job*"
             blocks:
@@ -138,6 +137,6 @@ jobs:
                 text:
                   type: "mrkdwn"
                   text: "*Database backup job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n
-                          Dumped file was *${{ steps.dump.outputs.fileSize }}* bytes\n
+                          Dumped file *${{ steps.dump.outputs.fileName }}* was *${{ steps.dump.outputs.fileSize }}* bytes\n
                           ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           
