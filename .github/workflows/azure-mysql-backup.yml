@@ -130,6 +130,6 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Azure MySQL Database backup job result*: ${{ job.status == 'success' && 'Success :checkmark-v:' || 'Failed :red-x-mark:' }}\n
+                  text: "*Azure MySQL Database backup job result*: ${{ job.status == 'success' && 'Success :white_check_mark:' || 'Failed :red-x-mark:' }}\n
                           ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           
