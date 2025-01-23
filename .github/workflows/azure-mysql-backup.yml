@@ -125,6 +125,7 @@ jobs:
           # TODO format message
           # TODO include file size
           payload: |
+            text: "*Azure MySQL Database backup job*"
             blocks:
               - type: "section"
                 text:
