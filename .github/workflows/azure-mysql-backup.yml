@@ -86,10 +86,9 @@ jobs:
             ${{ vars.AZURE_MYSQL_DATABASE }} \
             > $fileName
 
-          # fileSize=$(stat -c%s $fileName)
-          fileSize=0
-          echo "fileSize=$fileSize" >> $GITHUB_OUTPUT
+          fileSize=$(stat -c%s $fileName)
           echo "Dumped .sql file is $fileSize bytes"
+          echo "fileSize=$fileSize" >> $GITHUB_OUTPUT
           if [ "$fileSize" -le 0 ]; then
             exit 1;
           fi
