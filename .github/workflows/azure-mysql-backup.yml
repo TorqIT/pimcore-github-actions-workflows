@@ -28,93 +28,93 @@ jobs:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
     steps:
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@v1
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: azure-mysql-backup.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Get workflow version
+      #   id: workflow-version
+      #   uses: canonical/get-workflow-version-action@v1
+      #   with:
+      #     repository-name: TorqIT/pimcore-github-actions-workflows
+      #     file-name: azure-mysql-backup.yml
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
+      # - name: Checkout workflow repository to use composite actions
+      #   uses: actions/checkout@v4
+      #   with:
+      #     repository: TorqIT/pimcore-github-actions-workflows
+      #     ref: ${{ steps.workflow-version.outputs.sha }}
+      #     path: reusable-workflow
+      #     fetch-depth: 1
 
-      - name: Log in to Azure
-        uses: ./reusable-workflow/.github/actions/azure-login
-        with:
-          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ vars.TENANT }}
-          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      # - name: Log in to Azure
+      #   uses: ./reusable-workflow/.github/actions/azure-login
+      #   with:
+      #     SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+      #     SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+      #     TENANT: ${{ vars.TENANT }}
+      #     SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       
-      - name: Add temporary network rule for this runner to database server and Storage Account firewalls
-        uses: azure/cli@v2
-        with:
-          inlineScript: |
-            set -e
-            runnerIp=$(curl ipinfo.io/ip)
-            echo "Adding temporary network rule for this runner ($runnerIp) to database server's firewall..."
-            az mysql flexible-server firewall-rule create \
-              --name ${{ vars.AZURE_MYSQL_SERVER }} \
-              --resource-group ${{ vars.RESOURCE_GROUP }} \
-              --rule-name allow-runner-ip \
-              --start-ip-address $runnerIp \
-              --end-ip-address $runnerIp \
-              --verbose
-            echo "Adding temporary network rule for this runner ($runnerIp) to Storage Account's firewall..."
-            az storage account network-rule add \
-              --resource-group ${{ vars.RESOURCE_GROUP }} \
-              --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
-              --ip-address $runnerIp \
-              --verbose
+      # - name: Add temporary network rule for this runner to database server and Storage Account firewalls
+      #   uses: azure/cli@v2
+      #   with:
+      #     inlineScript: |
+      #       set -e
+      #       runnerIp=$(curl ipinfo.io/ip)
+      #       echo "Adding temporary network rule for this runner ($runnerIp) to database server's firewall..."
+      #       az mysql flexible-server firewall-rule create \
+      #         --name ${{ vars.AZURE_MYSQL_SERVER }} \
+      #         --resource-group ${{ vars.RESOURCE_GROUP }} \
+      #         --rule-name allow-runner-ip \
+      #         --start-ip-address $runnerIp \
+      #         --end-ip-address $runnerIp \
+      #         --verbose
+      #       echo "Adding temporary network rule for this runner ($runnerIp) to Storage Account's firewall..."
+      #       az storage account network-rule add \
+      #         --resource-group ${{ vars.RESOURCE_GROUP }} \
+      #         --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
+      #         --ip-address $runnerIp \
+      #         --verbose
 
-      - name: Perform a MySQL dump and save the result to Storage Account
-        run: |
-          set -e
-          fileName=$(date -u +"%Y-%m-%dT%H:%M:%SZ").sql
-          echo Performing MySQL dump...
-          mysqldump \
-            -h "${{ vars.AZURE_MYSQL_SERVER }}.mysql.database.azure.com" \
-            -u ${{ vars.AZURE_MYSQL_USERNAME }} \
-            -p${{ secrets.AZURE_MYSQL_PASSWORD }} \
-            ${{ vars.AZURE_MYSQL_DATABASE }} \
-            > $fileName
-          echo "Dumped .sql file is $(stat -c%s $fileName) bytes"
-          echo "Sleep for 120 seconds to allow network rule to propagate to Storage Account..."
-          sleep 120
-          echo "Uploading dumped file to Storage Account..."
-          az storage blob upload \
-            --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
-            --container-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT_CONTAINER }} \
-            --name $fileName \
-            --file $fileName \
-            --auth-mode login
-        # TODO gather metadata + success/failure status
+      # - name: Perform a MySQL dump and save the result to Storage Account
+      #   run: |
+      #     set -e
+      #     fileName=$(date -u +"%Y-%m-%dT%H:%M:%SZ").sql
+      #     echo Performing MySQL dump...
+      #     mysqldump \
+      #       -h "${{ vars.AZURE_MYSQL_SERVER }}.mysql.database.azure.com" \
+      #       -u ${{ vars.AZURE_MYSQL_USERNAME }} \
+      #       -p${{ secrets.AZURE_MYSQL_PASSWORD }} \
+      #       ${{ vars.AZURE_MYSQL_DATABASE }} \
+      #       > $fileName
+      #     echo "Dumped .sql file is $(stat -c%s $fileName) bytes"
+      #     echo "Sleep for 120 seconds to allow network rule to propagate to Storage Account..."
+      #     sleep 120
+      #     echo "Uploading dumped file to Storage Account..."
+      #     az storage blob upload \
+      #       --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
+      #       --container-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT_CONTAINER }} \
+      #       --name $fileName \
+      #       --file $fileName \
+      #       --auth-mode login
+      #   # TODO gather metadata + success/failure status
           
-      - name: Remove temporary network rule from database server firewall
-        if: always()
-        uses: azure/cli@v2
-        with:
-          inlineScript: |
-            set -e
-            az mysql flexible-server firewall-rule delete --resource-group ${{ vars.RESOURCE_GROUP }} --name ${{ vars.AZURE_MYSQL_SERVER }} --rule-name allow-runner-ip --yes
+      # - name: Remove temporary network rule from database server firewall
+      #   if: always()
+      #   uses: azure/cli@v2
+      #   with:
+      #     inlineScript: |
+      #       set -e
+      #       az mysql flexible-server firewall-rule delete --resource-group ${{ vars.RESOURCE_GROUP }} --name ${{ vars.AZURE_MYSQL_SERVER }} --rule-name allow-runner-ip --yes
 
-      - name: Remove temporary network rule from Storage Account firewall
-        if: always()
-        uses: azure/cli@v2
-        with:
-          inlineScript: |
-            set -e
-            runnerIp=$(curl ipinfo.io/ip)
-            az storage account network-rule remove \
-              --resource-group ${{ vars.RESOURCE_GROUP }} \
-              --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
-              --ip-address $runnerIp
+      # - name: Remove temporary network rule from Storage Account firewall
+      #   if: always()
+      #   uses: azure/cli@v2
+      #   with:
+      #     inlineScript: |
+      #       set -e
+      #       runnerIp=$(curl ipinfo.io/ip)
+      #       az storage account network-rule remove \
+      #         --resource-group ${{ vars.RESOURCE_GROUP }} \
+      #         --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
+      #         --ip-address $runnerIp
 
       - name: Send job status to Slack
         if: always()
@@ -125,7 +125,6 @@ jobs:
           # TODO format message
           # TODO include file size
           payload: |
-            text: "*Azure MySQL Database backup job result*: ${{ job.status }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             blocks:
               - type: "section"
                 text:
