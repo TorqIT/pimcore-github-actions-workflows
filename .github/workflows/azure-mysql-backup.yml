@@ -114,5 +114,19 @@ jobs:
               --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
               --ip-address $runnerIp
 
-      # TODO always send status message *somewhere*
-    
+      - name: Post a message in a channel
+        if: always()
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          # TODO format message
+          # TODO include file size
+          payload: |
+            text: "*Azure MySQL Database backup job result*: ${{ job.status }}\n${{ github.repositoryUrl }}\n"${{ github.event.head_commit.url }}"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Azure MySQL Database backup job result*: ${{ job.status }}\n${{ github.repository}}\n"${{ github.event.head_commit.url }}"
+          
