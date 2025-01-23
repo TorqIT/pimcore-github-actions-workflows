@@ -18,7 +18,9 @@ on:
       SERVICE_PRINCIPAL_PASSWORD:
         required: true
       AZURE_MYSQL_PASSWORD:
-        required: true   
+        required: true  
+      SLACK_WEBHOOK_URL:
+        required: true
 
 jobs:
   back-up-db:
@@ -114,7 +116,7 @@ jobs:
               --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
               --ip-address $runnerIp
 
-      - name: Post a message in a channel
+      - name: Send job status to Slack
         if: always()
         uses: slackapi/slack-github-action@v2
         with:
@@ -123,10 +125,10 @@ jobs:
           # TODO format message
           # TODO include file size
           payload: |
-            text: "*Azure MySQL Database backup job result*: ${{ job.status }}\n${{ github.repositoryUrl }}\n"${{ github.event.head_commit.url }}"
+            text: "*Azure MySQL Database backup job result*: ${{ job.status }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             blocks:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Azure MySQL Database backup job result*: ${{ job.status }}\n${{ github.repository}}\n"${{ github.event.head_commit.url }}"
+                  text: "*Azure MySQL Database backup job result*: ${{ job.status }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           
