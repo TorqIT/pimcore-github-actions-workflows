@@ -82,10 +82,11 @@ runs:
             echo "Execution status is $executionStatus"
           done
 
-          az containerapp job logs \
+          az containerapp job logs show \
             --resource-group ${{ inputs.RESOURCE_GROUP }} \
             --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
             --execution $executionName \
+            --container init \
             --format text \
             --follow true
 
