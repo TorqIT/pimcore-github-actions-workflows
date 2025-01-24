@@ -58,10 +58,11 @@ runs:
               --resource-group ${{ inputs.RESOURCE_GROUP }} \
               --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
               | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
-            echo "Execution $executionName has status $executionStatus"
+            echo "Execution $executionName has status $executionStatus" > /dev/stdout
+            echo "$executionStatus"
           }
 
-          echo Running init Container App Job...
+          echo Starting init Container App Job...
           az containerapp job start \
             --resource-group ${{ inputs.RESOURCE_GROUP }} \
             --name ${{ inputs.INIT_CONTAINER_APP_JOB }}
