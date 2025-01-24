@@ -69,14 +69,15 @@ runs:
             --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
             | jq -r '.[] | select(.properties.status | contains("Running")) | .name')
           echo "EXECUTION_NAME=$executionName" >> $GITHUB_OUTPUT
-          echo Waiting for $executionName to finish...
 
           executionStatus=$(get_execution_status)
+          echo "Execution $executionName has status $executionStatus"
           while [[ "$executionStatus" != "Running" ]]
           do
             echo Waiting for job execution $executionName to start...
             sleep 5
             executionStatus=$(get_execution_status)
+            echo "Execution $executionName has status $executionStatus"
           done
 
           az containerapp job logs \
