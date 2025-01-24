@@ -86,7 +86,7 @@ runs:
               --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
               --execution $executionName \
               --container init \
-              --format text \
+              --format json \
               --follow true
 
             executionStatus=$(get_execution_status $executionName)
