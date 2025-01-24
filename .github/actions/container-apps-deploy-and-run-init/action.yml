@@ -52,6 +52,13 @@ runs:
       id: run-init
       with:
         inlineScript: |
+          get_execution_status() {
+            local result=$(az containerapp job execution list \
+              --resource-group ${{ inputs.RESOURCE_GROUP }} \
+              --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
+              | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
+          }
+
           echo Running init Container App Job...
           az containerapp job start \
             --resource-group ${{ inputs.RESOURCE_GROUP }} \
@@ -64,19 +71,22 @@ runs:
           echo "EXECUTION_NAME=$executionName" >> $GITHUB_OUTPUT
           echo Waiting for $executionName to finish...
 
-          executionStatus=$(az containerapp job execution list \
+          executionStatus=$(get_execution_status)
+          while [[ "$executionStatus" != "Running" ]]
+          do
+            echo Waiting for job execution $executionName to start...
+            sleep 5
+            executionStatus=$(get_execution_status)
+          done
+
+          az containerapp job logs \
             --resource-group ${{ inputs.RESOURCE_GROUP }} \
             --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
-            | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
-          while [[ "$executionStatus" == "Running" ]]
-          do
-            echo Job execution $executionName is still running...
-            sleep 5
-            executionStatus=$(az containerapp job execution list \
-              --resource-group ${{ inputs.RESOURCE_GROUP }} \
-              --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
-              | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
-          done
+            --execution $executionName \
+            --format text \
+            --follow true
+
+          executionStatus=$(get_execution_status)
 
           if [[ "$executionStatus" == "Succeeded" ]]
           then
