@@ -54,7 +54,7 @@ runs:
         inlineScript: |
           get_execution_status() {
             executionName=$1
-            local result=$(az containerapp job execution list \
+            local executionStatus=$(az containerapp job execution list \
               --resource-group ${{ inputs.RESOURCE_GROUP }} \
               --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
               | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
