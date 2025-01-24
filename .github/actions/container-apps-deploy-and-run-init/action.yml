@@ -91,7 +91,7 @@ runs:
 
             executionStatus=$(get_execution_status $executionName)
 
-            if [[ "executionStatus" == "Running "]]; then
+            if [[ "executionStatus" == "Running " ]]; then
               echo "Execution $executionName is still running..."
               continue
             elif [[ "$executionStatus" == "Succeeded" ]]; then
