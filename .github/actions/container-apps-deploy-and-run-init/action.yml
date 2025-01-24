@@ -41,7 +41,7 @@ runs:
       uses: azure/cli@v2
       with:
         inlineScript: |
-          echo Creating new revision of ${{ inputs.INIT_CONTAINER_APP_JOB }} Container App Job
+          echo Creating new revision of ${{ inputs.INIT_CONTAINER_APP_JOB }} Container App Job...
           az containerapp job update \
             --resource-group ${{ inputs.RESOURCE_GROUP }} \
             --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
@@ -90,15 +90,14 @@ runs:
               --follow true
 
             executionStatus=$(get_execution_status $executionName)
-            echo "Execution $executionName has status $executionStatus"
 
-            if [[ "executionStatus" == "Running " ]]; then
-              echo "Execution $executionName is still running..."
+            if [[ "executionStatus" == "Running" ]]; then
+              echo "Execution $executionName is running (but logs may not yet be available)..."
               continue
             elif [[ "$executionStatus" == "Succeeded" ]]; then
               echo "Execution $executionName succeeded!"
               exit 0
-            elif [[ "executionStatus" == "Failed" ]]; then
+            else
               echo "Execution $executionName failed!"
               exit 1
             fi
