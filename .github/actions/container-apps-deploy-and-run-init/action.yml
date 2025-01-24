@@ -53,10 +53,12 @@ runs:
       with:
         inlineScript: |
           get_execution_status() {
+            executionName=$1
             local result=$(az containerapp job execution list \
               --resource-group ${{ inputs.RESOURCE_GROUP }} \
               --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
               | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
+            echo "Execution $executionName has status $executionStatus"
           }
 
           echo Running init Container App Job...
@@ -70,14 +72,12 @@ runs:
             | jq -r '.[] | select(.properties.status | contains("Running")) | .name')
           echo "EXECUTION_NAME=$executionName" >> $GITHUB_OUTPUT
 
-          executionStatus=$(get_execution_status)
-          echo "Execution $executionName has status $executionStatus"
+          executionStatus=$(get_execution_status $executionName)
           while [[ "$executionStatus" != "Running" ]]
           do
             echo Waiting for job execution $executionName to start...
             sleep 5
-            executionStatus=$(get_execution_status)
-            echo "Execution $executionName has status $executionStatus"
+            executionStatus=$(get_execution_status $executionName)
           done
 
           az containerapp job logs \
@@ -87,7 +87,7 @@ runs:
             --format text \
             --follow true
 
-          executionStatus=$(get_execution_status)
+          executionStatus=$(get_execution_status $executionName)
 
           if [[ "$executionStatus" == "Succeeded" ]]
           then
