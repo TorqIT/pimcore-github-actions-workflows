@@ -73,33 +73,35 @@ runs:
           echo "EXECUTION_NAME=$executionName" >> $GITHUB_OUTPUT
 
           executionStatus=$(get_execution_status $executionName)
-          echo "Execution status is $executionStatus"
           while [[ "$executionStatus" != "Running" ]]
           do
             echo Waiting for job execution $executionName to start...
-            sleep 5
+            sleep 1
             executionStatus=$(get_execution_status $executionName)
-            echo "Execution status is $executionStatus"
           done
 
-          az containerapp job logs show \
-            --resource-group ${{ inputs.RESOURCE_GROUP }} \
-            --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
-            --execution $executionName \
-            --container init \
-            --format text \
-            --follow true
+          while [[ true ]]; do
+            az containerapp job logs show \
+              --resource-group ${{ inputs.RESOURCE_GROUP }} \
+              --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
+              --execution $executionName \
+              --container init \
+              --format text \
+              --follow true
 
-          executionStatus=$(get_execution_status $executionName)
-          echo "Execution status is $executionStatus"
+            executionStatus=$(get_execution_status $executionName)
 
-          if [[ "$executionStatus" == "Succeeded" ]]
-          then
-            echo "Execution $executionName succeeded!"
-          else
-            echo "Execution $executionName failed!"
-            exit 1
-          fi
+            if [[ "executionStatus" == "Running "]]; then
+              echo "Execution $executionName is still running..."
+              continue
+            elif [[ "$executionStatus" == "Succeeded" ]]; then
+              echo "Execution $executionName succeeded!"
+              exit 0
+            else
+              echo "Execution $executionName failed!"
+              exit 1
+            fi
+          done
 
     - name: Stop execution 
       uses: azure/cli@v2
