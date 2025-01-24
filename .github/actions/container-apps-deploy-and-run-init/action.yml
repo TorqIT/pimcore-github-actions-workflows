@@ -58,7 +58,6 @@ runs:
               --resource-group ${{ inputs.RESOURCE_GROUP }} \
               --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
               | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
-            echo "Execution $executionName has status $executionStatus" > /dev/stdout
             echo "$executionStatus"
           }
 
@@ -74,11 +73,13 @@ runs:
           echo "EXECUTION_NAME=$executionName" >> $GITHUB_OUTPUT
 
           executionStatus=$(get_execution_status $executionName)
+          echo "Execution status is $executionStatus"
           while [[ "$executionStatus" != "Running" ]]
           do
             echo Waiting for job execution $executionName to start...
             sleep 5
             executionStatus=$(get_execution_status $executionName)
+            echo "Execution status is $executionStatus"
           done
 
           az containerapp job logs \
@@ -89,6 +90,7 @@ runs:
             --follow true
 
           executionStatus=$(get_execution_status $executionName)
+          echo "Execution status is $executionStatus"
 
           if [[ "$executionStatus" == "Succeeded" ]]
           then
