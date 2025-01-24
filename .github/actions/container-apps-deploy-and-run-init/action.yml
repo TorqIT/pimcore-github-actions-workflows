@@ -96,12 +96,9 @@ runs:
             elif [[ "$executionStatus" == "Succeeded" ]]; then
               echo "Execution $executionName succeeded!"
               exit 0
-            elif [[ "$executionStatus" == "Failed" ]]; then
-              echo "Execution $executionName failed!"
-              exit 1
             else
-              echo "Execution $executionName has status $executionStatus"
-              continue
+              echo "Execution $executionName has status $executionStatus - marking this job as failed"
+              exit 1
             fi
           done
 
