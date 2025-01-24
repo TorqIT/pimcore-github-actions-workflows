@@ -96,9 +96,12 @@ runs:
             elif [[ "$executionStatus" == "Succeeded" ]]; then
               echo "Execution $executionName succeeded!"
               exit 0
-            else
+            elif [[ "$executionStatus" == "Failed "]]; then
               echo "Execution $executionName failed!"
               exit 1
+            else
+              echo "Execution $executionName has status $executionStatus"
+              continue
             fi
           done
 
