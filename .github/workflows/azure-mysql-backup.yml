@@ -96,7 +96,7 @@ jobs:
           echo "DB USER $dbUser"
           echo Performing database dump...
           mysqldump \
-            -h $dbHost
+            -h $dbHost \
             -u $dbUser \
             -p"${{ secrets.AZURE_MYSQL_PASSWORD }}" \
             ${{ vars.AZURE_MYSQL_DATABASE }} \
