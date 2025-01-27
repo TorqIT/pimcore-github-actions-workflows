@@ -95,7 +95,7 @@ jobs:
           $( [ "${{ inputs.AZURE_MARIADB }}" == "true" ] && echo "mariadb-dump" || echo "mysqldump" ) \
             -h $dbHost
             -u ${{ vars.AZURE_MYSQL_USERNAME }} \
-            -p${{ secrets.AZURE_MYSQL_PASSWORD }} \
+            -p"${{ secrets.AZURE_MYSQL_PASSWORD }}" \
             ${{ vars.AZURE_MYSQL_DATABASE }} \
             > $fileName
 
