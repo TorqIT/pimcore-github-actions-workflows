@@ -91,10 +91,13 @@ jobs:
           set -e
           fileName=$(date -u +"%Y-%m-%dT%H:%M:%SZ").sql
           dbHost=$( [ "${{ inputs.AZURE_MARIADB }}" == "true" ] && echo "${{ vars.AZURE_MYSQL_SERVER }}.mariadb.database.azure.com" || echo "${{ vars.AZURE_MYSQL_SERVER }}.mysql.database.azure.com" )
+          dbUser=$( [ "${{ inputs.AZURE_MARIADB }}" == "true" ] && echo "${{ vars.AZURE_MYSQL_USERNAME}}@$dbHost" || echo "${{ vars.AZURE_MYSQL_USERNAME}}" )
+          echo "DB HOST $dbHost"
+          echo "DB USER $dbUser"
           echo Performing database dump...
           mysqldump \
             -h $dbHost
-            -u ${{ vars.AZURE_MYSQL_USERNAME }} \
+            -u $dbUser \
             -p"${{ secrets.AZURE_MYSQL_PASSWORD }}" \
             ${{ vars.AZURE_MYSQL_DATABASE }} \
             > $fileName
