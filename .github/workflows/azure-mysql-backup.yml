@@ -11,6 +11,9 @@ on:
       ENVIRONMENT:
         required: true
         type: string
+      AZURE_MARIADB:
+        required: false
+        type: boolean
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -59,13 +62,22 @@ jobs:
             set -e
             runnerIp=$(curl ipinfo.io/ip)
             echo "Adding temporary network rule for this runner ($runnerIp) to database server's firewall..."
-            az mysql flexible-server firewall-rule create \
-              --name ${{ vars.AZURE_MYSQL_SERVER }} \
-              --resource-group ${{ vars.RESOURCE_GROUP }} \
-              --rule-name allow-runner-ip \
-              --start-ip-address $runnerIp \
-              --end-ip-address $runnerIp \
-              --verbose
+            if [ -n "${{ inputs.AZURE_MARIADB }}" ] && [ "${{ inputs.AZURE_MARIADB }}" == "true" ]; then
+              az mariadb server firewall-rule create \
+                --server-name ${{ vars.AZURE_MYSQL_SERVER }} \
+                --resource-group ${{ vars.RESOURCE_GROUP }} \
+                --name allow-runner-ip \
+                --start-ip-address $runnerIp \
+                --end-ip-address $runnerIp
+            else
+              az mysql flexible-server firewall-rule create \
+                --name ${{ vars.AZURE_MYSQL_SERVER }} \
+                --resource-group ${{ vars.RESOURCE_GROUP }} \
+                --rule-name allow-runner-ip \
+                --start-ip-address $runnerIp \
+                --end-ip-address $runnerIp \
+                --verbose
+            fi
             echo "Adding temporary network rule for this runner ($runnerIp) to Storage Account's firewall..."
             az storage account network-rule add \
               --resource-group ${{ vars.RESOURCE_GROUP }} \
@@ -78,9 +90,10 @@ jobs:
         run: |
           set -e
           fileName=$(date -u +"%Y-%m-%dT%H:%M:%SZ").sql
+          dbHost=$( [ "${{ inputs.AZURE_MARIADB }}" == "true" ] && echo "${{ vars.AZURE_MYSQL_SERVER }}.mariadb.database.azure.com" || echo "${{ vars.AZURE_MYSQL_SERVER }}.mysql.database.azure.com" )
           echo Performing MySQL dump...
           mysqldump \
-            -h "${{ vars.AZURE_MYSQL_SERVER }}.mysql.database.azure.com" \
+            -h $dbHost
             -u ${{ vars.AZURE_MYSQL_USERNAME }} \
             -p${{ secrets.AZURE_MYSQL_PASSWORD }} \
             ${{ vars.AZURE_MYSQL_DATABASE }} \
@@ -110,7 +123,19 @@ jobs:
         with:
           inlineScript: |
             set -e
-            az mysql flexible-server firewall-rule delete --resource-group ${{ vars.RESOURCE_GROUP }} --name ${{ vars.AZURE_MYSQL_SERVER }} --rule-name allow-runner-ip --yes
+            if [ -n "${{ inputs.AZURE_MARIADB }}" ] && [ "${{ inputs.AZURE_MARIADB }}" == "true" ]; then
+              az mariadb server firewall-rule delete \
+                --server-name ${{ vars.AZURE_MYSQL_SERVER }} \
+                --resource-group ${{ vars.RESOURCE_GROUP }} \
+                --name allow-runner-ip \
+                --yes
+            else
+              az mysql flexible-server firewall-rule delete \
+                --resource-group ${{ vars.RESOURCE_GROUP }} \
+                --name ${{ vars.AZURE_MYSQL_SERVER }} \
+                --rule-name allow-runner-ip \
+                --yes
+            fi
 
       - name: Remove temporary network rule from Storage Account firewall
         if: always()
