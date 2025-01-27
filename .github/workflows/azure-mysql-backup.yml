@@ -95,10 +95,10 @@ jobs:
           echo "DB HOST $dbHost"
           echo "DB USER $dbUser"
           echo Performing database dump...
-          mysqldump \
+          MYSQL_PWD="${{ secrets.AZURE_MYSQL_PASSWORD }}" \
+            mysqldump \
             -h $dbHost \
             -u $dbUser \
-            -p"${{ secrets.AZURE_MYSQL_PASSWORD }}" \
             ${{ vars.AZURE_MYSQL_DATABASE }} \
             > $fileName
 
