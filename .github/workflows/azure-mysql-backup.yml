@@ -1,5 +1,3 @@
-# 
-
 name: Back up an Azure Database for MySQL server to a Storage Account
 
 on:
