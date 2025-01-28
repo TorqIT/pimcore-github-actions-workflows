@@ -1,4 +1,4 @@
-name: Back up an Azure Database for MySQL server to a Storage Account
+name: Back up an Azure Database for MySQL flexible server to a Storage Account
 
 on:
   workflow_call:
@@ -6,12 +6,14 @@ on:
       RUNNER:
         required: false
         type: string
+        description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       ENVIRONMENT:
         required: true
         type: string
       AZURE_MARIADB:
         required: false
         type: boolean
+        description: Set to true if backing up an Azure MariaDB server instead
 
     secrets:
       SERVICE_PRINCIPAL_ID:
