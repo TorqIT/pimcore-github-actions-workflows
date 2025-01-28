@@ -55,7 +55,7 @@ jobs:
         with:
           inlineScript: |
             set -e
-            backupName=$(${{ vars.AZURE_DISK_NAME }}-$(date +%s))
+            backupName=$($(echo ${{ vars.AZURE_DISK_NAME }})-$(date +%s))
             az snapshot create \
               --resource-group ${{ vars.RESOURCE_GROUP }} \
               --name $backupName \
@@ -76,5 +76,5 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Disk backup job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\nBackup named *${{ steps.backup.outputs.backupName }}* was created"
+                  text: "*Disk backup job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\nBackup named *${{ steps.backup.outputs.backupName }}* was created\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           
