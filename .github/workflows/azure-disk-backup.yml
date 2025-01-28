@@ -1,0 +1,82 @@
+name: Create a back up an Azure Disk
+
+on:
+  workflow_call:
+    inputs:
+      RUNNER:
+        required: false
+        type: string
+        description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
+      ENVIRONMENT:
+        required: true
+        type: string
+
+    secrets:
+      SERVICE_PRINCIPAL_ID:
+        required: true
+      SERVICE_PRINCIPAL_PASSWORD:
+        required: true
+      AZURE_MYSQL_PASSWORD:
+        required: true  
+      SLACK_WEBHOOK_URL:
+        required: true
+
+jobs:
+  back-up-db:
+    name: Create an update of an Azure Disk
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+    steps:
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: azure-mysql-backup.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Log in to Azure
+        uses: ./reusable-workflow/.github/actions/azure-login
+        with:
+          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          TENANT: ${{ vars.TENANT }}
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      
+      - name: Create backup
+        id: backup
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            set -e
+            backupName=$(${{ vars.AZURE_DISK_NAME }}-$(date +%s))
+            az snapshot create \
+              --resource-group ${{ vars.RESOURCE_GROUP }} \
+              --name $backupName \
+              --source ${{ vars.AZURE_DISK_NAME }} \
+              --sku "Standard_ZRS" \
+              --incremental true
+            echo "backupName=$backupName" >> $GITHUB_OUTPUT
+
+      - name: Send job status to Slack
+        if: always()
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "*Azure Disk backup job*"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Disk backup job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\nBackup named *${{ steps.backup.outputs.backupName }}* was created"
+          
