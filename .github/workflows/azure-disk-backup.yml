@@ -55,7 +55,7 @@ jobs:
         with:
           inlineScript: |
             set -e
-            backupName=$($(echo ${{ vars.AZURE_DISK_NAME }})-$(date +%s))
+            backupName=$(echo ${{ vars.AZURE_DISK_NAME }})-$(date +%s)
             az snapshot create \
               --resource-group ${{ vars.RESOURCE_GROUP }} \
               --name $backupName \
