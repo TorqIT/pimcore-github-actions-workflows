@@ -25,12 +25,12 @@ on:
       PHP_DOCKERFILE:
         required: false
         type: string
-        default: "./docker/php-fpm/Dockerfile"
+        default: "./.docker/Dockerfile"
         description: "Path to Dockerfile for building PHP image"
       PHP_DOCKERFILE_TARGET:
         required: false
         type: string
-        default: ""
+        default: "php"
         description: "Target within Dockerfile that will build the PHP image"
       REUSABLE_WORKFLOW_REF:
         required: false
