@@ -32,10 +32,6 @@ on:
         type: string
         default: "php"
         description: "Target within Dockerfile that will build the PHP image"
-      REUSABLE_WORKFLOW_REF:
-        required: false
-        type: string
-        description: "DEPRECATED"
 
 jobs:
   tests:
