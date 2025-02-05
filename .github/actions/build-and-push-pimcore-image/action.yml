@@ -2,9 +2,8 @@ name: ''
 description: ''
 inputs:
   DOCKERFILE_PATH:
-    required: false
+    required: true
     description: ""
-    default: ./.docker/Dockerfile
   DOCKERFILE_TARGET:
     required: true
     description: ""
@@ -43,9 +42,8 @@ inputs:
     required: false
     description: ""
   PIMCORE_ROOT:
-    required: false
+    required: true
     description: ""
-    default: .
   PUSH:
     required: false
     description: ""
