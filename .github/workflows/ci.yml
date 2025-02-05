@@ -30,6 +30,30 @@ on:
         required: false
         type: boolean
         default: false
+      PIMCORE_ROOT:
+        required: false
+        type: string
+        default: "pimcore-root"
+      PHP_DOCKERFILE:
+        required: false
+        type: string
+        default: "docker/php-fpm/Dockerfile"
+      PHP_DOCKER_TARGET:
+        required: false
+        type: string
+        default: ""
+      SUPERVISORD_DOCKERFILE:
+        required: false
+        type: string
+        default: "docker/supervisord/Dockerfile"
+      SUPERVISORD_TARGET:
+        required: false
+        type: string
+        default: ""
+      INIT:
+        required: false
+        type: boolean
+        description: "DEPRECATED"
 
     secrets:
       PIMCORE_ENTERPRISE_TOKEN:
