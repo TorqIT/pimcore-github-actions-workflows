@@ -116,15 +116,15 @@ jobs:
       - name: Build and push init image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
-          DOCKERFILE_PATH: ./.docker/Dockerfile
           DOCKERFILE_TARGET: init
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          IMAGE: ${{ vars.INIT_IMAGE }}
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min
+          TAGS: |
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE }}:latest,
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE }}:${{ github.run_id }}
 
       - name: Build and push PHP image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -134,13 +134,14 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          IMAGE: ${{ vars.PHP_FPM_IMAGE }}
           NPM_BUILD: ${{ inputs.NPM_BUILD }}
           RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
           NPM_SPA: ${{ inputs.NPM_SPA }}
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
+          TAGS: |
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:latest,
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE }}:${{ github.run_id }}
 
       - name: Build and push supervisord image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -150,8 +151,9 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
+          TAGS: |
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:latest,
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE }}:${{ github.run_id }}
 
       - name: Deploy and run init Container App Job
         uses: ./reusable-workflow/.github/actions/container-apps-deploy-and-run-init
@@ -160,7 +162,7 @@ jobs:
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           TENANT: ${{ vars.TENANT }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          INIT_IMAGE: ${{ vars.INIT_IMAGE }}
+          INIT_IMAGE: ${{ vars.INIT_IMAGE || 'init' }}
           INIT_CONTAINER_APP_JOB: ${{ vars.INIT_CONTAINER_APP_JOB }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
@@ -201,7 +203,7 @@ jobs:
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_APP: ${{ vars.PHP_FPM_CONTAINER_APP }}
-          IMAGE: ${{ vars.PHP_FPM_IMAGE }}
+          IMAGE: ${{ vars.PHP_FPM_IMAGE || 'php' }}
           MULTI_REVISION: "true"
 
   # TODO using a matrix to de-duplicate these two jobs does not seem possible as we are using the "vars" context, which matrices seem to be unable to access (inputs appear empty)
@@ -241,4 +243,4 @@ jobs:
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_APP: ${{ vars.SUPERVISORD_CONTAINER_APP }}
-          IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
+          IMAGE: ${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}

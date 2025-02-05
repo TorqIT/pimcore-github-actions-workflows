@@ -2,8 +2,9 @@ name: ''
 description: ''
 inputs:
   DOCKERFILE_PATH:
-    required: true
+    required: false
     description: ""
+    default: ./.docker/Dockerfile
   DOCKERFILE_TARGET:
     required: true
     description: ""
@@ -42,8 +43,17 @@ inputs:
     required: false
     description: ""
   PIMCORE_ROOT:
-    required: true
+    required: false
     description: ""
+    default: .
+  PUSH:
+    required: false
+    description: ""
+    default: "true"
+  TAGS:
+    required: false
+    description: ""
+    default: ""
 
 runs:
   using: "composite"
@@ -100,9 +110,7 @@ runs:
           pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
           torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
           kernel-secret=secret
-        push: true
+        push: ${{ fromJSON(inputs.PUSH) }}
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
-        tags: |
-          ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.IMAGE }}:latest,
-          ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.IMAGE }}:${{ github.run_id }}
+        tags: ${{ inputs.TAGS }}

@@ -1,0 +1,111 @@
+# Continuous integration workflow for use on Pull Requests
+#
+# Requires the following permissions to be set in the callig job:
+# permissions:
+#   contents: read
+#   actions: read
+
+name: Continuous Integration
+
+on:
+  workflow_call:
+    inputs:
+      RUNNER:
+        required: false
+        type: string
+      NPM_BUILD:
+        required: false
+        type: boolean
+      NPM_RUN_CMD:
+        required: false
+        type: string
+      NPM_SPA:
+        required: false
+        type: boolean
+      SPA_TWIG:
+        required: false
+        type: string
+        default: "default/default.html.twig"
+      SUBMODULES:
+        required: false
+        type: boolean
+        default: false
+
+    secrets:
+      PIMCORE_ENTERPRISE_TOKEN:
+        required: false
+      ENCRYPTION_SECRET:
+        required: false
+      TORQ_GITHUB_TOKEN:
+        required: false
+      RECAPTCHA_CLIENT_KEY:
+        required: false
+
+jobs:
+  build-and-push-images-and-run-init:
+    name: Build and push Pimcore Docker images, and run init job
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: ${{ inputs.SUBMODULES }}
+
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: ci.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Set up Docker
+        uses: ./reusable-workflow/.github/actions/setup-docker
+        with:
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+
+      - name: Build init image
+        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+        with:
+          DOCKERFILE_TARGET: init
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          PUSH: false
+
+      - name: Build PHP image
+        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+        with:
+          DOCKERFILE_TARGET: php
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          NPM_BUILD: ${{ inputs.NPM_BUILD }}
+          RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
+          NPM_SPA: ${{ inputs.NPM_SPA }}
+          SPA_TWIG: ${{ inputs.SPA_TWIG }}
+          NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
+          PUSH: false
+
+      - name: Build supervisord image
+        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+        with:
+          DOCKERFILE_TARGET: supervisord
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          PUSH: "false"
+
+    # TODO run init?
+
+    # TODO run PHPUnit tests
