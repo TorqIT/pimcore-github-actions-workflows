@@ -33,27 +33,23 @@ on:
       PIMCORE_ROOT:
         required: false
         type: string
-        default: "pimcore-root"
+        default: "."
       PHP_DOCKERFILE:
         required: false
         type: string
-        default: "docker/php-fpm/Dockerfile"
+        default: ".docker/Dockerfile"
       PHP_DOCKER_TARGET:
         required: false
         type: string
-        default: ""
+        default: "php"
       SUPERVISORD_DOCKERFILE:
         required: false
         type: string
-        default: "docker/supervisord/Dockerfile"
+        default: ".docker/Dockerfile"
       SUPERVISORD_TARGET:
         required: false
         type: string
-        default: ""
-      INIT:
-        required: false
-        type: boolean
-        description: "DEPRECATED"
+        default: "supervisord"
 
     secrets:
       PIMCORE_ENTERPRISE_TOKEN:
@@ -128,7 +124,5 @@ jobs:
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           PUSH: "false"
-
-    # TODO run init?
 
     # TODO run PHPUnit tests
