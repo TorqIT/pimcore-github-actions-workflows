@@ -12,7 +12,7 @@
 #   actions: read
 #
 
-name: Continuous Integration
+name: Build Docker images
 
 on:
   workflow_call:
