@@ -85,7 +85,7 @@ jobs:
         uses: canonical/get-workflow-version-action@v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: ci.yml
+          file-name: ci-docker-builds.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
