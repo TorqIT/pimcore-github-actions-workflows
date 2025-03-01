@@ -69,8 +69,8 @@ on:
         required: false
 
 jobs:
-  build-and-push-images-and-run-init:
-    name: Build and push Pimcore Docker images, and run init job
+  build-docker-images:
+    name: Build Docker images
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
 
