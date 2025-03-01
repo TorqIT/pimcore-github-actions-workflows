@@ -1,4 +1,4 @@
-name: Create a backup an Azure Disk
+name: Azure Disk Backup
 
 on:
   workflow_call:

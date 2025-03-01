@@ -1,4 +1,4 @@
-# Deactivates old revisions of the PHP-FPM Pimcore Container App in the given environments.
+# Deactivates inactive revisions of the PHP Pimcore Container App in the given environments.
 # 
 # In typical situations, you would want to run this on a schedule such as the following which will 
 # trigger the workflow every 6 hours:
@@ -9,12 +9,12 @@
 # The ENVIRONMENTS input requires an array of GitHub Environments, formatted as follows:
 # jobs:
 #   deactivate-old-revisions:
-#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/container-apps-deactivate-old-revisions.yml@v2
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/container-apps-deactivate-old-revisions.yml@v6
 #     with:
 #       ENVIRONMENTS: "['development', 'production']"
 #
 
-name: Deactivate old Container Apps revisions
+name: Deactivate Container App revisions
 
 on: 
   workflow_call:

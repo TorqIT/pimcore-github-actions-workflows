@@ -1,4 +1,4 @@
-name: Back up an Azure Database for MySQL flexible server to a Storage Account
+name: Azure DB Backup
 
 on:
   workflow_call:
