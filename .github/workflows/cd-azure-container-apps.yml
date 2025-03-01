@@ -5,7 +5,7 @@
 #   contents: read
 #   actions: read
 
-name: Build, tag, and push Docker images, and deploy to Azure Container Apps
+name: Azure Container Apps Deployment
 
 on:
   workflow_call:

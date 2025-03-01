@@ -1,9 +1,16 @@
-# Continuous integration workflow for use on Pull Requests
+# Builds Pimcore Docker images. Useful for verification in continuous integration scenarios.
+# on:
+#   pull_request:
+#     types: [opened, reopened, synchronize]
+# jobs:
+#   build-images:
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/ci-docker-builds@v6
 #
 # Requires the following permissions to be set in the callig job:
 # permissions:
 #   contents: read
 #   actions: read
+#
 
 name: Continuous Integration
 
@@ -124,5 +131,3 @@ jobs:
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           PUSH: "false"
-
-    # TODO run PHPUnit tests

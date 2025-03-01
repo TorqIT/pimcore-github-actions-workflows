@@ -2,16 +2,10 @@
 # on:
 #   pull_request:
 #     types: [opened, reopened, synchronize]
-# 
-# As this workflow needs to access some scripts located in this repo, you must specify a Git ref as an input. In most cases, this can simply be the same
-# ref as the one you are using to call the workflow - e.g.:
 # jobs:
-# unit-tests-on-pr:
-#   uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/run-tests.yml@v2
-#   with:
-#     REUSABLE_WORKFLOW_REF: v2
+#   unit-tests-on-pr:
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/ci-run-tests.yml@v6
 # 
-# Note this workflow assumes there is a buildable PHP-FPM Docker image located in the /docker/php-fpm directory of the calling repository.
 
 name: Run tests
 
