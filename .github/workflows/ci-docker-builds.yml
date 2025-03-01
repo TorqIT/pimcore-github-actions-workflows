@@ -107,7 +107,7 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          PUSH: false
+          PUSH: "false"
 
       - name: Build PHP image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -121,7 +121,7 @@ jobs:
           NPM_SPA: ${{ inputs.NPM_SPA }}
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
-          PUSH: false
+          PUSH: "false"
 
       - name: Build supervisord image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
