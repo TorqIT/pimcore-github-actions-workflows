@@ -1,15 +1,15 @@
-name: ""
-description: ""
+name: "Docker Setup"
+description: "Sets up Docker for use in subsequent workflow steps"
 inputs:
   CONTAINER_REGISTRY:
     required: false
-    description: ""
+    description: "The Docker registry to log in to"
   CONTAINER_REGISTRY_USERNAME:
     required: false
-    description: ""
+    description: "The registry username"
   CONTAINER_REGISTRY_PASSWORD:
     required: false
-    description: ""
+    description: "The registry password"
 
 runs:
   using: "composite"

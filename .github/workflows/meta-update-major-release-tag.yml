@@ -1,4 +1,4 @@
-# This workflow isn't actually intended to be re-used - rather, it runs on this repo (how meta).
+# META - not reusable, runs directly on this repository
 
 name: Update major release tag
 

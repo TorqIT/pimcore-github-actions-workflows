@@ -1,11 +1,16 @@
-# Runs Pimcore tests. Typically these are run on Pull Requests, in which case you can trigger this workflow as follows:
+# Runs Pimcore tests. Typically these are run as part of Continuous Integration workflows.
+#
+# Invoke this workflow in your project's workflow as follows:
 # on:
 #   pull_request:
 #     types: [opened, reopened, synchronize]
 # jobs:
 #   unit-tests-on-pr:
 #     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/ci-run-tests.yml@v6
-# 
+#     permissions:
+#       contents: read
+#       actions: read
+#
 
 name: Run tests
 

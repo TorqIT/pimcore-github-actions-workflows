@@ -1,34 +1,34 @@
-name: ''
-description: ''
+name: "Azure Container Apps Deploy Revision"
+description: "Deploys a new revision of an Azure Container App"
 inputs:
+  TENANT:
+    required: true
+    description: "ID of the Azure tenant to deploy to"
+  SUBSCRIPTION:
+    required: true
+    description: "ID of the Azure subscription to deploy to"
   RESOURCE_GROUP:
     required: true
-    description: ""
-  CONTAINER_APP:
-    required: true
-    description: ""
+    description: "Name of the Azure Resource Group to deploy to"
   CONTAINER_REGISTRY:
     required: true
-    description: ""
+    description: "Name of the Azure Container Registry (fully qualified, e.g. myregistry.azurecr.io)"
   IMAGE:
     required: true
-    description: ""
+    description: "Name of the Docker image to use when deploying the revision. The github.run_id will be used as the tag."
+  CONTAINER_APP:
+    required: true
+    description: "Name of the Container App to deploy a new revision to"
   MULTI_REVISION:
     required: false
-    description: ""
+    description: "Whether the Container App is using a multi-revision setup"
     default: "false"
   SERVICE_PRINCIPAL_ID:
     required: true
-    description: ""
+    description: "The ID of the Service Principal in Azure that will be used to deploy. The Service Principal must have permission to deploy new revisions Container App"
   SERVICE_PRINCIPAL_PASSWORD:
     required: true
-    description: ""
-  TENANT:
-    required: true
-    description: ""
-  SUBSCRIPTION:
-    required: true
-    description: ""
+    description: "The password for the Service Principal in Azure"
 
 runs:
   using: "composite"

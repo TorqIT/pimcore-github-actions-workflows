@@ -1,4 +1,4 @@
-# Builds Pimcore Docker images. Useful for verification in continuous integration scenarios.
+# Builds Pimcore Docker images. Useful for verification in continuous integration scenarios, for example:
 # on:
 #   pull_request:
 #     types: [opened, reopened, synchronize]
@@ -20,53 +20,75 @@ on:
       RUNNER:
         required: false
         type: string
+        description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       NPM_BUILD:
         required: false
         type: boolean
+        description: "Whether an NPM build should be run prior to building the PHP image"
       NPM_RUN_CMD:
         required: false
         type: string
+        description: "The NPM command that should be run prior to building the PHP image"
       NPM_SPA:
         required: false
         type: boolean
+        description: "Whether the NPM build results in a single-page application"
       SPA_TWIG:
         required: false
         type: string
         default: "default/default.html.twig"
+        description: "The path to the Twig file where the result of the NPM single-page application build should be copied"
       SUBMODULES:
         required: false
         type: boolean
         default: false
+        description: "Whether to clone submodules when cloning the project repository"
       PIMCORE_ROOT:
         required: false
         type: string
         default: "."
+        description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, etc)"
+      INIT_DOCKERFILE:
+        required: false
+        type: string
+        default: ".docker/Dockerfile"
+        description: "The path (relative to the project's root) of the Dockerfile used to build the init image"
+      INIT_DOCKER_TARGET:
+        required: false
+        type: string
+        default: "init"
+        description: "The Docker target to use when building the init image"
       PHP_DOCKERFILE:
         required: false
         type: string
         default: ".docker/Dockerfile"
+        description: "The path (relative to the project's root) of the Dockerfile used to build the PHP image"
       PHP_DOCKER_TARGET:
         required: false
         type: string
         default: "php"
+        description: "The Docker target to use when building the PHP image"
       SUPERVISORD_DOCKERFILE:
         required: false
         type: string
         default: ".docker/Dockerfile"
+        description: "The path (relative to the project's root) of the Dockerfile used to build the supervisord image"
       SUPERVISORD_TARGET:
         required: false
         type: string
         default: "supervisord"
+        description: "The Docker target to use when building the supervisord image"
 
     secrets:
       PIMCORE_ENTERPRISE_TOKEN:
         required: false
-      ENCRYPTION_SECRET:
-        required: false
+        description: (Optional) The value of your project's Pimcore Enterprise Token
       TORQ_GITHUB_TOKEN:
         required: false
+        description: (Optional) A GitHub access token used to access private GitHub repositories
       RECAPTCHA_CLIENT_KEY:
         required: false
+        description: (Optional) A client key used when building NPM frontends that require ReCAPTCHA
 
 jobs:
   build-docker-images:
@@ -102,8 +124,8 @@ jobs:
       - name: Build init image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
-          DOCKERFILE_TARGET: init
-          DOCKERFILE_PATH: ./.docker/Dockerfile
+          DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKERFILE }}
+          DOCKERFILE_PATH: ${{ inputs.INIT_DOCKER_TARGET }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}

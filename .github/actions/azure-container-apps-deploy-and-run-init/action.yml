@@ -1,30 +1,33 @@
-name: ''
-description: ''
+name: "Azure Container Apps Deploy and Run Init"
+description: "Deploys and runs the Pimcore init Container App Job"
 inputs:
-  INIT_IMAGE:
-    required: true
-    description: ""
-  INIT_CONTAINER_APP_JOB:
-    required: true
-    description: ""
-  RESOURCE_GROUP:
-    required: true
-    description: ""
-  CONTAINER_REGISTRY:
-    required: true
-    description: ""
-  SERVICE_PRINCIPAL_ID:
-    required: true
-    description: ""
-  SERVICE_PRINCIPAL_PASSWORD:
-    required: true
-    description: ""
   TENANT:
     required: true
-    description: ""
+    description: "ID of the Azure tenant to deploy to"
   SUBSCRIPTION:
     required: true
-    description: ""
+    description: "ID of the Azure subscription to deploy to"
+  RESOURCE_GROUP:
+    required: true
+    description: "Name of the Azure Resource Group to deploy to"
+  CONTAINER_REGISTRY:
+    required: true
+    description: "Name of the Azure Container Registry (fully qualified, e.g. myregistry.azurecr.io)"
+  INIT_IMAGE:
+    required: true
+    description: "Name of the init Docker image to push to the registry"
+  INIT_CONTAINER_NAME:
+    required: true
+    description: "Name of the container inside the init Container App Job"
+  INIT_CONTAINER_APP_JOB:
+    required: true
+    description: "Name of the init Container App Job"
+  SERVICE_PRINCIPAL_ID:
+    required: true
+    description: "The ID of the Service Principal in Azure that will be used to deploy. The Service Principal must have permission to push images to the Container Registry and to deploy new revisions to the init, PHP and supervisord Container Apps."
+  SERVICE_PRINCIPAL_PASSWORD:
+    required: true
+    description: "The password for the Service Principal in Azure"
 
 runs:
   using: "composite"
@@ -85,7 +88,7 @@ runs:
               --resource-group ${{ inputs.RESOURCE_GROUP }} \
               --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
               --execution $executionName \
-              --container ${{ inputs.INIT_IMAGE }} \
+              --container ${{ inputs.INIT_CONTAINER_NAME }} \
               --follow true
 
             executionStatus=$(get_execution_status $executionName)

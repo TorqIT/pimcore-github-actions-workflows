@@ -1,3 +1,36 @@
+# Performs a backup of an Azure Disk and saves it to the same Resource Group.
+#
+# Invoke this workflow in your project's workflow as follows (example below triggers the workflow once per month):
+# on:
+#   schedule:
+#     - cron: "0 0 1 * *" 
+# jobs:
+#   disk-backup:
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-azure-disk-backup.yml@v6
+#     permissions:
+#       contents: read
+#       actions: read
+#     with:
+#       ENVIRONMENT: production
+#     secrets:
+#       SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+#       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+#       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+#
+# - AZURE_TENANT_ID
+#     description: ID of the Azure tenant to deploy to
+#     required: true
+# - AZURE_SUBSCRIPTION_ID
+#     description: ID of the Azure subscription to deploy to
+#     required: true
+# - AZURE_BACKUP_DISK_NAME
+#     description: Name of the disk to back up
+#     required: true
+# - AZURE_RESOURCE_GROUP
+#     description: Name of the Resource Group that hosts the disk
+#     required: true
+#
+
 name: Azure Disk Backup
 
 on:
@@ -8,16 +41,21 @@ on:
         type: string
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       ENVIRONMENT:
-        required: true
+        required: false
+        default: production
         type: string
+        description: "The GitHub Environment in which to run the workflow"
 
     secrets:
       SERVICE_PRINCIPAL_ID:
         required: true
+        description: The ID of the Service Principal in Azure that will be used to deploy. The Service Principal must have permission to create disk backups in the Resource Group.
       SERVICE_PRINCIPAL_PASSWORD:
         required: true
+        description: The password for the Service Principal in Azure
       SLACK_WEBHOOK_URL:
         required: true
+        description: Webhook URL to send job status messages to
 
 jobs:
   back-up-db:
@@ -46,7 +84,7 @@ jobs:
         with:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ vars.TENANT }}
+          TENANT: ${{ vars.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       
       - name: Create backup
@@ -55,11 +93,11 @@ jobs:
         with:
           inlineScript: |
             set -e
-            backupName=$(echo ${{ vars.AZURE_DISK_NAME }})-$(date +%s)
+            backupName=$(echo ${{ vars.AZURE_BACKUP_DISK_NAME }})-$(date +%s)
             az snapshot create \
-              --resource-group ${{ vars.RESOURCE_GROUP }} \
+              --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
               --name $backupName \
-              --source ${{ vars.AZURE_DISK_NAME }} \
+              --source ${{ vars.AZURE_BACKUP_DISK_NAME }} \
               --sku "Standard_ZRS" \
               --incremental true
             echo "backupName=$backupName" >> $GITHUB_OUTPUT

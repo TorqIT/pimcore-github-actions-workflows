@@ -1,18 +1,18 @@
-name: ''
-description: ''
+name: "Azure Login"
+description: "Logs in to Azure using the provided Service Principal credentials"
 inputs:
-  SERVICE_PRINCIPAL_ID:
-    required: true
-    description: ""
-  SERVICE_PRINCIPAL_PASSWORD:
-    required: true
-    description: ""
   TENANT:
     required: true
-    description: ""
+    description: "ID of the Azure tenant to log in to"
   SUBSCRIPTION:
     required: true
-    description: ""
+    description: "ID of the Azure subscription to log in to"
+  SERVICE_PRINCIPAL_ID:
+    required: true
+    description: "The ID of the Service Principal in Azure that will be used to log in"
+  SERVICE_PRINCIPAL_PASSWORD:
+    required: true
+    description: "The password for the Service Principal in Azure"
 
 runs:
   using: "composite"
@@ -23,7 +23,7 @@ runs:
         version: '1.7'
         force: true
 
-    - name: Build Azure credentials string
+    - name: Build Azure credentials JSON object
       shell: bash
       id: build-creds
       run: |

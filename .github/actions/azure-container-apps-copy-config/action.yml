@@ -1,12 +1,9 @@
-name: 'Copy Config Files'
-description: 'Copy in common configuration files required for a Pimcore deployment to Container Apps'
+name: "Copy Azure Container App Config Files"
+description: "Copy in common configuration files required for a Pimcore deployment to Container Apps"
 inputs:
   PIMCORE_ROOT:
     required: true
-    description: "Root of the Pimcore application in the client repository"
-  GITHUB_TOKEN:
-    required: true
-    description: "GitHub token"
+    description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, etc)"
 
 runs:
   using: "composite"

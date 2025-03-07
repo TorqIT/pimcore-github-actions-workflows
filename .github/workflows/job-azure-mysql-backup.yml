@@ -1,3 +1,46 @@
+# Performs a backup of an Azure Database for MySQL flexible server database and saves it to a Storage Account.
+#
+# Invoke this workflow in your project's workflow as follows (example below triggers the workflow once per month):
+# on:
+#   schedule:
+#     - cron: "0 0 1 * *" 
+# jobs:
+#   disk-backup:
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-azure-mysql-backup.yml@v6
+#     permissions:
+#       contents: read
+#       actions: read
+#     with:
+#       ENVIRONMENT: production
+#     secrets:
+#       SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+#       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+#       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+#
+# - AZURE_TENANT_ID
+#     description: ID of the Azure tenant to deploy to
+#     required: true
+# - AZURE_SUBSCRIPTION_ID
+#     description: ID of the Azure subscription to deploy to
+#     required: true
+# - AZURE_BACKUP_DISK_NAME
+#     description: Name of the disk to back up
+#     required: true
+# - AZURE_RESOURCE_GROUP
+#     description: Name of the Resource Group that hosts the server
+#     required: true
+# - AZURE_MYSQL_SERVER
+#     description: Name of the MySQL server
+#     required: true
+# - AZURE_DB_BACKUPS_STORAGE_ACCOUNT
+#     description: Name of the Storage Account in which to store backups
+#     required: true
+# - AZURE_MYSQL_USERNAME
+#     description: Username with which to log in to the server
+#     required: false
+#     default value: adminuser
+#
+
 name: Azure DB Backup
 
 on:
@@ -12,18 +55,23 @@ on:
         type: string
       AZURE_MARIADB:
         required: false
+        default: false
         type: boolean
         description: Set to true if backing up an Azure MariaDB server instead
 
     secrets:
       SERVICE_PRINCIPAL_ID:
         required: true
+        description: The ID of the Service Principal in Azure that will be used to deploy. The Service Principal must have permission to update settings on the MySQL server and on the Storage Account. It must also be able to create blobs in the Storage Account.
       SERVICE_PRINCIPAL_PASSWORD:
         required: true
+        description: The password for the Service Principal in Azure
       AZURE_MYSQL_PASSWORD:
         required: true  
+        description: The password used to log in to the MySQL server and perform the backup
       SLACK_WEBHOOK_URL:
         required: true
+        description: Webhook URL to send job status messages to
 
 jobs:
   back-up-db:
@@ -52,7 +100,7 @@ jobs:
         with:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ vars.TENANT }}
+          TENANT: ${{ vars.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       
       - name: Add temporary network rule for this runner to database server and Storage Account firewalls
@@ -65,14 +113,14 @@ jobs:
             if [ -n "${{ inputs.AZURE_MARIADB }}" ] && [ "${{ inputs.AZURE_MARIADB }}" == "true" ]; then
               az mariadb server firewall-rule create \
                 --server-name ${{ vars.AZURE_MYSQL_SERVER }} \
-                --resource-group ${{ vars.RESOURCE_GROUP }} \
+                --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
                 --name allow-runner-ip \
                 --start-ip-address $runnerIp \
                 --end-ip-address $runnerIp
             else
               az mysql flexible-server firewall-rule create \
                 --name ${{ vars.AZURE_MYSQL_SERVER }} \
-                --resource-group ${{ vars.RESOURCE_GROUP }} \
+                --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
                 --rule-name allow-runner-ip \
                 --start-ip-address $runnerIp \
                 --end-ip-address $runnerIp \
@@ -80,7 +128,7 @@ jobs:
             fi
             echo "Adding temporary network rule for this runner ($runnerIp) to Storage Account's firewall..."
             az storage account network-rule add \
-              --resource-group ${{ vars.RESOURCE_GROUP }} \
+              --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
               --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
               --ip-address $runnerIp \
               --verbose
@@ -127,12 +175,12 @@ jobs:
             if [ -n "${{ inputs.AZURE_MARIADB }}" ] && [ "${{ inputs.AZURE_MARIADB }}" == "true" ]; then
               az mariadb server firewall-rule delete \
                 --server-name ${{ vars.AZURE_MYSQL_SERVER }} \
-                --resource-group ${{ vars.RESOURCE_GROUP }} \
+                --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
                 --name allow-runner-ip \
                 --yes
             else
               az mysql flexible-server firewall-rule delete \
-                --resource-group ${{ vars.RESOURCE_GROUP }} \
+                --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
                 --name ${{ vars.AZURE_MYSQL_SERVER }} \
                 --rule-name allow-runner-ip \
                 --yes
@@ -146,7 +194,7 @@ jobs:
             set -e
             runnerIp=$(curl ipinfo.io/ip)
             az storage account network-rule remove \
-              --resource-group ${{ vars.RESOURCE_GROUP }} \
+              --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
               --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
               --ip-address $runnerIp
 

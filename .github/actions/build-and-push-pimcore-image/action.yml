@@ -1,56 +1,56 @@
-name: ''
-description: ''
+name: "Build and Push Pimcore Image"
+description: "Builds a Pimcore Docker image, and optionally pushes it to a Container Registry"
 inputs:
-  DOCKERFILE_PATH:
-    required: true
-    description: ""
-  DOCKERFILE_TARGET:
-    required: true
-    description: ""
-  PIMCORE_ENTERPRISE_TOKEN:
-    required: true
-    description: ""
-  TORQ_GITHUB_TOKEN:
-    required: true
-    description: ""
   CONTAINER_REGISTRY:
-    required: true
-    description: ""
-  IMAGE:
-    required: true
-    description: ""
+    required: false
+    description: "The Docker registry to push the image to"
+  PUSH:
+    required: false
+    description: "Whether to push the image to the registry"
+    default: "true"
   CACHE_FROM:
     required: false
-    description: ""
+    description: "Defines where to pull cached Docker layers from"
   CACHE_TO:
     required: false
-    description: ""
+    description: "Defines where to push cached Docker layers to"
+  TAGS:
+    required: false
+    description: "Defines the tags to associate with the image"
+  DOCKERFILE_PATH:
+    required: true
+    description: "The path (relative to the project's root) of the Dockerfile used to build image"
+  DOCKERFILE_TARGET:
+    required: true
+    description: "The Docker target to use when building the image"
+  IMAGE:
+    required: true
+    description: "The name of the Docker image to build"
+  PIMCORE_ROOT:
+    required: true
+    description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, etc)"
+  PIMCORE_ENTERPRISE_TOKEN:
+    required: true
+    description: "(Optional) The value of your project's Pimcore Enterprise Token"
+  TORQ_GITHUB_TOKEN:
+    required: true
+    description: "(Optional) A GitHub access token used to access private GitHub repositories"
   NPM_BUILD:
     required: false
     default: "false"
-    description: ""
-  NPM_SPA:
-    required: false
-    description: ""
+    description: "Whether an NPM build should be run prior to building the PHP image"
   NPM_RUN_CMD:
     required: false
-    description: ""
+    description: "The NPM command that should be run prior to building the PHP image"
+  NPM_SPA:
+    required: false
+    description: "Whether the NPM build results in a single-page application"
   SPA_TWIG:
     required: false
-    description: ""
+    description: "The path to the Twig file where the result of the NPM single-page application build should be copied"
   RECAPTCHA_CLIENT_KEY:
     required: false
-    description: ""
-  PIMCORE_ROOT:
-    required: true
-    description: ""
-  PUSH:
-    required: false
-    description: ""
-    default: "true"
-  TAGS:
-    required: false
-    description: ""
+    description: "(Optional) A client key used when building NPM frontends that require ReCAPTCHA"
 
 runs:
   using: "composite"
@@ -98,10 +98,6 @@ runs:
         context: .
         file: ${{ inputs.DOCKERFILE_PATH }}
         target: ${{ inputs.DOCKERFILE_TARGET }}
-        build-args: |
-          # TODO continuing to support for legacy projects, but these should not be injected as args
-          PIMCORE_ENTERPRISE_TOKEN=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
-          TORQ_GITHUB_TOKEN=${{ inputs.TORQ_GITHUB_TOKEN }}
         # During the build, the kernel secret's value is not important but it still must be set
         secrets: |
           pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            

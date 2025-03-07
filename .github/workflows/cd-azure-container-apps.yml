@@ -1,72 +1,149 @@
 # Builds, tags, and pushes Pimcore Docker images to an Azure Container Registry, and deploys them to Container Apps.
+# This workflow assumes an architecture similar to the one in https://github.com/TorqIT/pimcore-azure-provisioning - namely, an Azure Container Registry, an init Container App Job, a PHP Container App, and a supervisord Container App.
 #
-# Requires the following permissions to be set in the callig job:
-# permissions:
-#   contents: read
-#   actions: read
+# Invoke this workflow in your project's workflow as follows:
+# on:
+#   push:
+#     branches: [main, develop]
+# jobs:
+#   cd-azure-container-apps:
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/cd-azure-container-apps.yml@v6
+#     permissions:
+#       contents: read
+#       actions: read
+#     with:
+#       ENVIRONMENT: ${{ github.ref_name == 'main' && 'production' || 'test' }}
+#     secrets:
+#       SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+#       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+#
+# The GitHub Environments you use with this workflow will need the following variables:
+# - AZURE_TENANT_ID
+#     description: ID of the Azure tenant to deploy to
+#     required: true
+# - AZURE_SUBSCRIPTION_ID
+#     description: ID of the Azure subscription to deploy to
+#     required: true
+# - AZURE_RESOURCE_GROUP
+#     description: Name of the Azure Resource Group to deploy to
+#     required: true
+# - CONTAINER_REGISTRY
+#     description: Name of the Azure Container Registry to deploy to. This should be the fully qualified name - e.g. myregistry.azurecr.io
+#     required: true
+# - INIT_IMAGE
+#     description: Name of the init Docker image to push to the registry
+#     required: false
+#     default value: init
+# - INIT_CONTAINER_NAME
+#     description: Name of the container inside the init Container App Job
+#     required: false
+#     default value: init
+# - INIT_CONTAINER_APP_JOB
+#     description: Name of the init Container App Job
+#     required: true
+# - PHP_IMAGE
+#     description: Name of the PHP Docker image to push to the registry
+#     required: false
+#     default value: php
+# - PHP_CONTAINER_APP
+#     description: Name of the PHP Container App
+#     required: true
+# - SUPERVISORD_IMAGE
+#     description: Name of the supervisord Docker image to push to the registry
+#     required: false
+#     default value: supervisord
+# - SUPERVISORD_CONTAINER_APP
+#     description: Name of the supervisord Container App
+#     required: true
+#
 
 name: Azure Container Apps Deployment
 
 on:
   workflow_call:
     inputs:
+      ENVIRONMENT:
+        required: true
+        type: string
+        description: "The GitHub Environment in which to run the workflow"
       RUNNER:
         required: false
         type: string
+        description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       NPM_BUILD:
         required: false
         type: boolean
+        description: "Whether an NPM build should be run prior to building the PHP image"
       NPM_RUN_CMD:
         required: false
         type: string
+        description: "The NPM command that should be run prior to building the PHP image"
       NPM_SPA:
         required: false
         type: boolean
+        description: "Whether the NPM build results in a single-page application"
       SPA_TWIG:
         required: false
         type: string
         default: "default/default.html.twig"
-      ENVIRONMENT:
-        required: true
-        type: string
+        description: "The path to the Twig file where the result of the NPM single-page application build should be copied"
       SUBMODULES:
         required: false
         type: boolean
         default: false
+        description: "Whether to clone submodules when cloning the project repository"
       PIMCORE_ROOT:
         required: false
         type: string
         default: "pimcore-root"
+        description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, etc)"
+      INIT_DOCKERFILE:
+        required: false
+        type: string
+        default: ".docker/Dockerfile"
+        description: "The path (relative to the project's root) of the Dockerfile used to build the init image"
+      INIT_DOCKER_TARGET:
+        required: false
+        type: string
+        default: "init"
+        description: "The Docker target to use when building the init image"
       PHP_DOCKERFILE:
         required: false
         type: string
         default: ".docker/Dockerfile"
+        description: "The path (relative to the project's root) of the Dockerfile used to build the PHP image"
       PHP_DOCKER_TARGET:
         required: false
         type: string
         default: "php"
+        description: "The Docker target to use when building the PHP image"
       SUPERVISORD_DOCKERFILE:
         required: false
         type: string
         default: ".docker/Dockerfile"
+        description: "The path (relative to the project's root) of the Dockerfile used to build the supervisord image"
       SUPERVISORD_TARGET:
         required: false
         type: string
         default: "supervisord"
+        description: "The Docker target to use when building the supervisord image"
 
     secrets:
       SERVICE_PRINCIPAL_ID:
         required: true
+        description: The ID of the Service Principal in Azure that will be used to deploy. The Service Principal must have permission to push images to the Container Registry and to deploy new revisions to the init, PHP and supervisord Container Apps.
       SERVICE_PRINCIPAL_PASSWORD:
         required: true
+        description: The password for the Service Principal in Azure
       PIMCORE_ENTERPRISE_TOKEN:
         required: false
-      ENCRYPTION_SECRET:
-        required: false
+        description: (Optional) The value of your project's Pimcore Enterprise Token
       TORQ_GITHUB_TOKEN:
         required: false
+        description: (Optional) A GitHub access token used to access private GitHub repositories
       RECAPTCHA_CLIENT_KEY:
         required: false
+        description: (Optional) A client key used when building NPM frontends that require ReCAPTCHA
 
 jobs:
   build-and-push-images-and-run-init:
@@ -97,10 +174,9 @@ jobs:
           fetch-depth: 1
 
       - name: Copy config files required for running in Azure
-        uses: ./reusable-workflow/.github/actions/container-apps-copy-config
+        uses: ./reusable-workflow/.github/actions/azure-container-apps-copy-config
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
@@ -112,8 +188,8 @@ jobs:
       - name: Build and push init image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
-          DOCKERFILE_PATH: ./.docker/Dockerfile
-          DOCKERFILE_TARGET: init
+          DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
+          DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
@@ -137,8 +213,8 @@ jobs:
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
           TAGS: |
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE || 'php' }}:latest,
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_FPM_IMAGE || 'php' }}:${{ github.run_id }}
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:latest,
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:${{ github.run_id }}
 
       - name: Build and push supervisord image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -153,16 +229,16 @@ jobs:
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
 
       - name: Deploy and run init Container App Job
-        uses: ./reusable-workflow/.github/actions/container-apps-deploy-and-run-init
+        uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-and-run-init
         with:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ vars.TENANT }}
+          TENANT: ${{ vars.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           INIT_IMAGE: ${{ vars.INIT_IMAGE || 'init' }}
           INIT_CONTAINER_NAME: ${{ vars.INIT_CONTAINER_NAME || 'init' }}
           INIT_CONTAINER_APP_JOB: ${{ vars.INIT_CONTAINER_APP_JOB }}
-          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
     
   deploy-php-container-app-revision:
@@ -192,16 +268,16 @@ jobs:
           fetch-depth: 1
 
       - name: Deploy new revision of Container App
-        uses: ./reusable-workflow/.github/actions/container-apps-deploy-revision
+        uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-revision
         with:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ vars.TENANT }}
+          TENANT: ${{ vars.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          CONTAINER_APP: ${{ vars.PHP_FPM_CONTAINER_APP }}
-          IMAGE: ${{ vars.PHP_FPM_IMAGE || 'php' }}
+          CONTAINER_APP: ${{ vars.PHP_CONTAINER_APP }}
+          IMAGE: ${{ vars.PHP_IMAGE || 'php' }}
           MULTI_REVISION: "true"
 
   # TODO using a matrix to de-duplicate these two jobs does not seem possible as we are using the "vars" context, which matrices seem to be unable to access (inputs appear empty)
@@ -232,13 +308,13 @@ jobs:
           fetch-depth: 1
 
       - name: Deploy new revision of Container App
-        uses: ./reusable-workflow/.github/actions/container-apps-deploy-revision
+        uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-revision
         with:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ vars.TENANT }}
+          TENANT: ${{ vars.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_APP: ${{ vars.SUPERVISORD_CONTAINER_APP }}
           IMAGE: ${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}
