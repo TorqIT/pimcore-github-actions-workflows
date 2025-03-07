@@ -95,7 +95,7 @@ on:
       PIMCORE_ROOT:
         required: false
         type: string
-        default: "pimcore-root"
+        default: "."
         description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, etc)"
       INIT_DOCKERFILE:
         required: false
