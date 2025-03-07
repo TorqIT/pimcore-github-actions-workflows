@@ -26,7 +26,7 @@
 # - AZURE_SUBSCRIPTION_ID
 #     description: ID of the Azure subscription to deploy to
 #     required: true
-# - AZURE_RESOURCE_GROUP
+# - RESOURCE_GROUP
 #     description: Name of the Azure Resource Group to deploy to
 #     required: true
 # - PHP_CONTAINER_APP
@@ -98,7 +98,7 @@ jobs:
             tdnf install -y gawk
 
             timestampOfLatestRevision=$(az containerapp revision list \
-              --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+              --resource-group ${{ vars.RESOURCE_GROUP }} \
               --name ${{ vars.PHP_CONTAINER_APP }} \
               --output table | tail -n 1 | awk '{ print $1 }')
             echo "Timestamp of latest revision: $timestampOfLatestRevision"
@@ -114,7 +114,7 @@ jobs:
               # safely deactivate those revisions. 
               echo "Fetching revisions to deactivate..."
               revisionsToDeactivate=$(az containerapp revision list \
-                --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+                --resource-group ${{ vars.RESOURCE_GROUP }} \
                 --name ${{ vars.PHP_CONTAINER_APP }} \
                 --output table | sed 1,2d | head -n -1 | awk '{ print $7 }')
               echo "Revisions to deactivate: ${revisionsToDeactivate[*]}"
@@ -126,7 +126,7 @@ jobs:
                 do 
                   echo "Deactivating revision $revision"
                   az containerapp revision deactivate \
-                    --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+                    --resource-group ${{ vars.RESOURCE_GROUP }} \
                     --name ${{ vars.PHP_CONTAINER_APP }} \
                     --revision $revision
                 done

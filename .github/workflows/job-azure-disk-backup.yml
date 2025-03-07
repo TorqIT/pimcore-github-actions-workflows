@@ -26,7 +26,7 @@
 # - AZURE_BACKUP_DISK_NAME
 #     description: Name of the disk to back up
 #     required: true
-# - AZURE_RESOURCE_GROUP
+# - RESOURCE_GROUP
 #     description: Name of the Resource Group that hosts the disk
 #     required: true
 #
@@ -95,7 +95,7 @@ jobs:
             set -e
             backupName=$(echo ${{ vars.AZURE_BACKUP_DISK_NAME }})-$(date +%s)
             az snapshot create \
-              --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+              --resource-group ${{ vars.RESOURCE_GROUP }} \
               --name $backupName \
               --source ${{ vars.AZURE_BACKUP_DISK_NAME }} \
               --sku "Standard_ZRS" \

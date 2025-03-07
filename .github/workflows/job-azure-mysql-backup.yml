@@ -26,7 +26,7 @@
 # - AZURE_BACKUP_DISK_NAME
 #     description: Name of the disk to back up
 #     required: true
-# - AZURE_RESOURCE_GROUP
+# - RESOURCE_GROUP
 #     description: Name of the Resource Group that hosts the server
 #     required: true
 # - AZURE_MYSQL_SERVER
@@ -113,14 +113,14 @@ jobs:
             if [ -n "${{ inputs.AZURE_MARIADB }}" ] && [ "${{ inputs.AZURE_MARIADB }}" == "true" ]; then
               az mariadb server firewall-rule create \
                 --server-name ${{ vars.AZURE_MYSQL_SERVER }} \
-                --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+                --resource-group ${{ vars.RESOURCE_GROUP }} \
                 --name allow-runner-ip \
                 --start-ip-address $runnerIp \
                 --end-ip-address $runnerIp
             else
               az mysql flexible-server firewall-rule create \
                 --name ${{ vars.AZURE_MYSQL_SERVER }} \
-                --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+                --resource-group ${{ vars.RESOURCE_GROUP }} \
                 --rule-name allow-runner-ip \
                 --start-ip-address $runnerIp \
                 --end-ip-address $runnerIp \
@@ -128,7 +128,7 @@ jobs:
             fi
             echo "Adding temporary network rule for this runner ($runnerIp) to Storage Account's firewall..."
             az storage account network-rule add \
-              --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+              --resource-group ${{ vars.RESOURCE_GROUP }} \
               --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
               --ip-address $runnerIp \
               --verbose
@@ -175,12 +175,12 @@ jobs:
             if [ -n "${{ inputs.AZURE_MARIADB }}" ] && [ "${{ inputs.AZURE_MARIADB }}" == "true" ]; then
               az mariadb server firewall-rule delete \
                 --server-name ${{ vars.AZURE_MYSQL_SERVER }} \
-                --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+                --resource-group ${{ vars.RESOURCE_GROUP }} \
                 --name allow-runner-ip \
                 --yes
             else
               az mysql flexible-server firewall-rule delete \
-                --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+                --resource-group ${{ vars.RESOURCE_GROUP }} \
                 --name ${{ vars.AZURE_MYSQL_SERVER }} \
                 --rule-name allow-runner-ip \
                 --yes
@@ -194,7 +194,7 @@ jobs:
             set -e
             runnerIp=$(curl ipinfo.io/ip)
             az storage account network-rule remove \
-              --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+              --resource-group ${{ vars.RESOURCE_GROUP }} \
               --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
               --ip-address $runnerIp
 

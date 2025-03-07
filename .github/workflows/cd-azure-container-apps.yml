@@ -24,7 +24,7 @@
 # - AZURE_SUBSCRIPTION_ID
 #     description: ID of the Azure subscription to deploy to
 #     required: true
-# - AZURE_RESOURCE_GROUP
+# - RESOURCE_GROUP
 #     description: Name of the Azure Resource Group to deploy to
 #     required: true
 # - CONTAINER_REGISTRY
@@ -238,7 +238,7 @@ jobs:
           INIT_IMAGE: ${{ vars.INIT_IMAGE || 'init' }}
           INIT_CONTAINER_NAME: ${{ vars.INIT_CONTAINER_NAME || 'init' }}
           INIT_CONTAINER_APP_JOB: ${{ vars.INIT_CONTAINER_APP_JOB }}
-          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
     
   deploy-php-container-app-revision:
@@ -274,7 +274,7 @@ jobs:
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           TENANT: ${{ vars.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_APP: ${{ vars.PHP_CONTAINER_APP }}
           IMAGE: ${{ vars.PHP_IMAGE || 'php' }}
@@ -314,7 +314,7 @@ jobs:
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           TENANT: ${{ vars.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_APP: ${{ vars.SUPERVISORD_CONTAINER_APP }}
           IMAGE: ${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}
