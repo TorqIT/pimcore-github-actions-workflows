@@ -146,6 +146,7 @@ jobs:
             -h $dbHost \
             -u $dbUser \
             --ssl-mode=REQUIRED \
+            --ssl-mode=VERIFY_CA \
             --ssl-ca ./reusable-workflow/.azure/config/db/DigiCertGlobalRootCA.crt.pem \
             ${{ vars.AZURE_MYSQL_DATABASE || 'pimcore' }} \
             > $fileName
