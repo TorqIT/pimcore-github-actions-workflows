@@ -119,7 +119,7 @@ jobs:
             runnerIp=$(curl ipinfo.io/ip)
             az storage account network-rule remove \
               --resource-group ${{ vars.RESOURCE_GROUP }} \
-              --account-name ${{ vars.AZURE_FILES_STORAGE_ACCOUNT  }} \
+              --account-name ${{ vars.AZURE_FILES_STORAGE_ACCOUNT }} \
               --ip-address $runnerIp
 
       - name: Send job status to Slack
