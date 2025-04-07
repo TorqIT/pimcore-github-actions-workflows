@@ -5,7 +5,7 @@
 #   schedule:
 #     - cron: "0 0 1 * *" 
 # jobs:
-#   disk-backup:
+#   db-backup:
 #     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-azure-mysql-backup.yml@v6
 #     permissions:
 #       contents: read
@@ -22,9 +22,6 @@
 #     required: true
 # - AZURE_SUBSCRIPTION_ID
 #     description: ID of the Azure subscription to deploy to
-#     required: true
-# - AZURE_BACKUP_DISK_NAME
-#     description: Name of the disk to back up
 #     required: true
 # - RESOURCE_GROUP
 #     description: Name of the Resource Group that hosts the server
