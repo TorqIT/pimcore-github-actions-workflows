@@ -129,7 +129,7 @@ jobs:
       #     webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
       #     webhook-type: incoming-webhook
       #     payload: |
-      #       text: "*Azure MySQL Database backup job*"
+      #       text: "*Azure NFS File Share Backup Job*"
       #       blocks:
       #         - type: "section"
       #           text:
