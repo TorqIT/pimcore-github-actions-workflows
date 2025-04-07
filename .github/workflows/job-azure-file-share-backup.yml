@@ -134,5 +134,5 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Azure NFS File Share backup job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\nSnapshot *${{ steps.dump.outputs.fileName }}* created\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  text: "*Azure NFS File Share backup job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\nSnapshot *${{ steps.snapshot.outputs.fileName }}* created\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           
