@@ -99,8 +99,8 @@ jobs:
               --account-name ${{ vars.AZURE_FILES_STORAGE_ACCOUNT }} \
               --ip-address $runnerIp \
               --verbose
-            echo "Sleep for 120 seconds to allow network rule to propagate to Storage Account..."
-            sleep 120
+            echo "Sleep for 180 seconds to allow network rule to propagate to Storage Account..."
+            sleep 180
 
       - name: Create a snapshot of the File Share
         id: snapshot
