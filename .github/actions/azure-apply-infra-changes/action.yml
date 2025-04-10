@@ -31,7 +31,6 @@ runs:
       if: steps.changed-azure-files.outputs.any_changed == 'false'
       run: echo "No files in ${{ inputs.AZURE_DIRECTORY }} have changed, so nothing to do!"
 
-
     - name: Build and start container
       shell: bash
       if: steps.changed-azure-files.outputs.any_changed == 'true'
