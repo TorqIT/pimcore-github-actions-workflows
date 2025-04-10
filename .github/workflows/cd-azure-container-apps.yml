@@ -130,7 +130,7 @@ on:
       DOCKER_COMPOSE_FILE:
         required: false
         type: string
-        default: "./docker-compose.yml"
+        default: "docker-compose.yml"
         description: "Path to Docker Compose file"
       AZURE_SERVICE:
         required: false
