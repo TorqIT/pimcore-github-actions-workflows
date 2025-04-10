@@ -45,8 +45,8 @@ runs:
       shell: bash
       run: |
         touch .env
-        PARAMETERS_FILE=${{ inputs.PARAMETERS_FILE }}
         docker exec \
           --env-file .env \
+          -v ${{ inputs.PARAMETERS_FILE }}:/azure/parameters.json
           azure \
-            ./provision-quick.sh $PARAMETERS_FILE
+            ./provision-quick.sh parameters.json
