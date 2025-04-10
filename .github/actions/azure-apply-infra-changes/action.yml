@@ -4,9 +4,6 @@ inputs:
   TENANT:
     required: true
     description: "ID of the Azure tenant to log in to"
-  DOCKER_COMPOSE_FILE:
-    required: false
-    description: "Docker Compose file containing the Azure service"
   PARAMETERS_FILE:
     required: false
     description: "Azure parameters file path"
@@ -16,9 +13,6 @@ inputs:
   SERVICE_PRINCIPAL_PASSWORD:
     required: true
     description: "The password for the Service Principal in Azure"
-  AZURE_SERVICE:
-    required: true
-    description: "Name of the Azure provisioning service inside the Docker Compose file"
 
 runs:
   using: "composite"
@@ -27,10 +21,10 @@ runs:
       shell: bash
       run: |
         touch .env
-        docker compose \
-          --file ${{ inputs.DOCKER_COMPOSE_FILE }} \
-          up -d \
-          ${{ inputs.AZURE_SERVICE }}
+        docker run \
+          --name azure \
+          -d \
+          ghcr.io/torqit/pimcore-azure-provisioning:2
 
     - name: Log in to Azure inside container
       shell: bash
@@ -39,10 +33,9 @@ runs:
         TENANT=$(jq -r '.parameters.tenantId.value' ${{ inputs.PARAMETERS_FILE }}) >> .env
         SERVICE_PRINCIPAL_ID=${{ inputs.SERVICE_PRINCIPAL_ID }} >> .env
         SERVICE_PRINCIPAL_PASSWORD=${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} >> .env
-        docker compose \
-          --file ${{ inputs.DOCKER_COMPOSE_FILE }} \
+        docker exec 
           --env-file .env \
-          exec azure \
+          azure \
             az login --tenant $TENANT \
               --service-principal \
                 --username $SERVICE_PRINCIPAL_ID \
@@ -53,7 +46,7 @@ runs:
       run: |
         touch .env
         PARAMETERS_FILE=${{ inputs.PARAMETERS_FILE }}
-        docker compose \
-          --file ${{ inputs.DOCKER_COMPOSE_FILE }} \
-          exec azure \
+        docker exec 
+          --env-file .env \
+          azure \
             ./provision-quick.sh $PARAMETERS_FILE

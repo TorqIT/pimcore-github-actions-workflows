@@ -127,16 +127,6 @@ on:
         type: string
         default: "supervisord"
         description: "The Docker target to use when building the supervisord image"
-      DOCKER_COMPOSE_FILE:
-        required: false
-        type: string
-        default: "docker-compose.yml"
-        description: "Path to Docker Compose file"
-      AZURE_SERVICE:
-        required: false
-        type: string
-        default: "azure"
-        description: "Azure provisioning service name in Docker Compose file"
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -244,9 +234,7 @@ jobs:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           TENANT: ${{ vars.AZURE_TENANT_ID }}
-          DOCKER_COMPOSE_FILE: ${{ inputs.DOCKER_COMPOSE_FILE }}
           PARAMETERS_FILE: ${{ vars.AZURE_PARAMETERS_FILE || format('./azure/parameters.{0}.json', inputs.ENVIRONMENT)}}
-          AZURE_SERVICE: ${{ inputs.AZURE_SERVICE }}
 
       - name: Deploy and run init Container App Job
         uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-and-run-init
