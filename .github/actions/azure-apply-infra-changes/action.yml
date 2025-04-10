@@ -33,7 +33,7 @@ runs:
         TENANT=$(jq -r '.parameters.tenantId.value' ${{ inputs.PARAMETERS_FILE }}) >> .env
         SERVICE_PRINCIPAL_ID=${{ inputs.SERVICE_PRINCIPAL_ID }} >> .env
         SERVICE_PRINCIPAL_PASSWORD=${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} >> .env
-        docker exec 
+        docker exec \
           --env-file .env \
           azure \
             az login --tenant $TENANT \
