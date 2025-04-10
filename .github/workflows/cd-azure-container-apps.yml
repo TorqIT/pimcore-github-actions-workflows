@@ -127,6 +127,11 @@ on:
         type: string
         default: "supervisord"
         description: "The Docker target to use when building the supervisord image"
+      AZURE_DIRECTORY:
+        required: false
+        type: string
+        default: ".azure"
+        description: "The path (relative to the project's root) of the directory containing the project's Azure parameter files"
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -235,6 +240,7 @@ jobs:
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           TENANT: ${{ vars.AZURE_TENANT_ID }}
           PARAMETERS_FILE: ${{ vars.AZURE_PARAMETERS_FILE || format('./azure/parameters.{0}.json', inputs.ENVIRONMENT)}}
+          AZURE_DIRECTORY: ${{ inputs.AZURE_DIRECTORY }}
 
       - name: Deploy and run init Container App Job
         uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-and-run-init

@@ -6,29 +6,38 @@ inputs:
     description: "ID of the Azure tenant to log in to"
   PARAMETERS_FILE:
     required: false
-    description: "Azure parameters file path"
+    description: "Azure parameters file path, relative to the project root"
   SERVICE_PRINCIPAL_ID:
     required: true
     description: "The ID of the Service Principal in Azure that will be used to log in"
   SERVICE_PRINCIPAL_PASSWORD:
     required: true
     description: "The password for the Service Principal in Azure"
+  AZURE_DIRECTORY:
+    required: true
+    description: "Directory containing the Azure parameters file"
 
 runs:
   using: "composite"
   steps:
+    - name: Determine if any files under the Azure directory have changed
+      id: changed-azure-files
+      uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c # v46
+      with:
+        files: ${{ inputs.AZURE_DIRECTORY }}/**
+
     - name: Build and start container
       shell: bash
       run: |
-        touch .env
         docker run \
           --name azure \
           -d \
           -v ./${{ inputs.PARAMETERS_FILE }}:/azure/parameters.json \
           ghcr.io/torqit/pimcore-azure-provisioning:quick-provisioning
 
-    - name: Log in to Azure inside container
+    - name: Apply infrastructure changes
       shell: bash
+      if: steps.changed-azure-files.outputs.any_changed == 'true'
       run: |
         touch .env
         TENANT=$(jq -r '.parameters.tenantId.value' ${{ inputs.PARAMETERS_FILE }}) >> .env
@@ -41,12 +50,6 @@ runs:
               --service-principal \
                 --username $SERVICE_PRINCIPAL_ID \
                 --password $SERVICE_PRINCIPAL_PASSWORD
-
-    - name: Apply infrastructure changes
-      shell: bash
-      run: |
-        touch .env
         docker exec \
-          --env-file .env \
           azure \
-            ./provision-quick.sh parameters.json
+            /azure/provision-quick.sh parameters.json
