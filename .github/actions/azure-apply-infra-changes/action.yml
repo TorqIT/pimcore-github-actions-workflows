@@ -25,9 +25,16 @@ runs:
       uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c # v46
       with:
         files: ${{ inputs.AZURE_DIRECTORY }}/**
+    
+    - name: Echo if no files changed
+      shell: bash
+      if: steps.changed-azure-files.outputs.any_changed == 'false'
+      run: echo "No files in ${{ inputs.AZURE_DIRECTORY }} have changed, so nothing to do!"
+
 
     - name: Build and start container
       shell: bash
+      if: steps.changed-azure-files.outputs.any_changed == 'true'
       run: |
         docker run \
           --name azure \
