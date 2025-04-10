@@ -24,7 +24,7 @@ runs:
         docker run \
           --name azure \
           -d \
-          ghcr.io/torqit/pimcore-azure-provisioning:2
+          ghcr.io/torqit/pimcore-azure-provisioning:quick-provisioning
 
     - name: Log in to Azure inside container
       shell: bash
