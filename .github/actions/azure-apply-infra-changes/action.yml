@@ -42,7 +42,7 @@ runs:
           --name azure \
           -d \
           -v ./${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }}:/azure/parameters.json \
-          ghcr.io/torqit/pimcore-azure-provisioning:remove-db-dependson
+          ghcr.io/torqit/pimcore-azure-provisioning:${{ inputs.AZURE_IMAGE_TAG }}
 
     - name: Apply infrastructure changes
       shell: bash
