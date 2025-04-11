@@ -13,6 +13,9 @@ inputs:
   AZURE_DIRECTORY:
     required: true
     description: "Directory containing the Azure parameters file"
+  AZURE_PARAMETERS_FILE:
+    required: true
+    description: "Azure parameters file to base changes on - assumed to be under the directory defined by AZURE_DIRECTORY"
   AZURE_IMAGE_TAG:
     required: true
     description: "Tag to use when pulling the TORQ Azure provisioning image"
@@ -24,7 +27,7 @@ runs:
       id: changed-azure-files
       uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c # v46
       with:
-        files: ${{ inputs.AZURE_DIRECTORY }}/*.json
+        files: ${{ inputs.AZURE_DIRECTORY }}/**
     
     - name: Echo if no files changed
       shell: bash
@@ -35,11 +38,7 @@ runs:
       shell: bash
       id: apply
       if: steps.changed-azure-files.outputs.any_changed == 'true'
-      env:
-          CHANGED_FILES: ${{ steps.changed-azure-files.outputs.all_changed_files }}
       run: |
-        echo Changed files in ${{ inputs.AZURE_DIRECTORY }}: $CHANGED_FILES
-
         echo "Pulling and starting Azure container..."
         docker run \
           --name azure \
@@ -47,25 +46,18 @@ runs:
           -v ./${{ inputs.AZURE_DIRECTORY }}:/azure/${{ inputs.AZURE_DIRECTORY }} \
           ghcr.io/torqit/pimcore-azure-provisioning:${{ inputs.AZURE_IMAGE_TAG }}
 
-        for file in ${CHANGED_FILES[@]}; do
-          echo "Logging into Azure via container based on file $file..."
-          touch .env
-          TENANT=$(jq -r '.parameters.tenantId.value' ./$file) >> .env
-          SERVICE_PRINCIPAL_ID=${{ inputs.SERVICE_PRINCIPAL_ID }} >> .env
-          SERVICE_PRINCIPAL_PASSWORD=${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} >> .env
-          docker exec \
-            --env-file .env \
-            azure \
-              az login --tenant $TENANT \
-                --service-principal \
-                  --username $SERVICE_PRINCIPAL_ID \
-                  --password $SERVICE_PRINCIPAL_PASSWORD
+        echo "Logging into Azure via container..."
+        docker exec \
+          azure \
+            az login --tenant $(jq -r '.parameters.tenantId.value' ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }}) \
+              --service-principal \
+                --username ${{ inputs.SERVICE_PRINCIPAL_ID }} \
+                --password ${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} 
 
-          echo "Applying Azure infrastructure changes based on file $file..."
-          docker exec \
-            azure \
-              ./provision-quick.sh $file
-        done
+        echo "Applying Azure infrastructure changes based on file $file..."
+        docker exec \
+          azure \
+            ./provision-quick.sh ${{ inputs.AZURE_DIRECTORY }}
 
     - name: Stop deployment in case of failure/cancellation
       shell: bash
@@ -77,13 +69,11 @@ runs:
         if [ ${{ steps.apply.outcome }} == 'failure' ] || [ ${{ steps.apply.outcome }} == 'cancelled' ]; then
           for file in ${CHANGED_FILES[@]}; do
             echo "Stopping deployment main based on file $file..."
-            RESOURCE_GROUP=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.AZURE_DIRECTORY }}/$file) >> .env
             set +e
             docker exec \
-              --env-file .env \
               azure \
                 az deployment group cancel \
-                  --resource-group $RESOURCE_GROUP \
+                  --resource-group $(jq -r '.parameters.resourceGroupName.value' ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }}) \
                   --name main
             set -e
           done
