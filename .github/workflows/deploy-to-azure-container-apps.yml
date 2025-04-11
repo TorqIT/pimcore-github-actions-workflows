@@ -6,8 +6,8 @@
 #   push:
 #     branches: [main, develop]
 # jobs:
-#   cd-azure-container-apps:
-#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/cd-azure-container-apps.yml@v6
+#   deploy-to-azure-container-apps:
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/deploy-to-azure-container-apps.yml@v7
 #     permissions:
 #       contents: read
 #       actions: read
@@ -176,7 +176,7 @@ jobs:
         uses: canonical/get-workflow-version-action@v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: cd-azure-container-apps.yml
+          file-name: deploy-to-azure-container-apps.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
@@ -280,7 +280,7 @@ jobs:
         uses: canonical/get-workflow-version-action@v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: cd-azure-container-apps.yml
+          file-name: deploy-to-azure-container-apps.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
@@ -320,7 +320,7 @@ jobs:
         uses: canonical/get-workflow-version-action@v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: cd-azure-container-apps.yml
+          file-name: deploy-to-azure-container-apps.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions

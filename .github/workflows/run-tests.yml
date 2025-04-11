@@ -6,7 +6,7 @@
 #     types: [opened, reopened, synchronize]
 # jobs:
 #   unit-tests-on-pr:
-#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/ci-run-tests.yml@v6
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/run-tests.yml@v7
 #     permissions:
 #       contents: read
 #       actions: read
@@ -47,7 +47,7 @@ jobs:
         uses: canonical/get-workflow-version-action@v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: ci-run-tests.yml
+          file-name: run-tests.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions

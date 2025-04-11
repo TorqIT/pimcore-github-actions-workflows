@@ -4,7 +4,7 @@
 #     types: [opened, reopened, synchronize]
 # jobs:
 #   build-images:
-#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/ci-docker-builds@v6
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/docker-builds@v7
 #
 # Requires the following permissions to be set in the callig job:
 # permissions:
@@ -107,7 +107,7 @@ jobs:
         uses: canonical/get-workflow-version-action@v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: ci-docker-builds.yml
+          file-name: docker-builds.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions

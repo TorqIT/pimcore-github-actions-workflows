@@ -6,7 +6,7 @@
 #     - cron: "0 0 1 * *" 
 # jobs:
 #   file-share-backup:
-#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-azure-file-share-backup.yml@v6
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-azure-file-share-backup.yml@v7
 #     permissions:
 #       contents: read
 #       actions: read

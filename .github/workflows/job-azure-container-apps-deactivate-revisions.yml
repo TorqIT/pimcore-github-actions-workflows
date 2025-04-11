@@ -9,7 +9,7 @@
 # The ENVIRONMENTS input requires an array of GitHub Environments, formatted as follows:
 # jobs:
 #   deactivate-old-revisions:
-#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/container-apps-deactivate-old-revisions.yml@v6
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/container-apps-deactivate-old-revisions.yml@v7
 #     permissions:
 #       actions: read
 #       contents: read

@@ -18,7 +18,7 @@ jobs:
       secret2: value
 ```
 
-where `workflow-file.yml` refers to the actual workflow file you wish to use, and `sha` refers to a commit SHA, tag (e.g. `v6`) or branch name (e.g. `main`). This repository uses a semantic versioning scheme, so referring to a major tag (e.g. `v6`) will allow you to automatically get fixes/non-breaking improvements.
+where `workflow-file.yml` refers to the actual workflow file you wish to use, and `sha` refers to a commit SHA, tag (e.g. `v7`) or branch name (e.g. `main`). This repository uses a semantic versioning scheme, so referring to a major tag (e.g. `v7`) will allow you to automatically get fixes/non-breaking improvements.
 
 ### Environment variables
 
