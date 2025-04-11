@@ -81,12 +81,14 @@ runs:
           for file in ${CHANGED_FILES[@]}; do
             echo "Stopping deployment main based on file $file..."
             RESOURCE_GROUP=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.AZURE_DIRECTORY }}/$file) >> .env
+            set +e
             docker exec \
               --env-file .env \
               azure \
                 az deployment group cancel \
                   --resource-group $RESOURCE_GROUP \
                   --name main
+            set -e
           done
         else
           echo "No deployments to stop"
