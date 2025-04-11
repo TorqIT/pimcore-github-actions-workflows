@@ -53,6 +53,7 @@ runs:
         TENANT=$(jq -r '.parameters.tenantId.value' ./${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }}) >> .env
         SERVICE_PRINCIPAL_ID=${{ inputs.SERVICE_PRINCIPAL_ID }} >> .env
         SERVICE_PRINCIPAL_PASSWORD=${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} >> .env
+        echo "Logging into Azure via container..."
         docker exec \
           --env-file .env \
           azure \
@@ -60,6 +61,7 @@ runs:
               --service-principal \
                 --username $SERVICE_PRINCIPAL_ID \
                 --password $SERVICE_PRINCIPAL_PASSWORD
+        echo "Applying Azure infrastructure changes..."
         docker exec \
           azure \
             /azure/provision-quick.sh parameters.json
@@ -70,6 +72,7 @@ runs:
       continue-on-error: true
       run: |
         if [ ${{ steps.deploy.outcome }} == 'failure' ] || [ ${{ steps.deploy.outcome }} == 'cancelled' ]; then
+          echo "Stopping deployment main..."
           RESOURCE_GROUP=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }}) >> .env
           docker exec \
             --env-file .env \
@@ -77,4 +80,11 @@ runs:
               az deployment group cancel \
                 --resource-group $RESOURCE_GROUP \
                 --name main
+        else
+          echo "No deployments to stop"
         fi
+
+    - name: Clean up container
+      shell: bash
+      if: always()
+      run: docker rm --force azure
