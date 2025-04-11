@@ -51,7 +51,7 @@ runs:
             ghcr.io/torqit/pimcore-azure-provisioning:${{ inputs.AZURE_IMAGE_TAG }}
 
           touch .env
-          TENANT=$(jq -r '.parameters.tenantId.value' ./$file >> .env
+          TENANT=$(jq -r '.parameters.tenantId.value' ./$file) >> .env
           SERVICE_PRINCIPAL_ID=${{ inputs.SERVICE_PRINCIPAL_ID }} >> .env
           SERVICE_PRINCIPAL_PASSWORD=${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} >> .env
           echo "Logging into Azure via container..."
@@ -79,19 +79,14 @@ runs:
         if [ ${{ steps.apply.outcome }} == 'failure' ] || [ ${{ steps.apply.outcome }} == 'cancelled' ]; then
           echo Changed files: $CHANGED_FILES
           for file in ${CHANGED_FILES[@]}; do
-            echo "Something"
-          done
-          for file in ${CHANGED_FILES[@]}; do
             echo "Stopping deployment main based on file $file..."
-            RESOURCE_GROUP=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.AZURE_DIRECTORY }}/$file >> .env
-            set +e
+            RESOURCE_GROUP=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.AZURE_DIRECTORY }}/$file) >> .env
             docker exec \
               --env-file .env \
               azure \
                 az deployment group cancel \
                   --resource-group $RESOURCE_GROUP \
                   --name main
-            set -e
           done
         else
           echo "No deployments to stop"
