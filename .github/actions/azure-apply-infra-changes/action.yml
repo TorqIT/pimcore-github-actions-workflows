@@ -38,7 +38,7 @@ runs:
       env:
           CHANGED_FILES: ${{ steps.changed-azure-files.outputs.all_changed_files }}
       run: |
-        for file in ${CHANGED_FILES}
+        for file in $CHANGED_FILES
         do
           echo "Pulling and starting Azure container based on file $file..."
           docker run \
@@ -74,7 +74,7 @@ runs:
         CHANGED_FILES: ${{ steps.changed-azure-files.outputs.all_changed_files }}
       run: |
         if [ ${{ steps.apply.outcome }} == 'failure' ] || [ ${{ steps.apply.outcome }} == 'cancelled' ]; then
-          for file in ${CHANGED_FILES}
+          for file in $CHANGED_FILES
           do
             echo "Stopping deployment main based on file $file..."
             RESOURCE_GROUP=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.AZURE_DIRECTORY }}/$file >> .env
