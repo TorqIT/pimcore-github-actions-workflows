@@ -59,3 +59,16 @@ runs:
         docker exec \
           azure \
             /azure/provision-quick.sh parameters.json
+
+    - name: Stop deployment in case of failure/cancellation
+      shell: bash
+      if: always()
+      continue-on-error: true
+      run: |
+        RESOURCE_GROUP=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.PARAMETERS_FILE }}) >> .env
+        docker exec \
+          --env-file .env \
+          azure \
+            az deployment group cancel \
+              --resource-group $RESOURCE_GROUP \
+              --name main
