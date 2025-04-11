@@ -17,6 +17,7 @@
 #       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
 #       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 #
+# The GitHub Environments you use with this workflow will need the following variables:
 # - AZURE_TENANT_ID
 #     description: ID of the Azure tenant to deploy to
 #     required: true
