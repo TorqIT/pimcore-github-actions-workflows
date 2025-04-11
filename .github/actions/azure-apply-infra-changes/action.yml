@@ -46,20 +46,21 @@ runs:
           -d \
           -v ./${{ inputs.AZURE_DIRECTORY }}:/azure/${{ inputs.AZURE_DIRECTORY }} \
           ghcr.io/torqit/pimcore-azure-provisioning:${{ inputs.AZURE_IMAGE_TAG }}
-        touch .env
-        TENANT=$(jq -r '.parameters.tenantId.value' ./$file) >> .env
-        SERVICE_PRINCIPAL_ID=${{ inputs.SERVICE_PRINCIPAL_ID }} >> .env
-        SERVICE_PRINCIPAL_PASSWORD=${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} >> .env
-        echo "Logging into Azure via container..."
-        docker exec \
-          --env-file .env \
-          azure \
-            az login --tenant $TENANT \
-              --service-principal \
-                --username $SERVICE_PRINCIPAL_ID \
-                --password $SERVICE_PRINCIPAL_PASSWORD
 
         for file in ${CHANGED_FILES[@]}; do
+          echo "Logging into Azure via container based on file $file..."
+          touch .env
+          TENANT=$(jq -r '.parameters.tenantId.value' ./$file) >> .env
+          SERVICE_PRINCIPAL_ID=${{ inputs.SERVICE_PRINCIPAL_ID }} >> .env
+          SERVICE_PRINCIPAL_PASSWORD=${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} >> .env
+          docker exec \
+            --env-file .env \
+            azure \
+              az login --tenant $TENANT \
+                --service-principal \
+                  --username $SERVICE_PRINCIPAL_ID \
+                  --password $SERVICE_PRINCIPAL_PASSWORD
+
           echo "Applying Azure infrastructure changes based on file $file..."
           docker exec \
             azure \
