@@ -54,10 +54,10 @@ runs:
                 --username ${{ inputs.SERVICE_PRINCIPAL_ID }} \
                 --password ${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} 
 
-        echo "Applying Azure infrastructure changes based on file $file..."
+        echo "Applying Azure infrastructure changes based on file ${{ inputs.AZURE_PARAMETERS_FILE }}..."
         docker exec \
           azure \
-            ./provision-quick.sh ${{ inputs.AZURE_DIRECTORY }}
+            ./provision-quick.sh ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }}
 
     - name: Stop deployment in case of failure/cancellation
       shell: bash
