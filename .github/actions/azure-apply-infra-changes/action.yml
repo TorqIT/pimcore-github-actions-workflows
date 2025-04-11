@@ -43,6 +43,7 @@ runs:
 
     - name: Apply infrastructure changes
       shell: bash
+      id: deploy
       if: steps.changed-azure-files.outputs.any_changed == 'true'
       run: |
         touch .env
@@ -65,10 +66,12 @@ runs:
       if: always()
       continue-on-error: true
       run: |
-        RESOURCE_GROUP=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.PARAMETERS_FILE }}) >> .env
-        docker exec \
-          --env-file .env \
-          azure \
-            az deployment group cancel \
-              --resource-group $RESOURCE_GROUP \
-              --name main
+        if [ ${{ steps.deploy.outcome }} == 'failure' ] || [ ${{ steps.deploy.outcome }} == 'cancelled' ]; then
+          RESOURCE_GROUP=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.PARAMETERS_FILE }}) >> .env
+          docker exec \
+            --env-file .env \
+            azure \
+              az deployment group cancel \
+                --resource-group $RESOURCE_GROUP \
+                --name main
+        fi
