@@ -4,9 +4,6 @@ inputs:
   TENANT:
     required: true
     description: "ID of the Azure tenant to log in to"
-  PARAMETERS_FILE:
-    required: false
-    description: "Azure parameters file path, relative to the project root"
   SERVICE_PRINCIPAL_ID:
     required: true
     description: "The ID of the Service Principal in Azure that will be used to log in"
@@ -16,6 +13,9 @@ inputs:
   AZURE_DIRECTORY:
     required: true
     description: "Directory containing the Azure parameters file"
+  AZURE_PARAMETERS_FILE:
+    required: false
+    description: "Azure parameters file name, assumed to be under the directory defined by AZURE_DIRECTORY"
   AZURE_IMAGE_TAG:
     required: true
     description: "Tag to use when pulling the TORQ Azure provisioning image"
@@ -41,7 +41,7 @@ runs:
         docker run \
           --name azure \
           -d \
-          -v ./${{ inputs.PARAMETERS_FILE }}:/azure/parameters.json \
+          -v ./${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }}:/azure/parameters.json \
           ghcr.io/torqit/pimcore-azure-provisioning:${{ inputs.AZURE_IMAGE_TAG }}
 
     - name: Apply infrastructure changes
@@ -50,7 +50,7 @@ runs:
       if: steps.changed-azure-files.outputs.any_changed == 'true'
       run: |
         touch .env
-        TENANT=$(jq -r '.parameters.tenantId.value' ${{ inputs.PARAMETERS_FILE }}) >> .env
+        TENANT=$(jq -r '.parameters.tenantId.value' ./${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }}) >> .env
         SERVICE_PRINCIPAL_ID=${{ inputs.SERVICE_PRINCIPAL_ID }} >> .env
         SERVICE_PRINCIPAL_PASSWORD=${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} >> .env
         docker exec \
@@ -70,7 +70,7 @@ runs:
       continue-on-error: true
       run: |
         if [ ${{ steps.deploy.outcome }} == 'failure' ] || [ ${{ steps.deploy.outcome }} == 'cancelled' ]; then
-          RESOURCE_GROUP=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.PARAMETERS_FILE }}) >> .env
+          RESOURCE_GROUP=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }}) >> .env
           docker exec \
             --env-file .env \
             azure \
