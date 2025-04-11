@@ -14,7 +14,7 @@ inputs:
     required: true
     description: "Directory containing the Azure parameters file"
   AZURE_PARAMETERS_FILE:
-    required: false
+    required: true
     description: "Azure parameters file name, assumed to be under the directory defined by AZURE_DIRECTORY"
   AZURE_IMAGE_TAG:
     required: true
