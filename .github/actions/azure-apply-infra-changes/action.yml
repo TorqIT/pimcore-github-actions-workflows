@@ -68,7 +68,7 @@ runs:
       run: |
         if [ ${{ steps.apply.outcome }} == 'failure' ] || [ ${{ steps.apply.outcome }} == 'cancelled' ]; then
           for file in ${CHANGED_FILES[@]}; do
-            echo "Stopping deployment main based on file $file..."
+            echo "Stopping deployment main based on file ${{ inputs.AZURE_PARAMETERS_FILE }}..."
             set +e
             docker exec \
               azure \
