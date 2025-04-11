@@ -38,31 +38,28 @@ runs:
       env:
           CHANGED_FILES: ${{ steps.changed-azure-files.outputs.all_changed_files }}
       run: |
-        echo Changed files: $CHANGED_FILES
-        for file in ${CHANGED_FILES[@]}; do
-          echo "Something"
-        done
-        for file in ${CHANGED_FILES[@]}; do
-          echo "Pulling and starting Azure container based on file $file..."
-          docker run \
-            --name azure \
-            -d \
-            -v ./$file:/azure/$file \
-            ghcr.io/torqit/pimcore-azure-provisioning:${{ inputs.AZURE_IMAGE_TAG }}
+        echo Changed files in ${{ inputs.AZURE_DIRECTORY }}: $CHANGED_FILES
 
-          touch .env
-          TENANT=$(jq -r '.parameters.tenantId.value' ./$file) >> .env
-          SERVICE_PRINCIPAL_ID=${{ inputs.SERVICE_PRINCIPAL_ID }} >> .env
-          SERVICE_PRINCIPAL_PASSWORD=${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} >> .env
-          echo "Logging into Azure via container..."
-          docker exec \
-            --env-file .env \
-            azure \
-              az login --tenant $TENANT \
-                --service-principal \
-                  --username $SERVICE_PRINCIPAL_ID \
-                  --password $SERVICE_PRINCIPAL_PASSWORD
+        echo "Pulling and starting Azure container..."
+        docker run \
+          --name azure \
+          -d \
+          -v ./$CHANGED_FILES:/azure/$CHANGED_FILES \
+          ghcr.io/torqit/pimcore-azure-provisioning:${{ inputs.AZURE_IMAGE_TAG }}
+        touch .env
+        TENANT=$(jq -r '.parameters.tenantId.value' ./$file) >> .env
+        SERVICE_PRINCIPAL_ID=${{ inputs.SERVICE_PRINCIPAL_ID }} >> .env
+        SERVICE_PRINCIPAL_PASSWORD=${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} >> .env
+        echo "Logging into Azure via container..."
+        docker exec \
+          --env-file .env \
+          azure \
+            az login --tenant $TENANT \
+              --service-principal \
+                --username $SERVICE_PRINCIPAL_ID \
+                --password $SERVICE_PRINCIPAL_PASSWORD
 
+        for file in ${CHANGED_FILES[@]}; do
           echo "Applying Azure infrastructure changes based on file $file..."
           docker exec \
             azure \
@@ -77,7 +74,6 @@ runs:
         CHANGED_FILES: ${{ steps.changed-azure-files.outputs.all_changed_files }}
       run: |
         if [ ${{ steps.apply.outcome }} == 'failure' ] || [ ${{ steps.apply.outcome }} == 'cancelled' ]; then
-          echo Changed files: $CHANGED_FILES
           for file in ${CHANGED_FILES[@]}; do
             echo "Stopping deployment main based on file $file..."
             RESOURCE_GROUP=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.AZURE_DIRECTORY }}/$file) >> .env
