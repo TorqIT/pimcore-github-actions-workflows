@@ -1,4 +1,4 @@
-# Builds, tags, and pushes Pimcore Docker images to an Azure Container Registry, and deploys them to Container Apps.
+# Builds, tags, and pushes Pimcore Docker images to an Azure Container Registry, applies Azure infrastrcuture changes, and deploys new revisions to Container Apps.
 # This workflow assumes an architecture similar to the one in https://github.com/TorqIT/pimcore-azure-provisioning - namely, an Azure Container Registry, an init Container App Job, a PHP Container App, and a supervisord Container App.
 #
 # Invoke this workflow in your project's workflow as follows:
@@ -132,6 +132,11 @@ on:
         type: string
         default: ".azure"
         description: "The path (relative to the project's root) of the directory containing the project's Azure parameter files"
+      AZURE_IMAGE_TAG:
+        required: false
+        type: string
+        default: "2"
+        description: "Tag to use when pulling the TORQ Azure provisioning image (https://github.com/TorqIT/pimcore-azure-provisioning)"
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -241,6 +246,7 @@ jobs:
           TENANT: ${{ vars.AZURE_TENANT_ID }}
           PARAMETERS_FILE: ${{ vars.AZURE_PARAMETERS_FILE || format('./azure/parameters.{0}.json', inputs.ENVIRONMENT)}}
           AZURE_DIRECTORY: ${{ inputs.AZURE_DIRECTORY }}
+          AZURE_IMAGE_TAG: ${{ inputs.AZURE_IMAGE_TAG }}
 
       - name: Deploy and run init Container App Job
         uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-and-run-init

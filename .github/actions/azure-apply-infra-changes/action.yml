@@ -16,6 +16,9 @@ inputs:
   AZURE_DIRECTORY:
     required: true
     description: "Directory containing the Azure parameters file"
+  AZURE_IMAGE_TAG:
+    required: true
+    description: "Tag to use when pulling the TORQ Azure provisioning image"
 
 runs:
   using: "composite"
@@ -39,7 +42,7 @@ runs:
           --name azure \
           -d \
           -v ./${{ inputs.PARAMETERS_FILE }}:/azure/parameters.json \
-          ghcr.io/torqit/pimcore-azure-provisioning:quick-provisioning
+          ghcr.io/torqit/pimcore-azure-provisioning:${{ inputs.AZURE_IMAGE_TAG }}
 
     - name: Apply infrastructure changes
       shell: bash
