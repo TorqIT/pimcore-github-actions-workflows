@@ -44,7 +44,7 @@ runs:
         docker run \
           --name azure \
           -d \
-          -v "./$CHANGED_FILES:/azure/$CHANGED_FILES" \
+          -v ./${{ inputs.AZURE_DIRECTORY }}:/azure/${{ inputs.AZURE_DIRECTORY }} \
           ghcr.io/torqit/pimcore-azure-provisioning:${{ inputs.AZURE_IMAGE_TAG }}
         touch .env
         TENANT=$(jq -r '.parameters.tenantId.value' ./$file) >> .env
