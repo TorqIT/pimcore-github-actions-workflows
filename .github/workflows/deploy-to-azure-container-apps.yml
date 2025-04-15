@@ -255,6 +255,7 @@ jobs:
 
       - name: Deploy and run init Container App Job
         uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-and-run-init
+        timeout-minutes: 15 # as there is a (low to zero) chance of an infinite loop in this action, set a timeout just in case
         with:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
