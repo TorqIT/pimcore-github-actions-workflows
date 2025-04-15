@@ -372,4 +372,4 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Container Apps deployment for ${{ github.repository }}*: Failed :x:\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  text: "*Azure Container Apps deployment for ${{ github.repository }}* failed :x:\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
