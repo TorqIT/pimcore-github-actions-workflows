@@ -352,14 +352,15 @@ jobs:
     name: Send workflow failure notification to Slack channel
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
-    if: ${{ vars.SLACK_WORKFLOW_STATUS_NOTIFICATIONS || false }} && (needs.build-and-push-images-and-run-init == 'failure' || needs.deploy-php-container-app-revision == 'failure' || needs.deploy-supervisord-container-app-revision == 'failure')
+    if: always()
     needs:
       - build-and-push-images-and-run-init
       - deploy-php-container-app-revision
       - deploy-supervisord-container-app-revision
     steps:
       - name: Send job status to Slack
-        uses: slackapi/slack-github-action@7cbfbe97de4346570ff05b5bc8df89f799d1d661
+        uses: slackapi/slack-github-action@v2
+        if: ${{ vars.SLACK_WORKFLOW_STATUS_NOTIFICATIONS || false }} && (${{ needs.build-and-push-images-and-run-init == 'failure' || needs.deploy-php-container-app-revision == 'failure' || needs.deploy-supervisord-container-app-revision == 'failure' }})
         with:
           webhook: ${{ secrets.SLACK_WORKFLOW_STATUS_WEBHOOK_URL }}
           webhook-type: incoming-webhook
