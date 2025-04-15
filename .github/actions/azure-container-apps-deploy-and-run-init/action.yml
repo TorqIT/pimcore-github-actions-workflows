@@ -53,7 +53,7 @@ runs:
               --image ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE }}:${{ github.run_id }} \
               || true # do not exit the script on error
             status=$?
-            if [[ status != 0 ]]; then
+            if [[ $status != 0 ]]; then
               echo Revision creation failed, retrying...
               retries=$((retries + 1))
               continue
