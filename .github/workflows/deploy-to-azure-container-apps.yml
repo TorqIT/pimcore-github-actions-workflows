@@ -169,8 +169,6 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT }}
 
     steps:
-      - run: exit 1
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -279,6 +277,8 @@ jobs:
     needs:
       - build-and-push-images-and-run-init
     steps:
+      - run: exit 1
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
