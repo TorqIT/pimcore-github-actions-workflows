@@ -354,7 +354,7 @@ jobs:
     name: Send workflow failure notification to Slack channel
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
-    if: always()
+    if: failure()
     needs:
       - build-and-push-images-and-run-init
       - deploy-php-container-app-revision
