@@ -170,6 +170,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: ${{ inputs.SUBMODULES }}
+          fetch-depth: 0
 
       - name: Get workflow version
         id: workflow-version
