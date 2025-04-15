@@ -56,12 +56,14 @@ runs:
               || true # do not exit the script on error
             status=$?
             if [[ status != 0 ]]; then
+              echo Revision creation failed, retrying...
               retries=$((retries + 1))
               continue
             else
-              break
+              exit 0
             fi 
           done
+          echo Failed to create revision!
 
     - name: If using a multi-revision setup, ensure that 100% of traffic is set to the latest...
       uses: azure/cli@v2
