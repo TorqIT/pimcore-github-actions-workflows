@@ -344,3 +344,26 @@ jobs:
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_APP: ${{ vars.SUPERVISORD_CONTAINER_APP }}
           IMAGE: ${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}
+
+  workflow-failure-notification:
+    name: Send workflow failure notification to Slack channel
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+    if: ${{ vars.SLACK_WORKFLOW_STATUS_NOTIFICATIONS || false }} && (needs.build-and-push-images-and-run-init == 'failure' || needs.deploy-php-container-app-revision == 'failure' || needs.deploy-supervisord-container-app-revision == 'failure')
+    needs:
+      - build-and-push-images-and-run-init
+      - deploy-php-container-app-revision
+      - deploy-supervisord-container-app-revision
+    steps:
+      - name: Send job status to Slack
+        uses: slackapi/slack-github-action@7cbfbe97de4346570ff05b5bc8df89f799d1d661
+        with:
+          webhook: ${{ secrets.SLACK_WORKFLOW_STATUS_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "*GitHub deployment failure*"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*GitHub deployment to Azure Container Apps for ${{ github.repository }}*: Failed :x:\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

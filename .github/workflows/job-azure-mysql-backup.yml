@@ -67,7 +67,7 @@ on:
       AZURE_MYSQL_PASSWORD:
         required: true  
         description: The password used to log in to the MySQL server and perform the backup
-      SLACK_WEBHOOK_URL:
+      SLACK_BACKUPS_WEBHOOK_URL:
         required: true
         description: Webhook URL to send job status messages to
 
@@ -210,9 +210,9 @@ jobs:
 
       - name: Send job status to Slack
         if: always()
-        uses: slackapi/slack-github-action@v2
+        uses: slackapi/slack-github-action@7cbfbe97de4346570ff05b5bc8df89f799d1d661
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook: ${{ secrets.SLACK_BACKUPS_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
             text: "*Azure MySQL Database backup job*"
