@@ -89,7 +89,8 @@ runs:
               --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
               --execution $executionName \
               --container ${{ inputs.INIT_CONTAINER_NAME }} \
-              --follow true
+              --follow true \
+              || true # do not exit the script on error
 
             executionStatus=$(get_execution_status $executionName)
 
