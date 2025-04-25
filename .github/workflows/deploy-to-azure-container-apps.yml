@@ -211,7 +211,7 @@ jobs:
       - name: Add exception to Azure Container Registry firewall, if one is in place
         if: ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }}
         run: |
-          az acr network-rule add -n $CONTAINER_REGISTRY_NAME --ip-address $(curl ipinfo.io/ip)
+          az acr network-rule add -n ${{ vars.CONTAINER_REGISTRY_NAME }} --ip-address $(curl ipinfo.io/ip)
 
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
@@ -276,7 +276,7 @@ jobs:
       - name: Remove exception from Azure Container Registry firewall, if one is in place
         if: always() && ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }}
         run: |
-          az acr network-rule remove -n $CONTAINER_REGISTRY_NAME --ip-address $(curl ipinfo.io/ip)
+          az acr network-rule remove -n ${{ vars.CONTAINER_REGISTRY_NAME }} --ip-address $(curl ipinfo.io/ip)
 
       - name: Deploy and run init Container App Job
         uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-and-run-init
