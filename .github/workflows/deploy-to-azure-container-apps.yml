@@ -274,7 +274,7 @@ jobs:
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
 
       - name: Remove exception from Azure Container Registry firewall, if one is in place
-        if: always() && ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }}
+        if: (success() || failure()) && ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }}
         run: |
           az acr network-rule remove -n ${{ vars.CONTAINER_REGISTRY }} --ip-address $(curl ipinfo.io/ip)
 
