@@ -274,9 +274,14 @@ jobs:
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
 
       - name: Remove exception from Azure Container Registry firewall, if one is in place
-        if: (success() || failure()) && ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }}
+        if: always()
         run: |
-          az acr network-rule remove -n ${{ vars.CONTAINER_REGISTRY }} --ip-address $(curl ipinfo.io/ip)
+          if [[ ${{ vars.CONTAINER_REGISTRY_FIREWALL || false}} ]]; then
+            echo Removing exception for this runner's IP from Container Registry firewal...
+            az acr network-rule remove -n ${{ vars.CONTAINER_REGISTRY }} --ip-address $(curl ipinfo.io/ip)
+          else
+            echo Container Registry has no firewall in place, so nothing to do!
+          fi
 
       - name: Deploy and run init Container App Job
         uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-and-run-init
