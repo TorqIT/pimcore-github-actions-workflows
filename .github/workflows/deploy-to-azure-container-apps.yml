@@ -30,6 +30,10 @@
 # - CONTAINER_REGISTRY
 #     description: Name of the Azure Container Registry to deploy to. This should be the fully qualified name - e.g. myregistry.azurecr.io
 #     required: true
+# - CONTAINER_REGISTRY_FIREWALL
+#     description: True if the Azure Container Registry has a network firewall that needs to be bypassed before pushing images.
+#     required: false
+#     default: false
 # - INIT_IMAGE
 #     description: Name of the init Docker image to push to the registry
 #     required: false
@@ -196,6 +200,19 @@ jobs:
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
+      - name: Log in to Azure
+        uses: ./reusable-workflow/.github/actions/azure-login
+        with:
+          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          TENANT: ${{ vars.AZURE_TENANT_ID }}
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Add exception to Azure Container Registry firewall, if one is in place
+        if: ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }}
+        run: |
+          az acr network-rule add -n $CONTAINER_REGISTRY_NAME --ip-address $(curl ipinfo.io/ip)
+
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
         with:
@@ -256,14 +273,15 @@ jobs:
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:latest,
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
 
+      - name: Remove exception from Azure Container Registry firewall, if one is in place
+        if: always() && ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }}
+        run: |
+          az acr network-rule remove -n $CONTAINER_REGISTRY_NAME --ip-address $(curl ipinfo.io/ip)
+
       - name: Deploy and run init Container App Job
         uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-and-run-init
         timeout-minutes: 15 # as there is a (low to zero) chance of an infinite loop in this action, set a timeout just in case
         with:
-          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ vars.AZURE_TENANT_ID }}
-          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           INIT_IMAGE: ${{ vars.INIT_IMAGE || 'init' }}
           INIT_CONTAINER_NAME: ${{ vars.INIT_CONTAINER_NAME || 'init' }}
           INIT_CONTAINER_APP_JOB: ${{ vars.INIT_CONTAINER_APP_JOB }}
@@ -296,13 +314,17 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - name: Deploy new revision of Container App
-        uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-revision
+      - name: Log in to Azure
+        uses: ./reusable-workflow/.github/actions/azure-login
         with:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           TENANT: ${{ vars.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy new revision of Container App
+        uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-revision
+        with:
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_APP: ${{ vars.PHP_CONTAINER_APP }}
@@ -336,13 +358,17 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - name: Deploy new revision of Container App
-        uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-revision
+      - name: Log in to Azure
+        uses: ./reusable-workflow/.github/actions/azure-login
         with:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           TENANT: ${{ vars.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy new revision of Container App
+        uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-revision
+        with:
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           CONTAINER_APP: ${{ vars.SUPERVISORD_CONTAINER_APP }}

@@ -1,12 +1,6 @@
 name: "Azure Container Apps Deploy and Run Init"
 description: "Deploys and runs the Pimcore init Container App Job"
 inputs:
-  TENANT:
-    required: true
-    description: "ID of the Azure tenant to deploy to"
-  SUBSCRIPTION:
-    required: true
-    description: "ID of the Azure subscription to deploy to"
   RESOURCE_GROUP:
     required: true
     description: "Name of the Azure Resource Group to deploy to"
@@ -22,24 +16,10 @@ inputs:
   INIT_CONTAINER_APP_JOB:
     required: true
     description: "Name of the init Container App Job"
-  SERVICE_PRINCIPAL_ID:
-    required: true
-    description: "The ID of the Service Principal in Azure that will be used to deploy. The Service Principal must have permission to push images to the Container Registry and to deploy new revisions to the init, PHP and supervisord Container Apps."
-  SERVICE_PRINCIPAL_PASSWORD:
-    required: true
-    description: "The password for the Service Principal in Azure"
 
 runs:
   using: "composite"
   steps:
-    - name: Log in to Azure
-      uses: ./reusable-workflow/.github/actions/azure-login
-      with:
-        SERVICE_PRINCIPAL_ID: ${{ inputs.SERVICE_PRINCIPAL_ID }}
-        SERVICE_PRINCIPAL_PASSWORD: ${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}
-        TENANT: ${{ inputs.TENANT }}
-        SUBSCRIPTION: ${{ inputs.SUBSCRIPTION }}
-
     - name: Deploy new revision of init Container App Job
       uses: azure/cli@v2
       with:

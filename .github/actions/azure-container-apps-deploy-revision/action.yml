@@ -1,12 +1,6 @@
 name: "Azure Container Apps Deploy Revision"
 description: "Deploys a new revision of an Azure Container App"
 inputs:
-  TENANT:
-    required: true
-    description: "ID of the Azure tenant to deploy to"
-  SUBSCRIPTION:
-    required: true
-    description: "ID of the Azure subscription to deploy to"
   RESOURCE_GROUP:
     required: true
     description: "Name of the Azure Resource Group to deploy to"
@@ -23,24 +17,10 @@ inputs:
     required: false
     description: "Whether the Container App is using a multi-revision setup"
     default: "false"
-  SERVICE_PRINCIPAL_ID:
-    required: true
-    description: "The ID of the Service Principal in Azure that will be used to deploy. The Service Principal must have permission to deploy new revisions Container App"
-  SERVICE_PRINCIPAL_PASSWORD:
-    required: true
-    description: "The password for the Service Principal in Azure"
 
 runs:
   using: "composite"
   steps:    
-    - name: Log in to Azure
-      uses: ./reusable-workflow/.github/actions/azure-login
-      with:
-        SERVICE_PRINCIPAL_ID: ${{ inputs.SERVICE_PRINCIPAL_ID }}
-        SERVICE_PRINCIPAL_PASSWORD: ${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}
-        TENANT: ${{ inputs.TENANT }}
-        SUBSCRIPTION: ${{ inputs.SUBSCRIPTION }}
-
     - name: Create new revision of Container App
       uses: azure/cli@v2
       with:
