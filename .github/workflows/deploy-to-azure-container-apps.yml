@@ -277,10 +277,10 @@ jobs:
         if: always()
         run: |
           if [[ ${{ vars.CONTAINER_REGISTRY_FIREWALL || false}} ]]; then
-            echo Removing exception for this runner's IP from Container Registry firewal...
+            echo "Removing exception for this runner's IP from Container Registry firewall..."
             az acr network-rule remove -n ${{ vars.CONTAINER_REGISTRY }} --ip-address $(curl ipinfo.io/ip)
           else
-            echo Container Registry has no firewall in place, so nothing to do!
+            echo "Container Registry has no firewall in place, so nothing to do"
           fi
 
       - name: Deploy and run init Container App Job
