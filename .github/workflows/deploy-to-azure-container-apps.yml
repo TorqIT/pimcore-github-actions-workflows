@@ -212,6 +212,8 @@ jobs:
         if: ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }}
         run: |
           az acr network-rule add -n ${{ vars.CONTAINER_REGISTRY }} --ip-address $(curl ipinfo.io/ip)
+          # Sleep for a few seconds to allow network rules to propagate
+          sleep 15
 
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
