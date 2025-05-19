@@ -27,12 +27,12 @@ runs:
       id: changed-azure-files
       uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c # v46
       with:
-        files: ${{ inputs.AZURE_DIRECTORY }}/**
+        files: ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }}
     
-    - name: Echo if no files changed
+    - name: Echo if Azure parameter file is unchanged
       shell: bash
       if: steps.changed-azure-files.outputs.any_changed == 'false'
-      run: echo "No files in ${{ inputs.AZURE_DIRECTORY }} have changed, so nothing to do!"
+      run: echo "${{ inputs.AZURE_PARAMETERS_FILE }} is unchanged, so nothing to do!"
 
     - name: Apply infrastructure changes
       shell: bash
@@ -54,10 +54,25 @@ runs:
                 --username ${{ inputs.SERVICE_PRINCIPAL_ID }} \
                 --password ${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} 
 
-        echo "Applying Azure infrastructure changes based on file ${{ inputs.AZURE_PARAMETERS_FILE }}..."
-        docker exec \
-          azure \
-            ./provision-quick.sh ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }}
+                  echo Creating new revision of ${{ inputs.CONTAINER_APP }}...
+
+        retries=0
+        while [[ $retries < 3 ]]; do
+          echo "Applying Azure infrastructure changes based on file ${{ inputs.AZURE_PARAMETERS_FILE }}..."
+          docker exec \
+            azure \
+              ./provision-quick.sh ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }} \ 
+              || true # do not exit on error
+          status=$?
+          if [[ $status != 0 ]]; then
+            echo Applying infrastructure update failed, retrying...
+            retries=$((retries + 1))
+            continue
+          else
+            exit 0
+          fi 
+        done
+        echo Failed to apply infrastructure updates after trying $retries times!
 
     - name: Stop deployment in case of failure/cancellation
       shell: bash
