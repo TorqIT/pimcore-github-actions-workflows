@@ -54,8 +54,6 @@ runs:
                 --username ${{ inputs.SERVICE_PRINCIPAL_ID }} \
                 --password ${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} 
 
-                  echo Creating new revision of ${{ inputs.CONTAINER_APP }}...
-
         retries=0
         while [[ $retries < 3 ]]; do
           echo "Applying Azure infrastructure changes based on file ${{ inputs.AZURE_PARAMETERS_FILE }}..."
