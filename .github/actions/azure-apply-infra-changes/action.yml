@@ -59,12 +59,7 @@ runs:
         retries=0
         while [[ $retries < 3 ]]; do
           echo "Applying Azure infrastructure changes based on file ${{ inputs.AZURE_PARAMETERS_FILE }}..."
-          docker exec \
-            azure \
-              ./provision-quick.sh ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }} \ 
-              || true # do not exit on error
-          status=$?
-          if [[ $status != 0 ]]; then
+          if docker exec azure ./provision-quick.sh ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }} | grep "terminal provisioning state"; then
             echo Applying infrastructure update failed, retrying...
             retries=$((retries + 1))
             continue
