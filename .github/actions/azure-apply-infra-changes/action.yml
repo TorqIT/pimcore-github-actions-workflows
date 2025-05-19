@@ -23,7 +23,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Determine if any files under the Azure directory have changed
+    - name: Determine if the specified Azure parameters file has changes
       id: changed-azure-files
       uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c # v46
       with:
