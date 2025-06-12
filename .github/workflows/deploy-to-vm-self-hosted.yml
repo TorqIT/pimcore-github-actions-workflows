@@ -273,7 +273,7 @@ jobs:
           touch .env
           echo "${{ inputs.RUN_TIME_VARIABLES }}" | jq -r 'to_entries | .[] | .key + "=" + .value' >> .env
           echo "\n >> .env"
-          echo "${{ secrets.ENVIRONMENT_SECRETS }}" | jq -r 'to_entries | .[] | .key + "=" + .value' >> .env
+          echo "${{ secrets.RUN_TIME_SECRETS }}" | jq -r 'to_entries | .[] | .key + "=" + .value' >> .env
       
       - name: Pull latest images
         run: |
