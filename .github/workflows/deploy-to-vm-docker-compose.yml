@@ -283,6 +283,12 @@ jobs:
           username: "${{ github.actor }}"
           password: "${{ secrets.CALLER_GITHUB_TOKEN }}"
 
+      - name: Setup jq
+        uses: dcarbone/install-jq-action@b7ef57d46ece78760b4019dbc4080a1ba2a40b45
+        with:
+          version: "1.7"
+          force: true
+
       - name: Create .env file
         run: |
           echo "\n >> .env"
