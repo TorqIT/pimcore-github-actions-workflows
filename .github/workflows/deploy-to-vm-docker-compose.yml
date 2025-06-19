@@ -152,6 +152,9 @@ on:
         description: "Space separated list of non-Pimcore Docker Compose services to start on deployment (e.g. Redis, database, Elasticsearch)"
 
     secrets:
+      GITHUB_TOKEN:
+        required: true
+        description: GitHub token from the caller repository
       BUILD_TIME_SECRETS:
         required: false
         description: A JSON array of secrets required at build-time (see above for example format)
@@ -198,6 +201,8 @@ jobs:
         uses: ./reusable-workflow/.github/actions/setup-docker
         with:
           CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
+          CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push init image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -271,6 +276,13 @@ jobs:
           ref: ${{ steps.workflow-version.outputs.sha }}
           path: reusable-workflow
           fetch-depth: 1
+
+      - name: Set up Docker
+        uses: ./reusable-workflow/.github/actions/setup-docker
+        with:
+          CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
+          CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create .env file
         run: |
