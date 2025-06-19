@@ -66,6 +66,10 @@ on:
         required: true
         type: string
         description: "The name of the environment-specific Docker Compose file to use when deploying and running services"
+      ENV_FILE:
+        required: true
+        type: string
+        description: "Environment-specific .env file to be used when running Docker containers (assumed to be at the project root)"
       INIT:
         required: false
         type: boolean
@@ -270,10 +274,8 @@ jobs:
 
       - name: Create .env file
         run: |
-          touch .env
-          echo "${{ inputs.RUN_TIME_VARIABLES }}" | jq -r 'to_entries | .[] | .key + "=" + .value' >> .env
           echo "\n >> .env"
-          echo "${{ secrets.RUN_TIME_SECRETS }}" | jq -r 'to_entries | .[] | .key + "=" + .value' >> .env
+          echo "${{ secrets.RUN_TIME_SECRETS }}" | jq -r 'to_entries | .[] | .key + "=" + .value' >> ${{ inputs.ENV_FILE }}
 
       # TODO mount secrets as Docker secrets too
 
