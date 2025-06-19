@@ -291,7 +291,8 @@ jobs:
 
       - name: Create .env file
         run: |
-          echo "\n >> .env"
+          echo "\n" >> ${{ inputs.ENV_FILE }}
+          echo "TAG=${{ github.run_id }}" >> ${{ inputs.ENV_FILE }}
           echo "${{ secrets.RUN_TIME_SECRETS }}" | jq -r 'to_entries | .[] | .key + "=" + .value' >> ${{ inputs.ENV_FILE }}
 
       # TODO mount secrets as Docker secrets too
@@ -299,7 +300,7 @@ jobs:
       - name: Pull latest images
         run: |
           docker compose \
-            -f docker-compose.yml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+            -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
             pull ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
 
       - name: Get external volumes from ${{ inputs.DOCKER_COMPOSE_FILE }}
@@ -344,7 +345,7 @@ jobs:
         run: |
           # Start the DB, Redis, Elasticsearch, RabbitMQ and Kibana containers separately so they are not affected by blue/green deployments
           docker compose \
-              -f docker-compose.yml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
               up -d ${{ inputs.NON_PIMCORE_SERVICES }}
 
       - name: Perform blue/green deployment of PHP and supervisord containers
@@ -361,14 +362,14 @@ jobs:
           docker compose \
               --project-name=$NEW_DEPLOYMENT \
               --env-file .env \
-              -f ${{ 'docker-compose.yml' || 'docker-compose.yaml' }} -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
               up -d ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
 
           echo "Waiting for $NEW_DEPLOYMENT deployment to be ready..."
           set +e
           docker compose \
               --project-name=$NEW_DEPLOYMENT \
-              -f ${{ 'docker-compose.yml' || 'docker-compose.yaml' }} -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
               exec -T ${{ inputs.PHP_SERVICE }} \
                   wget \
                     --verbose \
@@ -385,13 +386,13 @@ jobs:
               echo "Stopping "$OLD_DEPLOYMENT" containers..."
               docker compose \
                   --project-name=$OLD_DEPLOYMENT \
-                  -f ${{ 'docker-compose.yml' || 'docker-compose.yaml' }} -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+                  -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
                   rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
           else
               echo "Error bringing up new containers - stopping $NEW_DEPLOYMENT containers..."
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
-                  -f ${{ 'docker-compose.yml' || 'docker-compose.yaml' }} -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+                  -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
                   rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
               exit 1
           fi
