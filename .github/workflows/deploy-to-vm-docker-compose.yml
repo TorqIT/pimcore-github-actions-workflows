@@ -219,7 +219,7 @@ jobs:
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min
           TAGS: |
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE || 'init' }}:${{ inputs.TAG }},
+            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE || 'init' }}:${{ inputs.IMAGES_TAG }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE || 'init' }}:${{ github.run_id }}
 
       - name: Build and push PHP image
@@ -237,7 +237,7 @@ jobs:
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
           TAGS: |
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE || 'php' }}:${{ inputs.TAG }},
+            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE || 'php' }}:${{ inputs.IMAGES_TAG  }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE || 'php' }}:${{ github.run_id }}
 
       - name: Build and push supervisord image
@@ -250,7 +250,7 @@ jobs:
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           BUILD_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           TAGS: |
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE || 'supervisord' }}:${{ inputs.TAG }},
+            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE || 'supervisord' }}:${{ inputs.IMAGES_TAG }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
 
   deploy-containers:
