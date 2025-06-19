@@ -183,7 +183,7 @@ jobs:
         uses: canonical/get-workflow-version-action@v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: deploy-to-vm-self-hosted.yml
+          file-name: deploy-to-vm-docker-compose.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
@@ -261,7 +261,7 @@ jobs:
         uses: canonical/get-workflow-version-action@v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: deploy-to-vm-self-hosted.yml
+          file-name: deploy-to-vm-docker-compose.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
@@ -381,7 +381,7 @@ jobs:
 
   workflow-failure-notification:
     name: Send workflow failure notification to Slack channel
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: "ubuntu-latest"
     environment: ${{ inputs.ENVIRONMENT }}
     if: failure()
     needs:
