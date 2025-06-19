@@ -57,15 +57,22 @@ runs:
         retries=0
         while [[ $retries < 3 ]]; do
           echo "Applying Azure infrastructure changes based on file ${{ inputs.AZURE_PARAMETERS_FILE }}..."
-          if docker exec azure ./provision-quick.sh ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }} | grep "terminal provisioning state"; then
+          set +e
+          deploymentOutput=$(docker exec azure ./provision-quick.sh ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }} 2>&1)
+          deploymentStatus=$?
+          set -e
+          echo "$deploymentOutput"
+          if [[ $deploymentStatus -ne 0 ]] || echo "$deploymentOutput" | grep -q "Failed"; then
             echo Applying infrastructure update failed, retrying...
             retries=$((retries + 1))
             continue
           else
+            echo Applied infrastructure updates successfully.
             exit 0
           fi 
         done
         echo Failed to apply infrastructure updates after trying $retries times!
+        exit 1
 
     - name: Stop deployment in case of failure/cancellation
       shell: bash
