@@ -137,7 +137,7 @@ on:
       BUILD_TIME_ARGS:
         type: string
         required: false
-        description: "A JSON array of args required at build-time (see above for example format)" 
+        description: "A JSON array of args required at build-time (see above for example format)"
       RUN_TIME_VARIABLES:
         type: string
         required: false
@@ -164,7 +164,7 @@ on:
 jobs:
   build-and-push-images:
     name: Build and push Pimcore Docker images
-    runs-on: 'ubuntu-latest'
+    runs-on: "ubuntu-latest"
     environment: ${{ inputs.ENVIRONMENT }}
 
     steps:
@@ -241,7 +241,7 @@ jobs:
           TAGS: |
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE || 'supervisord' }}:latest,
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
-    
+
   deploy-containers:
     name: Deploy new container versions via Docker Compose
     runs-on: ${{ inputs.RUNNER }}
@@ -274,13 +274,51 @@ jobs:
           echo "${{ inputs.RUN_TIME_VARIABLES }}" | jq -r 'to_entries | .[] | .key + "=" + .value' >> .env
           echo "\n >> .env"
           echo "${{ secrets.RUN_TIME_SECRETS }}" | jq -r 'to_entries | .[] | .key + "=" + .value' >> .env
-      
+
+      # TODO mount secrets as Docker secrets too
+
       - name: Pull latest images
         run: |
           docker compose \
             -f docker-compose.yml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
             pull ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
-          
+
+      - name: Get external volumes from ${{ inputs.DOCKER_COMPOSE_FILE }}
+        uses: mikefarah/yq@master
+        id: get-external-volumes
+        with:
+          cmd: yq '.volumes | with_entries(select(.value.external == true)) | keys' '${{ inputs.DOCKER_COMPOSE_FILE}}'
+
+      - name: Ensure external volumes exist
+        run: |
+          external_volumes=$(echo "${{ steps.get-external-volumes.outputs.result }}" | tr -d '[],"')
+          for volume in $external_volumes; do
+            if ! docker volume inspect "$volume" &> /dev/null; then
+              echo "Volume $volume does not exist. Creating..."
+              docker volume create "$volume"
+            else
+              echo "Volume $volume exists."
+            fi
+          done
+
+      - name: Get external networks from ${{ inputs.DOCKER_COMPOSE_FILE }}
+        uses: mikefarah/yq@master
+        id: get-external-networks
+        with:
+          cmd: yq '.networks | with_entries(select(.value.external == true)) | keys' '${{ inputs.DOCKER_COMPOSE_FILE}}'
+
+      - name: Ensure external networks exist
+        run: |
+          external_networks=$(echo "${{ steps.get-external-networks.outputs.result }}" | tr -d '[],"')
+          for network in $external_networks; do
+            if ! docker network inspect "$network" &> /dev/null; then
+              echo "Network $network does not exist. Creating..."
+              docker network create "$network"
+            else
+              echo "Network $network exists."
+            fi
+          done
+
       # TODO pull and run init if implemented
 
       - name: Start generic services outside of blue/green (e.g. Redis, database, Elasticsearch, etc)
@@ -289,7 +327,7 @@ jobs:
           docker-compose \
               -f docker-compose.yml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
               up -d ${{ inputs.NON_PIMCORE_SERVICES }}
-      
+
       - name: Perform blue/green deployment of PHP and supervisord containers
         run: |
           if [ "$(docker ps -f name=blue -q)" ]; then
@@ -319,7 +357,7 @@ jobs:
                     --retry-on-http-error=429,503,502,504 \
                     -T 3 -t 100 \
                     --retry-connrefused \
-                    -O /var/www/html/log/error.html \
+                    -O /dev/null \
                     localhost
           DEPLOY_STATUS=$?
           set -e
