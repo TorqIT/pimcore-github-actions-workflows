@@ -51,6 +51,9 @@ inputs:
   RECAPTCHA_CLIENT_KEY:
     required: false
     description: "(Optional) A client key used when building NPM frontends that require ReCAPTCHA"
+  BUILD_SECRETS:
+    required: false
+    description: "JSON string containing build secrets to be passed to Docker build"
 
 runs:
   using: "composite"
@@ -103,6 +106,7 @@ runs:
           pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
           torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
           kernel-secret=secret
+          ${{ inputs.BUILD_SECRETS != '' && fromJSON(inputs.BUILD_SECRETS) || '' }}
         push: ${{ fromJSON(inputs.PUSH) }}
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
