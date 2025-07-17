@@ -189,7 +189,7 @@ jobs:
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
           file-name: deploy-to-vm-docker-compose.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.CALLER_GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
         uses: actions/checkout@v4
@@ -200,14 +200,14 @@ jobs:
           fetch-depth: 1
 
       - name: Set up Docker
-        uses: ./reusable-workflow/.github/actions/setup-docker
+        uses: ./.github/actions/setup-docker
         with:
           CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
           CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
           CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CALLER_GITHUB_TOKEN }}
 
       - name: Build and push init image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+        uses: ./.github/actions/build-and-push-pimcore-image
         if: ${{ inputs.INIT }}
         with:
           DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
@@ -223,7 +223,7 @@ jobs:
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE || 'init' }}:${{ github.run_id }}
 
       - name: Build and push PHP image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+        uses: ./.github/actions/build-and-push-pimcore-image
         with:
           DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
@@ -236,12 +236,14 @@ jobs:
           NPM_SPA: ${{ inputs.NPM_SPA }}
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
+          CACHE_FROM: type=gha
+          CACHE_TO: type=gha,mode=min
           TAGS: |
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE || 'php' }}:${{ inputs.IMAGES_TAG  }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE || 'php' }}:${{ github.run_id }}
 
       - name: Build and push supervisord image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+        uses: ./.github/actions/build-and-push-pimcore-image
         with:
           DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
@@ -249,6 +251,8 @@ jobs:
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           BUILD_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
+          CACHE_FROM: type=gha
+          CACHE_TO: type=gha,mode=min
           TAGS: |
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE || 'supervisord' }}:${{ inputs.IMAGES_TAG }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
@@ -262,6 +266,20 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            docker-compose.yaml
+            ${{ inputs.DOCKER_COMPOSE_FILE }}
+            ${{ inputs.ENV_FILE }}
+          sparse-checkout-cone-mode: false
+
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: deploy-to-vm-docker-compose.yml
+          github-token: ${{ secrets.CALLER_GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
         uses: actions/checkout@v4
@@ -270,15 +288,6 @@ jobs:
           ref: ${{ steps.workflow-version.outputs.sha }}
           path: reusable-workflow
           fetch-depth: 1
-
-      # TODO issues getting this to run on self-hosted runners
-      # - name: Get workflow version
-      #   id: workflow-version
-      #   uses: canonical/get-workflow-version-action@v1
-      #   with:
-      #     repository-name: TorqIT/pimcore-github-actions-workflows
-      #     file-name: deploy-to-vm-docker-compose.yml
-      #     github-token: ${{ secrets.CALLER_GITHUB_TOKEN }}
 
       - name: Log in to Container Registry ${{ inputs.CONTAINER_REGISTRY }}
         uses: docker/login-action@v3
@@ -293,63 +302,83 @@ jobs:
           version: "1.7"
           force: true
 
-      - name: Create .env file
+      - name: Add run-time secrets to .env file
         run: |
+          set -e
           echo "" >> ${{ inputs.ENV_FILE }}
-          echo "${{ secrets.RUN_TIME_SECRETS }}" | jq -r 'to_entries | .[] | .key + "=" + .value' >> ${{ inputs.ENV_FILE }}
+          JSON_INPUT='${{ secrets.RUN_TIME_SECRETS }}'
+          echo "$JSON_INPUT" | jq -r 'to_entries | .[] | .key + "=" + .value' >> ${{ inputs.ENV_FILE }}
 
-      # TODO mount secrets as Docker secrets too
-
-      - name: Pull latest images
+      - name: Create Docker secret files
         run: |
-          docker compose \
-            -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-            pull ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
-
-      - name: Get external volumes from ${{ inputs.DOCKER_COMPOSE_FILE }}
-        uses: mikefarah/yq@master
-        id: get-external-volumes
-        with:
-          cmd: yq '.volumes | with_entries(select(.value.external == true)) | keys' '${{ inputs.DOCKER_COMPOSE_FILE}}'
-
-      - name: Ensure external volumes exist
-        run: |
-          external_volumes=$(echo "${{ steps.get-external-volumes.outputs.result }}" | tr -d '[],"')
-          for volume in $external_volumes; do
-            if ! docker volume inspect "$volume" &> /dev/null; then
-              echo "Volume $volume does not exist. Creating..."
-              docker volume create "$volume"
-            else
-              echo "Volume $volume exists."
-            fi
+          set -e
+          mkdir -p .secrets
+          JSON_INPUT='${{ secrets.RUN_TIME_SECRETS }}'
+          echo "$JSON_INPUT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
+            # Convert key to lowercase and replace underscores with dashes
+            file_name=$(echo "$key" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
+            echo -n "$value" > .secrets/"$file_name"
           done
 
-      - name: Get external networks from ${{ inputs.DOCKER_COMPOSE_FILE }}
-        uses: mikefarah/yq@master
-        id: get-external-networks
+      - name: Extract external volume names
+        id: extract-volumes
+        uses: mikefarah/yq@v4.44.1
         with:
-          cmd: yq '.networks | with_entries(select(.value.external == true)) | keys' '${{ inputs.DOCKER_COMPOSE_FILE}}'
+          cmd: >
+            yq e -o=json '.volumes // {} | to_entries |
+            map(select(.value.external == true or .value.external.name) |
+            .value.external.name // .key)' ${{ inputs.DOCKER_COMPOSE_FILE }}
 
-      - name: Ensure external networks exist
+      - name: Extract external network names
+        id: extract-networks
+        uses: mikefarah/yq@v4.44.1
+        with:
+          cmd: >
+            yq e -o=json '.networks // {} | to_entries |
+            map(select(.value.external == true or .value.external.name) |
+            .value.external.name // .key)' ${{ inputs.DOCKER_COMPOSE_FILE }}
+
+      - name: Create external volumes
         run: |
-          external_networks=$(echo "${{ steps.get-external-networks.outputs.result }}" | tr -d '[],"')
-          for network in $external_networks; do
-            if ! docker network inspect "$network" &> /dev/null; then
-              echo "Network $network does not exist. Creating..."
-              docker network create "$network"
-            else
-              echo "Network $network exists."
-            fi
+          set -e
+          json='${{ steps.extract-volumes.outputs.result }}'
+          echo "$json" | jq -r '.[]' | while read -r volume; do
+              if ! docker volume inspect "$volume" >/dev/null 2>&1; then
+                echo "Creating volume: $volume"
+                docker volume create "$volume"
+              else
+                echo "Volume '$volume' already exists"
+              fi
           done
 
-      # TODO pull and run init if implemented
+      - name: Create external networks
+        run: |
+          set -e
+          json='${{ steps.extract-networks.outputs.result }}'
+          echo "$json" | jq -r '.[]' | while read -r network; do
+              if ! docker network inspect "$network" >/dev/null 2>&1; then
+                echo "Creating network: $network"
+                docker network create "$network"
+              else
+                echo "Network '$network' already exists"
+              fi
+          done
 
       - name: Start generic services outside of blue/green (e.g. Redis, database, Elasticsearch, etc)
         run: |
-          # Start the DB, Redis, Elasticsearch, RabbitMQ and Kibana containers separately so they are not affected by blue/green deployments
           docker compose \
               -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+              --env-file ${{ inputs.ENV_FILE }} \
               up -d ${{ inputs.NON_PIMCORE_SERVICES }}
+
+      - name: Run init container
+        if: ${{ inputs.INIT }}
+        run: |
+          echo "Running init container..."
+          docker compose \
+              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+              --env-file ${{ inputs.ENV_FILE }} \
+              run --rm ${{ inputs.INIT_IMAGE }}
 
       - name: Perform blue/green deployment of PHP and supervisord containers
         run: |
@@ -364,8 +393,8 @@ jobs:
           echo "Starting "$NEW_DEPLOYMENT" containers..."
           docker compose \
               --project-name=$NEW_DEPLOYMENT \
-              --env-file .env \
               -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+              --env-file ${{ inputs.ENV_FILE }} \
               up -d ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
 
           echo "Waiting for $NEW_DEPLOYMENT deployment to be ready..."
@@ -373,6 +402,7 @@ jobs:
           docker compose \
               --project-name=$NEW_DEPLOYMENT \
               -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+              --env-file ${{ inputs.ENV_FILE }} \
               exec -T ${{ inputs.PHP_SERVICE }} \
                   wget \
                     --verbose \
@@ -390,12 +420,14 @@ jobs:
               docker compose \
                   --project-name=$OLD_DEPLOYMENT \
                   -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+                  --env-file ${{ inputs.ENV_FILE }} \
                   rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
           else
               echo "Error bringing up new containers - stopping $NEW_DEPLOYMENT containers..."
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
                   -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+                  --env-file ${{ inputs.ENV_FILE }} \
                   rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
               exit 1
           fi
