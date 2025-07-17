@@ -229,7 +229,7 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          BUILD_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
+          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min
           TAGS: |
@@ -244,7 +244,7 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          BUILD_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
+          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           NPM_BUILD: ${{ inputs.NPM_BUILD }}
           RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
           NPM_SPA: ${{ inputs.NPM_SPA }}
@@ -264,7 +264,7 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          BUILD_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
+          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min
           TAGS: |
