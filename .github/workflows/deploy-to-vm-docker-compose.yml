@@ -16,15 +16,13 @@
 #     secrets:
 #        BUILD_TIME_SECRETS: >
 #          {
-#            "PIMCORE_ENTERPRISE_TOKEN": "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}",
+#            "pimcore-enterprise-token": "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}",
 #            ...any other build-time secrets you need
 #          }
 #        RUN_TIME_SECRETS: >
 #          {
-#            "DATABASE_PASSWORD": "${{ secrets.DATABASE_PASSWORD }}",
-#            "PIMCORE_INSTALL_MYSQL_PASSWORD": "${{ secrets.DATABASE_PASSWORD }}",
-#            "KERNEL_SECRET": "${{ secrets.KERNEL_SECRET }}",
-#            "PIMCORE_INSTALL_ADMIN_PASSWORD": "${{ secrets.PIMCORE_ADMIN_PASSWORD }}"
+#            "database-password": "${{ secrets.DATABASE_PASSWORD }}",
+#            "kernel-secret": "${{ secrets.KERNEL_SECRET }}",
 #            ...any other run-time secrets you need
 #          }
 #       # other required secrets
@@ -303,22 +301,13 @@ jobs:
           version: "1.7"
           force: true
 
-      - name: Add run-time secrets to .env file
-        run: |
-          set -e
-          echo "" >> ${{ inputs.ENV_FILE }}
-          JSON_INPUT='${{ secrets.RUN_TIME_SECRETS }}'
-          echo "$JSON_INPUT" | jq -r 'to_entries | .[] | .key + "=" + .value' >> ${{ inputs.ENV_FILE }}
-
       - name: Create Docker secret files
         run: |
           set -e
           mkdir -p .secrets
           JSON_INPUT='${{ secrets.RUN_TIME_SECRETS }}'
           echo "$JSON_INPUT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-            # Convert key to lowercase and replace underscores with dashes
-            file_name=$(echo "$key" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
-            echo -n "$value" > .secrets/"$file_name"
+            echo -n "$value" > .secrets/"$key"
           done
 
       - name: Extract external volume names
