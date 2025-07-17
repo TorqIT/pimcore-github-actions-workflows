@@ -99,8 +99,11 @@ runs:
       id: format-secrets
       shell: bash
       run: |
-        if [ "${{ inputs.BUILD_SECRETS }}" != "" ]; then
-          echo "formatted=$(echo '${{ inputs.BUILD_SECRETS }}' | jq -r 'to_entries|map("\(.key)=\(.value)")|join("\n")')" >> $GITHUB_OUTPUT
+        JSON_INPUT='${{ secrets.BUILD_SECRETS }}'
+        if [ "$JSON_INPUT" != "" ]; then
+          echo "formatted=$(echo '$JSON_INPUT' | jq -r 'to_entries|map(\"\(.key)=\(.value)\")|join(\"\n\")')" >> $GITHUB_OUTPUT
+        else
+          echo "formatted=" >> $GITHUB_OUTPUT
         fi
 
     - name: Build and push image
