@@ -95,6 +95,14 @@ runs:
           mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/* ${{ inputs.PIMCORE_ROOT }}/public/
         fi
 
+    - name: Format build secrets
+      id: format-secrets
+      shell: bash
+      run: |
+        if [ "${{ inputs.BUILD_SECRETS }}" != "" ]; then
+          echo "formatted=$(echo '${{ inputs.BUILD_SECRETS }}' | jq -r 'to_entries|map("\(.key)=\(.value)")|join("\n")')" >> $GITHUB_OUTPUT
+        fi
+
     - name: Build and push image
       uses: docker/build-push-action@v5
       with:
@@ -106,7 +114,7 @@ runs:
           pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
           torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
           kernel-secret=secret
-          ${{ inputs.BUILD_SECRETS != '' && fromJSON(inputs.BUILD_SECRETS) || '' }}
+          ${{ steps.format-secrets.outputs.formatted }}
         push: ${{ fromJSON(inputs.PUSH) }}
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
