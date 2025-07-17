@@ -152,18 +152,15 @@ on:
         type: string
         default: "supervisord"
         description: "The name of the supervisord service in Docker Compose to run"
-      BUILD_TIME_ARGS:
-        type: string
-        required: false
-        description: "A JSON array of args required at build-time (see above for example format)"
-      RUN_TIME_VARIABLES:
-        type: string
-        required: false
-        description: "A JSON array of variables required at run-time (see above for example format)"
       NON_PIMCORE_SERVICES:
         type: string
         required: false
         description: "Space separated list of non-Pimcore Docker Compose services to start on deployment (e.g. Redis, database, Elasticsearch)"
+      RUN_TIME_SECRETS_AS_ENV_VARS:
+        type: boolean
+        required: false
+        default: false
+        description: "For legacy systems - set to true if you want the values in RUN_TIME_SECRETS to be stored as run-time env vars"
 
     secrets:
       CALLER_GITHUB_TOKEN:
@@ -300,6 +297,14 @@ jobs:
         with:
           version: "1.7"
           force: true
+
+      - name: Add run-time secrets to .env file
+        if: ${{ inputs.RUN_TIME_SECRETS_AS_ENV_VARS }}
+        run: |
+          set -e
+          echo "" >> ${{ inputs.ENV_FILE }}
+          JSON_INPUT='${{ secrets.RUN_TIME_SECRETS }}'
+          echo "$JSON_INPUT" | jq -r 'to_entries | .[] | .key + "=" + .value' >> ${{ inputs.ENV_FILE }}
 
       - name: Create Docker secret files
         run: |
