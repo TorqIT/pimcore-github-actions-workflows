@@ -100,9 +100,11 @@ runs:
       run: |
         set -e
         JSON_INPUT='${{ inputs.BUILD_TIME_SECRETS }}'
-
         echo "secrets<<EOF" >> $GITHUB_OUTPUT
-        echo "$JSON_INPUT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> $GITHUB_OUTPUT
+        echo "$JSON_INPUT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
+          echo "::add-mask::$value"   # Mask the value from logs
+          echo "$key=$value" >> $GITHUB_OUTPUT
+        done
         echo "EOF" >> $GITHUB_OUTPUT
       shell: bash
 
