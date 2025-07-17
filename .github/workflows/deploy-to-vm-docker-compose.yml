@@ -214,14 +214,14 @@ jobs:
           fetch-depth: 1
 
       - name: Set up Docker
-        uses: ./.github/actions/setup-docker
+        uses: ./reusable-workflow/.github/actions/setup-docker
         with:
           CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
           CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
           CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CALLER_GITHUB_TOKEN }}
 
       - name: Build and push init image
-        uses: ./.github/actions/build-and-push-pimcore-image
+        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         if: ${{ inputs.INIT }}
         with:
           DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
@@ -237,7 +237,7 @@ jobs:
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE || 'init' }}:${{ github.run_id }}
 
       - name: Build and push PHP image
-        uses: ./.github/actions/build-and-push-pimcore-image
+        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
           DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
@@ -257,7 +257,7 @@ jobs:
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE || 'php' }}:${{ github.run_id }}
 
       - name: Build and push supervisord image
-        uses: ./.github/actions/build-and-push-pimcore-image
+        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
           DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
@@ -289,22 +289,6 @@ jobs:
 
       - name: Add pipx to PATH
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@v1
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: deploy-to-vm-docker-compose.yml
-          github-token: ${{ secrets.CALLER_GITHUB_TOKEN }}
-
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
 
       - name: Log in to Container Registry ${{ inputs.CONTAINER_REGISTRY }}
         uses: docker/login-action@v3
