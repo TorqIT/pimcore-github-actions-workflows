@@ -311,7 +311,7 @@ jobs:
           set -e
           mkdir -p .secrets
           JSON_INPUT='${{ secrets.RUN_TIME_SECRETS }}'
-          echo "$JSON_INPUT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
+          echo "$JSON_INPUT" | jq -r 'to_entries[] | "\(.key | ascii_upcase | gsub("-"; "_"))=\(.value)"' | while IFS='=' read -r key value; do
             echo -n "$value" > .secrets/"$key"
           done
 
