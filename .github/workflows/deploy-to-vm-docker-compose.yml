@@ -58,7 +58,7 @@ on:
         required: false
         type: string
         default: "default/default.html.twig"
-        description: "The path to the Twig file where the result of the NPM single-page application build should be copied"
+        description: "The path to the Twig file (relative to {{ inputs.PIMCORE_ROOT }}/templates/) where the result of the NPM single-page application build should be copied"
       SUBMODULES:
         required: false
         type: boolean
@@ -115,10 +115,6 @@ on:
         type: string
         default: "php"
         description: "Name of the PHP Pimcore image"
-      PHP_IMAGE_TAG:
-        required: false
-        type: string
-        description: "Custom tag for built PHP image"
       PHP_DOCKERFILE:
         required: false
         type: string
@@ -139,10 +135,6 @@ on:
         type: string
         default: "supervisord"
         description: "Name of the supervisord Pimcore image"
-      SUPERVISORD_IMAGE_TAG:
-        required: false
-        type: string
-        description: "Custom tag for built supervisord image"
       SUPERVISORD_DOCKERFILE:
         required: false
         type: string
@@ -257,8 +249,8 @@ jobs:
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min
           TAGS: |
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE || 'php' }}:${{ inputs.IMAGES_TAG  }},
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE || 'php' }}:${{ github.run_id }}
+            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE }}:${{ inputs.IMAGES_TAG  }},
+            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE }}:${{ github.run_id }}
 
       - name: Build and push supervisord image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -272,8 +264,8 @@ jobs:
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min
           TAGS: |
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE || 'supervisord' }}:${{ inputs.IMAGES_TAG }},
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
+            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ inputs.IMAGES_TAG }},
+            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ github.run_id }}
 
   deploy-containers:
     name: Deploy containers via Docker Compose
