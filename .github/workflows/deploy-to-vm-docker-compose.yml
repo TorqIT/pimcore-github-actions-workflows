@@ -1,4 +1,4 @@
-# Builds, tags, and pushes Pimcore Docker images to a GitHub Container Registry, and runs them on a self-hosted runner via Docker Compose.
+# Builds, tags, and pushes Pimcore Docker images to a Container Registry, and runs them on a self-hosted runner via Docker Compose.
 #
 # Invoke this workflow in your project's workflow as follows:
 # on:
@@ -14,6 +14,7 @@
 #     with:
 #       # required inputs
 #     secrets:
+#        CALLER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 #        BUILD_TIME_SECRETS: >
 #          {
 #            "pimcore-enterprise-token": "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}",
@@ -72,6 +73,11 @@ on:
         required: true
         type: string
         description: "Docker Container Registry name"
+      CONTAINER_REGISTRY_USERNAME:
+        required: false
+        type: string
+        default: ${{ github.actor }}
+        description: "Username to use to log in to the Docker Container Registry. By default we assume to be using a GitHub Container Registry, so the default value is {{ github.actor }}"
       DOCKER_COMPOSE_FILE:
         required: true
         type: string
@@ -166,6 +172,9 @@ on:
       CALLER_GITHUB_TOKEN:
         required: true
         description: GitHub token from the caller repository
+      CONTAINER_REGISTRY_PASSWORD:
+        required: false
+        description: Password for authenticating to the Docker Container Registry. If not supplied, the value of CALLER_GITHUB_TOKEN will be used (as we assume to be using a GitHub Container Registry in this case)
       BUILD_TIME_SECRETS:
         required: false
         description: A JSON array of secrets required at build-time (see above for example format)
@@ -212,8 +221,8 @@ jobs:
         uses: ./reusable-workflow/.github/actions/setup-docker
         with:
           CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
-          CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CALLER_GITHUB_TOKEN }}
+          CONTAINER_REGISTRY_USERNAME: ${{ inputs.CONTAINER_REGISTRY_USERNAME }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CONTAINER_REGISTRY_PASSWORD || secrets.CALLER_GITHUB_TOKEN }}
 
       - name: Build and push init image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -289,8 +298,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ inputs.CONTAINER_REGISTRY }}
-          username: "${{ github.actor }}"
-          password: "${{ secrets.CALLER_GITHUB_TOKEN }}"
+          username: ${{ inputs.CONTAINER_REGISTRY_USERNAME }}
+          password: ${{ secrets.CONTAINER_REGISTRY_PASSWORD || secrets.CALLER_GITHUB_TOKEN }}
 
       - name: Setup jq
         uses: dcarbone/install-jq-action@b7ef57d46ece78760b4019dbc4080a1ba2a40b45
