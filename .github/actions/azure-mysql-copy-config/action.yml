@@ -12,6 +12,7 @@ runs:
       shell: bash
       run: |
         cp ./reusable-workflow/.azure/config/database.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
+        mkdir -p ${{ inputs.PIMCORE_ROOT }}/config/db
         cp ./reusable-workflow/.azure/config/db/DigiCertGlobalRootCA.crt.pem ${{ inputs.PIMCORE_ROOT }}/config/db/DigiCertGlobalRootCA.crt.pem
 
     - name: If the client repository contains its own config file, copy that in as well
