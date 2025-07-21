@@ -404,40 +404,40 @@ jobs:
               --env-file ${{ inputs.ENV_FILE }} \
               up -d ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
 
-          # echo "Waiting for $NEW_DEPLOYMENT deployment to be ready..."
-          # set +e
-          # docker compose \
-          #     --project-name=$NEW_DEPLOYMENT \
-          #     -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-          #     --env-file ${{ inputs.ENV_FILE }} \
-          #     exec -T ${{ inputs.PHP_SERVICE }} \
-          #         wget \
-          #           --verbose \
-          #           --content-on-error \
-          #           --retry-on-http-error=429,503,502,504 \
-          #           -T 3 -t 100 \
-          #           --retry-connrefused \
-          #           -O /dev/null \
-          #           localhost
-          # DEPLOY_STATUS=$?
-          # set -e
+          echo "Waiting for $NEW_DEPLOYMENT deployment to be ready..."
+          set +e
+          docker compose \
+              --project-name=$NEW_DEPLOYMENT \
+              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+              --env-file ${{ inputs.ENV_FILE }} \
+              exec -T ${{ inputs.PHP_SERVICE }} \
+                  wget \
+                    --verbose \
+                    --content-on-error \
+                    --retry-on-http-error=429,503,502,504 \
+                    -T 3 -t 100 \
+                    --retry-connrefused \
+                    -O /dev/null \
+                    localhost
+          DEPLOY_STATUS=$?
+          set -e
 
-          # if [[ $DEPLOY_STATUS == 0 ]]; then
-          #     echo "Stopping "$OLD_DEPLOYMENT" containers..."
-          #     docker compose \
-          #         --project-name=$OLD_DEPLOYMENT \
-          #         -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-          #         --env-file ${{ inputs.ENV_FILE }} \
-          #         rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
-          # else
-          #     echo "Error bringing up new containers - stopping $NEW_DEPLOYMENT containers..."
-          #     docker compose \
-          #         --project-name=$NEW_DEPLOYMENT \
-          #         -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-          #         --env-file ${{ inputs.ENV_FILE }} \
-          #         rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
-          #     exit 1
-          # fi
+          if [[ $DEPLOY_STATUS == 0 ]]; then
+              echo "Stopping "$OLD_DEPLOYMENT" containers..."
+              docker compose \
+                  --project-name=$OLD_DEPLOYMENT \
+                  -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+                  --env-file ${{ inputs.ENV_FILE }} \
+                  rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
+          else
+              echo "Error bringing up new containers - stopping $NEW_DEPLOYMENT containers..."
+              docker compose \
+                  --project-name=$NEW_DEPLOYMENT \
+                  -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+                  --env-file ${{ inputs.ENV_FILE }} \
+                  rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
+              exit 1
+          fi
 
   workflow-failure-notification:
     name: Send workflow failure notification to Slack channel
