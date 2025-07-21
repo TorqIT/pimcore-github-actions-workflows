@@ -200,8 +200,13 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - name: Copy config files required for running in Azure
-        uses: ./reusable-workflow/.github/actions/azure-container-apps-copy-config
+      - name: Copy config files required for running with Azure Flysystem
+        uses: ./reusable-workflow/.github/actions/azure-flysystem-copy-config
+        with:
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+
+      - name: Copy config files required for running with an Azure MySQL server
+        uses: ./reusable-workflow/.github/actions/azure-mysql-copy-config
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 

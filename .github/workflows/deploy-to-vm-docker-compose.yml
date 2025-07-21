@@ -74,6 +74,11 @@ on:
         type: string
         default: "."
         description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, etc)"
+      AZURE_MYSQL:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether the application uses an Azure MySQL server instance as its database"
       CONTAINER_REGISTRY:
         required: true
         type: string
@@ -220,6 +225,12 @@ jobs:
           CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
           CONTAINER_REGISTRY_USERNAME: ${{ inputs.CONTAINER_REGISTRY_USERNAME }}
           CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CONTAINER_REGISTRY_PASSWORD || secrets.CALLER_GITHUB_TOKEN }}
+
+      - name: Copy config files required for running with an Azure MySQL server
+        uses: ./reusable-workflow/.github/actions/azure-mysql-copy-config
+        if: ${{ inputs.AZURE_MYSQL }}
+        with:
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
       - name: Build and push init image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
