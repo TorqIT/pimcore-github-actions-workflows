@@ -114,7 +114,7 @@ on:
         required: false
         type: string
         default: "init"
-        description: "The Docker target to use when building the init image"
+        description: 'The Docker target to use when building the init image. If your setup does not use targets, use an empty string ""'
       PHP_IMAGE:
         required: false
         type: string
@@ -129,7 +129,7 @@ on:
         required: false
         type: string
         default: "php"
-        description: "The Docker target to use when building the PHP image"
+        description: 'The Docker target to use when building the PHP image. If your setup does not use targets, use an empty string ""'
       PHP_SERVICE:
         required: false
         type: string
@@ -149,7 +149,7 @@ on:
         required: false
         type: string
         default: "supervisord"
-        description: "The Docker target to use when building the supervisord image"
+        description: 'The Docker target to use when building the supervisord image. If your setup does not use targets, use an empty string ""'
       SUPERVISORD_SERVICE:
         required: false
         type: string
