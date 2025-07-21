@@ -29,6 +29,9 @@ inputs:
   PIMCORE_ROOT:
     required: true
     description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, etc)"
+  FRONTEND_ROOT:
+    required: true
+    description: "The path (relative to the project's root) in which the project's frontend files are stored"
   PIMCORE_ENTERPRISE_TOKEN:
     required: true
     description: "(Optional) The value of your project's Pimcore Enterprise Token"
@@ -63,7 +66,7 @@ runs:
       with:
         node-version: 20
         cache: "npm"
-        cache-dependency-path: ${{ inputs.PIMCORE_ROOT}}/frontend/package-lock.json
+        cache-dependency-path: ${{ inputs.FRONTEND_ROOT }}/package-lock.json
 
     - name: Cache node modules
       if: inputs.NPM_BUILD == 'true'
@@ -87,12 +90,12 @@ runs:
       run: |
         # If the application supports ReCAPTCHA, ensure the client key is present so that it is available for the constructed SPA HTML file
         export VITE_RECAPTCHA_CLIENT_KEY=${{ inputs.RECAPTCHA_CLIENT_KEY }}
-        npm --prefix ${{ inputs.PIMCORE_ROOT }}/frontend ci --legacy-peer-deps
-        npm --prefix ${{ inputs.PIMCORE_ROOT }}/frontend run ${{ inputs.NPM_RUN_CMD }}
+        npm --prefix ${{ inputs.FRONTEND_ROOT }} ci --legacy-peer-deps
+        npm --prefix ${{ inputs.FRONTEND_ROOT }} run ${{ inputs.NPM_RUN_CMD }}
         if ${{ inputs.NPM_SPA }}
         then
-          mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/index.html ${{ inputs.PIMCORE_ROOT }}/templates/${{ inputs.SPA_TWIG }}
-          mv ${{ inputs.PIMCORE_ROOT }}/frontend/build/* ${{ inputs.PIMCORE_ROOT }}/public/
+          mv ${{ inputs.FRONTEND_ROOT }}/build/index.html ${{ inputs.PIMCORE_ROOT }}/templates/${{ inputs.SPA_TWIG }}
+          mv ${{ inputs.FRONTEND_ROOT }}/build/* ${{ inputs.PIMCORE_ROOT }}/public/
         fi
 
     - name: Prepare Docker build secrets

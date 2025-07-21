@@ -59,6 +59,11 @@ on:
         type: string
         default: "default/default.html.twig"
         description: "The path to the Twig file (relative to {{ inputs.PIMCORE_ROOT }}/templates/) where the result of the NPM single-page application build should be copied"
+      FRONTEND_ROOT:
+        required: false
+        type: string
+        default: "frontend"
+        description: "The path (relative to the project's root) where frontend files are stored"
       SUBMODULES:
         required: false
         type: boolean
@@ -223,8 +228,6 @@ jobs:
           DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min
@@ -238,9 +241,8 @@ jobs:
           DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
+          FRONTEND_ROOT: ${{ inputs.FRONTEND_ROOT }}
           NPM_BUILD: ${{ inputs.NPM_BUILD }}
           RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
           NPM_SPA: ${{ inputs.NPM_SPA }}
@@ -258,8 +260,6 @@ jobs:
           DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min

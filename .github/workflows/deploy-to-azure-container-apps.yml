@@ -95,6 +95,11 @@ on:
         type: string
         default: "default/default.html.twig"
         description: "The path to the Twig file where the result of the NPM single-page application build should be copied"
+      FRONTEND_ROOT:
+        required: false
+        type: string
+        default: "frontend"
+        description: "The path (relative to the project's root) where frontend files are stored"
       SUBMODULES:
         required: false
         type: boolean
@@ -254,6 +259,7 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          FRONTEND_ROOT: ${{ inputs.FRONTEND_ROOT }}
           NPM_BUILD: ${{ inputs.NPM_BUILD }}
           RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
           NPM_SPA: ${{ inputs.NPM_SPA }}
@@ -294,7 +300,7 @@ jobs:
           INIT_CONTAINER_APP_JOB: ${{ vars.INIT_CONTAINER_APP_JOB }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-    
+
   deploy-php-container-app-revision:
     name: Deploy new revision of PHP Container App
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
