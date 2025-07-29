@@ -386,7 +386,7 @@ jobs:
       - name: Pull latest built images
         run: |
           echo "Pulling latest built images..."
-          if [[ ${{ inputs.INIT}} ]]; then
+          if [[ "${{ inputs.INIT}}" == "false" ]]; then
             docker compose \
               -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
               --env-file ${{ inputs.ENV_FILE }} \
