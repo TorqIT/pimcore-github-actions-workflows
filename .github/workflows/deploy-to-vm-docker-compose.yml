@@ -389,11 +389,13 @@ jobs:
           if [[ ${{ inputs.INIT}} ]]; then
             docker compose \
               -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+              --env-file ${{ inputs.ENV_FILE }} \
               pull \
               ${{ inputs.INIT_SERVICE }}
           fi
           docker compose \
             -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+            --env-file ${{ inputs.ENV_FILE }} \
             pull \
             ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
 
