@@ -120,6 +120,11 @@ on:
         type: string
         default: "init"
         description: 'The Docker target to use when building the init image. If your setup does not use targets, use an empty string ""'
+      INIT_SERVICE:
+        required: false
+        type: string
+        default: "init"
+        description: "The name of the init service in Docker Compose to run"
       PHP_IMAGE:
         required: false
         type: string
@@ -378,6 +383,20 @@ jobs:
               --env-file ${{ inputs.ENV_FILE }} \
               up -d ${{ inputs.NON_PIMCORE_SERVICES }}
 
+      - name: Pull latest built images
+        run: |
+          echo "Pulling latest built images..."
+          if [[ ${{ inputs.INIT}} ]]; then
+            docker compose \
+              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+              pull \
+              ${{ inputs.INIT_SERVICE }}
+          fi
+          docker compose \
+            -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+            pull \
+            ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
+
       - name: Run init container
         if: ${{ inputs.INIT }}
         run: |
@@ -385,7 +404,7 @@ jobs:
           docker compose \
               -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
               --env-file ${{ inputs.ENV_FILE }} \
-              run --rm ${{ inputs.INIT_IMAGE }}
+              run --rm ${{ inputs.INIT_SERVICE }}
 
       - name: Perform blue/green deployment of PHP and supervisord containers
         run: |
