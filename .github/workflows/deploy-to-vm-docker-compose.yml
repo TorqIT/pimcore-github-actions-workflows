@@ -449,7 +449,14 @@ jobs:
                   --env-file ${{ inputs.ENV_FILE }} \
                   rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
           else
-              echo "Error bringing up new containers - stopping $NEW_DEPLOYMENT containers..."
+              echo "Error bringing up new containers - here are logs from failed container:"
+              docker compose \
+                  --project-name=$NEW_DEPLOYMENT \
+                  -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+                  --env-file ${{ inputs.ENV_FILE }} \
+                  logs \
+                  ${{ inputs.PHP_SERVICE }}
+              echo "Stopping "$NEW_DEPLOYMENT" containers..."
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
                   -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
