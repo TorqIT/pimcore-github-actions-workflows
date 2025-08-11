@@ -88,6 +88,11 @@ on:
         type: string
         default: ${{ github.actor }}
         description: "Username to use to log in to the Docker Container Registry. By default we assume to be using a GitHub Container Registry, so the default value is {{ github.actor }}"
+      BUILD_TIME_ARGS:
+        required: false
+        type: string
+        default: "{}"
+        description: "A JSON object containing Docker build-time args in key: value format"
       DOCKER_COMPOSE_FILE:
         required: true
         type: string
@@ -184,10 +189,10 @@ on:
         description: Password for authenticating to the Docker Container Registry. If not supplied, the value of CALLER_GITHUB_TOKEN will be used (as we assume to be using a GitHub Container Registry in this case)
       BUILD_TIME_SECRETS:
         required: false
-        description: A JSON array of secrets required at build-time (see above for example format)
+        description: A JSON object of secrets required at build-time (see above for example format)
       RUN_TIME_SECRETS:
         required: false
-        description: A JSON array of secret environment variables required at run-time (see above for example format)
+        description: A JSON object of secret environment variables required at run-time (see above for example format)
       RECAPTCHA_CLIENT_KEY:
         required: false
         description: A client key used when building NPM frontends that require ReCAPTCHA
@@ -244,6 +249,7 @@ jobs:
           DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min
@@ -257,6 +263,7 @@ jobs:
           DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           FRONTEND_ROOT: ${{ inputs.FRONTEND_ROOT }}
           NPM_BUILD: ${{ inputs.NPM_BUILD }}
@@ -276,6 +283,7 @@ jobs:
           DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min

@@ -38,6 +38,9 @@ inputs:
   TORQ_GITHUB_TOKEN:
     required: true
     description: "(Optional) A GitHub access token used to access private GitHub repositories"
+  BUILD_TIME_ARGS:
+    required: true
+    description: "(Optional) A JSON object containing a list of args and their values in key: value format"
   BUILD_TIME_SECRETS:
     required: true
     description: "(Optional) A JSON object containing a list of secrets and their values in key: value format"
@@ -98,6 +101,18 @@ runs:
           mv ${{ inputs.FRONTEND_ROOT }}/build/* ${{ inputs.PIMCORE_ROOT }}/public/
         fi
 
+    - name: Prepare Docker build args
+      id: build-args
+      run: |
+        set -e
+        JSON_INPUT='${{ inputs.BUILD_TIME_ARGS }}'
+        echo "args<<EOF" >> $GITHUB_OUTPUT
+        echo "$JSON_INPUT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
+          echo "$key=$value" >> $GITHUB_OUTPUT
+        done
+        echo "EOF" >> $GITHUB_OUTPUT
+      shell: bash
+
     - name: Prepare Docker build secrets
       id: build-secrets
       run: |
@@ -117,6 +132,8 @@ runs:
         context: .
         file: ${{ inputs.DOCKERFILE_PATH }}
         target: ${{ inputs.DOCKERFILE_TARGET }}
+        build-args: |
+          ${{ steps.build-args.outputs.args }}
         # During the build, the kernel secret's value is not important but it still must be set
         secrets: |
           pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
