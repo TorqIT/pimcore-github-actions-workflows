@@ -466,7 +466,8 @@ jobs:
                   --env-file ${{ inputs.ENV_FILE }} \
                   logs \
                   ${{ inputs.PHP_SERVICE }}
-              echo "\nHere is tail of var/log/$APP_ENV-error.log:"
+              echo ""
+              echo "Here is tail of var/log/$APP_ENV-error.log:"
               docker compose \
                   --project-name=$OLD_DEPLOYMENT \
                   -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
