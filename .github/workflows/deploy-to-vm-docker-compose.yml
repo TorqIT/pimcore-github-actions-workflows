@@ -459,13 +459,21 @@ jobs:
                   --env-file ${{ inputs.ENV_FILE }} \
                   rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
           else
-              echo "Error bringing up new containers - here are logs from failed container:"
+              echo "Error bringing up new containers - here are stdout logs from failed container:"
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
                   -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
                   --env-file ${{ inputs.ENV_FILE }} \
                   logs \
                   ${{ inputs.PHP_SERVICE }}
+              echo "Here is tail of var/log/$APP_ENV-error.log:"
+              docker compose \
+                  --project-name=$OLD_DEPLOYMENT \
+                  -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+                  --env-file ${{ inputs.ENV_FILE }} \
+                  exec -it \
+                    ${{ inputs.PHP_SERVICE }} \
+                    bash -c 'cat /var/www/html/var/log/$APP_ENV-error.log'
               echo "Stopping "$NEW_DEPLOYMENT" containers..."
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
