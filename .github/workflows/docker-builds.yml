@@ -5,6 +5,12 @@
 # jobs:
 #   build-images:
 #     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/docker-builds@v7
+#     secrets:
+#        BUILD_TIME_SECRETS: >
+#          {
+#            "pimcore-enterprise-token": "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}",
+#            ...any other build-time secrets you need
+#          }
 #
 # Requires the following permissions to be set in the callig job:
 # permissions:
@@ -48,6 +54,11 @@ on:
         type: boolean
         default: false
         description: "Whether to clone submodules when cloning the project repository"
+      BUILD_TIME_ARGS:
+        required: false
+        type: string
+        default: "{}"
+        description: "A JSON object containing Docker build-time args in key: value format"
       PIMCORE_ROOT:
         required: false
         type: string
@@ -85,12 +96,15 @@ on:
         description: "The Docker target to use when building the supervisord image"
 
     secrets:
+      BUILD_TIME_SECRETS:
+        required: false
+        description: A JSON object of secrets required at build-time (see above for example format)
       PIMCORE_ENTERPRISE_TOKEN:
         required: false
-        description: (Optional) The value of your project's Pimcore Enterprise Token
+        description: (Deprecated - use BUILD_TIME_SECRETS instead) The value of your project's Pimcore Enterprise Token
       TORQ_GITHUB_TOKEN:
         required: false
-        description: (Optional) A GitHub access token used to access private GitHub repositories
+        description: (Deprecated - use BUILD_TIME_SECRETS instead) A GitHub access token used to access private GitHub repositories
       RECAPTCHA_CLIENT_KEY:
         required: false
         description: (Optional) A client key used when building NPM frontends that require ReCAPTCHA
@@ -131,6 +145,8 @@ jobs:
         with:
           DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
           DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
+          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
+          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
@@ -141,6 +157,8 @@ jobs:
         with:
           DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
+          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
+          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
@@ -157,6 +175,8 @@ jobs:
         with:
           DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
+          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
+          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
