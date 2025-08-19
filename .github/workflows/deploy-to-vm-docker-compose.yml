@@ -472,9 +472,9 @@ jobs:
                   --project-name=$OLD_DEPLOYMENT \
                   -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
                   --env-file ${{ inputs.ENV_FILE }} \
-                  exec -it \
+                  exec -T \
                     ${{ inputs.PHP_SERVICE }} \
-                    bash -c 'tail -n 3 /var/www/html/var/log/$APP_ENV-error.log'
+                    bash -c 'if [ -f /var/www/html/var/log/$APP_ENV-error.log ]; then tail -n 3 /var/www/html/var/log/$APP_ENV-error.log; else echo "Error log file does not exist"; fi'
               echo "Stopping "$NEW_DEPLOYMENT" containers..."
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
@@ -494,7 +494,7 @@ jobs:
       - deploy-containers
     steps:
       - id: check-webhook-url
-        # Hacky workaround to get around the fact that we cannot reference secrets in a conditional
+        # Hacky workaround to get around the fact that we cannot reference secrets in step conditional
         run: |
           if [ "${{ secrets.SLACK_WORKFLOW_STATUS_WEBHOOK_URL }}" != '' ]; then
             echo "Slack webhook URL is defined"
