@@ -327,9 +327,8 @@ jobs:
         if: ${{ inputs.RUN_TIME_SECRETS_AS_ENV_VARS }}
         run: |
           set -e
-          echo "" >> ${{ inputs.ENV_FILE }}
-          JSON_INPUT="${{ secrets.RUN_TIME_SECRETS }}"
-          echo "$JSON_INPUT" | jq -r 'to_entries | .[] | (.key | ascii_upcase | gsub("-"; "_")) + "=" + .value' >> ${{ inputs.ENV_FILE }}
+          echo "" >> "${{ inputs.ENV_FILE }}"
+          echo '${{ secrets.RUN_TIME_SECRETS }}' | jq -r 'to_entries | .[] | (.key | ascii_upcase | gsub("-"; "_")) + "=" + @sh .value' >> "${{ inputs.ENV_FILE }}"
 
       - name: Create Docker secret files
         run: |
