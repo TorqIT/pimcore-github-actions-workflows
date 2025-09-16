@@ -134,11 +134,13 @@ runs:
         target: ${{ inputs.DOCKERFILE_TARGET }}
         build-args: |
           ${{ steps.build-args.outputs.args }}
-        # During the build, the kernel secret's value is not important but it still must be set
+        # During the build, several secret values don't actually matter but still need to be present (e.g. kernel-secret, pimcore-encryption-secret),
+        # so we simply add dummy values here
         secrets: |
+          kernel-secret=secret
+          pimcore-encryption-secret=secret
           pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
           torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
-          kernel-secret=secret
           ${{ steps.build-secrets.outputs.secrets }}
         push: ${{ fromJSON(inputs.PUSH) }}
         cache-from: ${{ inputs.CACHE_FROM }}
