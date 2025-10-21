@@ -85,10 +85,10 @@ on:
         description: SSL mode for target connection (DISABLED, PREFERRED, REQUIRED, VERIFY_CA, VERIFY_IDENTITY)
 
     secrets:
-      SOURCE_MYSQL_PASSWORD:
+      SOURCE_PASSWORD:
         required: true
         description: Password for connecting to the source MySQL server
-      TARGET_MYSQL_PASSWORD:
+      TARGET_PASSWORD:
         required: true
         description: Password for connecting to the target MySQL server
       SLACK_WEBHOOK_URL:
@@ -129,7 +129,7 @@ jobs:
             mysql \
             -h ${{ inputs.SOURCE_HOST }} \
             -P ${{ inputs.SOURCE_PORT }} \
-            -u ${{ secrets.SOURCE_MYSQL_USERNAME }} \
+            -u ${{ inputs.SOURCE_USERNAME }} \
             --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
             -e "SELECT 1;" \
             ${{ inputs.SOURCE_DATABASE }}
@@ -138,11 +138,11 @@ jobs:
       - name: Test target database connection
         run: |
           echo "Testing connection to target database..."
-          MYSQL_PWD="${{ secrets.TARGET_MYSQL_PASSWORD }}" \
+          MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
             mysql \
             -h ${{ inputs.TARGET_HOST }} \
             -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ secrets.TARGET_MYSQL_USERNAME }} \
+            -u ${{ inputs.TARGET_USERNAME }} \
             --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
             -e "SELECT 1;" \
             mysql
@@ -151,11 +151,11 @@ jobs:
       - name: Create target database if it doesn't exist
         run: |
           echo "Ensuring target database exists..."
-          MYSQL_PWD="${{ secrets.TARGET_MYSQL_PASSWORD }}" \
+          MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
             mysql \
             -h ${{ inputs.TARGET_HOST }} \
             -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ secrets.TARGET_MYSQL_USERNAME }} \
+            -u ${{ inputs.TARGET_USERNAME }} \
             --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
             -e "CREATE DATABASE IF NOT EXISTS \`${{ inputs.TARGET_DATABASE }}\`;" \
             mysql
@@ -165,11 +165,11 @@ jobs:
         if: ${{ inputs.DROP_TARGET_BEFORE_RESTORE }}
         run: |
           echo "Dropping target database before restore..."
-          MYSQL_PWD="${{ secrets.TARGET_MYSQL_PASSWORD }}" \
+          MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
             mysql \
             -h ${{ inputs.TARGET_HOST }} \
             -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ secrets.TARGET_MYSQL_USERNAME }} \
+            -u ${{ inputs.TARGET_USERNAME }} \
             --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
             -e "DROP DATABASE IF EXISTS \`${{ inputs.TARGET_DATABASE }}\`; CREATE DATABASE \`${{ inputs.TARGET_DATABASE }}\`;" \
             mysql
@@ -216,11 +216,11 @@ jobs:
           echo "Starting restore to ${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}..."
 
           # Restore the dump to target database
-          MYSQL_PWD="${{ secrets.TARGET_MYSQL_PASSWORD }}" \
+          MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
             mysql \
             -h ${{ inputs.TARGET_HOST }} \
             -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ secrets.TARGET_MYSQL_USERNAME }} \
+            -u ${{ secrets.TARGET_USERNAME }} \
             --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
             ${{ inputs.TARGET_DATABASE }} \
             < "$DUMP_FILE"
@@ -237,11 +237,11 @@ jobs:
       - name: Verify restore
         run: |
           echo "Verifying restore by checking table count..."
-          table_count=$(MYSQL_PWD="${{ secrets.TARGET_MYSQL_PASSWORD }}" \
+          table_count=$(MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
             mysql \
             -h ${{ inputs.TARGET_HOST }} \
             -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ secrets.TARGET_MYSQL_USERNAME }} \
+            -u ${{ inputs.TARGET_USERNAME }} \
             --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
             -N -s \
             -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${{ inputs.TARGET_DATABASE }}';" \
