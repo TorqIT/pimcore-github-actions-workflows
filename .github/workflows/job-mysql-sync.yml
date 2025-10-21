@@ -29,10 +29,20 @@ on:
         required: false
         type: string
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
+      MYSQLDUMP_OPTIONS:
+        required: false
+        type: string
+        default: "--single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert"
+        description: Additional options to pass to mysqldump command
       SOURCE_HOST:
         required: true
         type: string
         description: Hostname or IP address of the source MySQL server
+      SOURCE_SSL_MODE:
+        required: false
+        type: string
+        default: "PREFERRED"
+        description: SSL mode for source connection (DISABLED, PREFERRED, REQUIRED, VERIFY_CA, VERIFY_IDENTITY)
       SOURCE_USERNAME:
         required: true
         type: string
@@ -46,10 +56,24 @@ on:
         required: true
         type: string
         description: Name of the database/schema to dump from the source server
+      SOURCE_IS_IN_AZURE:
+        required: false
+        type: boolean
+        default: false
+        description: Whether the source server is an Azure MySQL server
+      SOURCE_AZURE_RESOURCE_GROUP:
+        required: false
+        type: string
+        description: Azure Resource Group containing the source server
       TARGET_HOST:
         required: true
         type: string
         description: Hostname or IP address of the target MySQL server
+      TARGET_SSL_MODE:
+        required: false
+        type: string
+        default: "PREFERRED"
+        description: SSL mode for target connection (DISABLED, PREFERRED, REQUIRED, VERIFY_CA, VERIFY_IDENTITY)
       TARGET_USERNAME:
         required: true
         type: string
@@ -63,26 +87,28 @@ on:
         required: true
         type: string
         description: Name of the database/schema to restore to on the target server
-      MYSQLDUMP_OPTIONS:
+      TARGET_IS_IN_AZURE:
+        required: false
+        type: boolean
+        default: false
+        description: Whether the target server is an Azure MySQL server
+      TARGET_AZURE_RESOURCE_GROUP:
         required: false
         type: string
-        default: "--single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert"
-        description: Additional options to pass to mysqldump command
+        description: Azure Resource Group containing the target server
       DROP_TARGET_BEFORE_RESTORE:
         required: false
         type: boolean
         default: false
         description: Whether to drop and recreate the target database before restoring
-      SOURCE_SSL_MODE:
+      AZURE_TENANT_ID:
         required: false
         type: string
-        default: "PREFERRED"
-        description: SSL mode for source connection (DISABLED, PREFERRED, REQUIRED, VERIFY_CA, VERIFY_IDENTITY)
-      TARGET_SSL_MODE:
+        description: ID of the Azure tenant containing MySQL resources
+      AZURE_SUBSCRIPTION_ID:
         required: false
         type: string
-        default: "PREFERRED"
-        description: SSL mode for target connection (DISABLED, PREFERRED, REQUIRED, VERIFY_CA, VERIFY_IDENTITY)
+        description: ID of the Azure subscription containing MySQL resources
 
     secrets:
       SOURCE_PASSWORD:
@@ -94,6 +120,12 @@ on:
       SLACK_WEBHOOK_URL:
         required: false
         description: Webhook URL to send job status messages to Slack
+      AZURE_SERVICE_PRINCIPAL_ID:
+        required: false
+        description: Azure service principal ID used for interacting with the MySQL resources
+      AZURE_SERVICE_PRINCIPAL_PASSWORD:
+        required: false
+        description: Azure service principal password used for interacting with the MySQL resources
 
 jobs:
   mysql-dump-to-env:
@@ -121,6 +153,32 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y mysql-client-core-8.0
+
+      - name: If source or target are in Azure, log in to Azure via Service Principal
+        if: ${{ inputs.SOURCE_IS_IN_AZURE || inputs.TARGET_IS_IN_AZURE }}
+        uses: ./reusable-workflow/.github/actions/azure-login
+        with:
+          SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
+          TENANT: ${{ inputs.AZURE_TENANT_ID }}
+          SUBSCRIPTION: ${{ inputs.AZURE_SUBSCRIPTION_ID }}
+
+      - name: If source is an Azure MySQL server, add temporary network rule for this runner
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            set -e
+            runnerIp=$(curl ipinfo.io/ip)
+            echo "Adding temporary network rule for this runner ($runnerIp) to source database server's firewall..."
+            az mysql flexible-server firewall-rule create \
+              --name $(echo "${{ inputs.SOURCE_HOST }}" | cut -d'.' -f1)
+              --resource-group ${{ inputs.SOURCE_AZURE_RESOURCE_GROUP }} \
+              --rule-name allow-runner-ip \
+              --start-ip-address $runnerIp \
+              --end-ip-address $runnerIp \
+              --verbose
+            echo "Sleeping for 30 seconds to allow network rules to propagate..."
+            sleep 30
 
       - name: Test source database connection
         run: |
@@ -259,6 +317,30 @@ jobs:
             rm -f "${{ steps.dump-restore.outputs.dump_file }}"
             echo "Cleaned up temporary dump file"
           fi
+
+      - name: Remove temporary Azure network rule from source database server firewall
+        if: always() && ${{ inputs.SOURCE_IS_IN_AZURE }}
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            set -e
+            az mysql flexible-server firewall-rule delete \
+              --resource-group ${{ inputs.SOURCE_AZURE_RESOURCE_GROUP }} \
+              --name $(echo "${{ inputs.SOURCE_HOST }}" | cut -d'.' -f1)
+              --rule-name allow-runner-ip \
+              --yes
+
+      - name: Remove temporary Azure network rule from target database server firewall
+        if: always() && ${{ inputs.TARGET_IS_IN_AZURE }}
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            set -e
+            az mysql flexible-server firewall-rule delete \
+              --resource-group ${{ inputs.TARGET_AZURE_RESOURCE_GROUP }} \
+              --name $(echo "${{ inputs.TARGET_HOST }}" | cut -d'.' -f1)
+              --rule-name allow-runner-ip \
+              --yes
 
       - name: Check Slack webhook URL
         id: check-webhook-url
