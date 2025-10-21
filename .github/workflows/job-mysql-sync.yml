@@ -167,6 +167,7 @@ jobs:
           SUBSCRIPTION: ${{ inputs.AZURE_SUBSCRIPTION_ID }}
 
       - name: If source is an Azure MySQL server, add temporary network rule for this runner
+        if: ${{ inputs.SOURCE_IS_IN_AZURE }}
         uses: azure/cli@v2
         with:
           inlineScript: |
@@ -176,6 +177,24 @@ jobs:
             az mysql flexible-server firewall-rule create \
               --name $(echo "${{ inputs.SOURCE_HOST }}" | cut -d'.' -f1)
               --resource-group ${{ inputs.SOURCE_AZURE_RESOURCE_GROUP }} \
+              --rule-name allow-runner-ip \
+              --start-ip-address $runnerIp \
+              --end-ip-address $runnerIp \
+              --verbose
+            echo "Sleeping for 30 seconds to allow network rules to propagate..."
+            sleep 30
+
+      - name: If target is an Azure MySQL server, add temporary network rule for this runner
+        if: ${{ inputs.TARGET_IS_IN_AZURE }}
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            set -e
+            runnerIp=$(curl ipinfo.io/ip)
+            echo "Adding temporary network rule for this runner ($runnerIp) to source database server's firewall..."
+            az mysql flexible-server firewall-rule create \
+              --name $(echo "${{ inputs.TARGET_HOST }}" | cut -d'.' -f1)
+              --resource-group ${{ inputs.TARGET_AZURE_RESOURCE_GROUP }} \
               --rule-name allow-runner-ip \
               --start-ip-address $runnerIp \
               --end-ip-address $runnerIp \
@@ -209,32 +228,32 @@ jobs:
             mysql
           echo "Target database connection successful"
 
-      - name: Create target database if it doesn't exist
-        run: |
-          echo "Ensuring target database exists..."
-          MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
-            mysql \
-            -h ${{ inputs.TARGET_HOST }} \
-            -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ inputs.TARGET_USERNAME }} \
-            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-            -e "CREATE DATABASE IF NOT EXISTS \`${{ inputs.TARGET_DATABASE }}\`;" \
-            mysql
-          echo "Target database exists"
+      # - name: Create target database if it doesn't exist
+      #   run: |
+      #     echo "Ensuring target database exists..."
+      #     MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
+      #       mysql \
+      #       -h ${{ inputs.TARGET_HOST }} \
+      #       -P ${{ inputs.TARGET_PORT }} \
+      #       -u ${{ inputs.TARGET_USERNAME }} \
+      #       --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+      #       -e "CREATE DATABASE IF NOT EXISTS \`${{ inputs.TARGET_DATABASE }}\`;" \
+      #       mysql
+      #     echo "Target database exists"
 
-      - name: Drop target database if requested
-        if: ${{ inputs.DROP_TARGET_BEFORE_RESTORE }}
-        run: |
-          echo "Dropping target database before restore..."
-          MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
-            mysql \
-            -h ${{ inputs.TARGET_HOST }} \
-            -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ inputs.TARGET_USERNAME }} \
-            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-            -e "DROP DATABASE IF EXISTS \`${{ inputs.TARGET_DATABASE }}\`; CREATE DATABASE \`${{ inputs.TARGET_DATABASE }}\`;" \
-            mysql
-          echo "Target database dropped"
+      # - name: Drop target database if requested
+      #   if: ${{ inputs.DROP_TARGET_BEFORE_RESTORE }}
+      #   run: |
+      #     echo "Dropping target database before restore..."
+      #     MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
+      #       mysql \
+      #       -h ${{ inputs.TARGET_HOST }} \
+      #       -P ${{ inputs.TARGET_PORT }} \
+      #       -u ${{ inputs.TARGET_USERNAME }} \
+      #       --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+      #       -e "DROP DATABASE IF EXISTS \`${{ inputs.TARGET_DATABASE }}\`; CREATE DATABASE \`${{ inputs.TARGET_DATABASE }}\`;" \
+      #       mysql
+      #     echo "Target database dropped"
 
       - name: Perform MySQL dump and restore
         id: dump-restore
