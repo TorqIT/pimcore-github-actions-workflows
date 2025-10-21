@@ -273,42 +273,42 @@ jobs:
 
           echo "Starting restore to ${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}..."
 
-          # Restore the dump to target database
-          MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
-            mysql \
-            -h ${{ inputs.TARGET_HOST }} \
-            -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ secrets.TARGET_USERNAME }} \
-            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-            ${{ inputs.TARGET_DATABASE }} \
-            < "$DUMP_FILE"
+          # # Restore the dump to target database
+          # MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
+          #   mysql \
+          #   -h ${{ inputs.TARGET_HOST }} \
+          #   -P ${{ inputs.TARGET_PORT }} \
+          #   -u ${{ secrets.TARGET_USERNAME }} \
+          #   --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+          #   ${{ inputs.TARGET_DATABASE }} \
+          #   < "$DUMP_FILE"
 
-          restore_time=$(date +%s)
-          restore_duration=$((restore_time - dump_time))
-          total_duration=$((restore_time - start_time))
+          # restore_time=$(date +%s)
+          # restore_duration=$((restore_time - dump_time))
+          # total_duration=$((restore_time - start_time))
 
-          echo "Restore completed successfully in ${restore_duration}s"
-          echo "Total operation time: ${total_duration}s"
-          echo "restore_duration=$restore_duration" >> $GITHUB_OUTPUT
-          echo "total_duration=$total_duration" >> $GITHUB_OUTPUT
+          # echo "Restore completed successfully in ${restore_duration}s"
+          # echo "Total operation time: ${total_duration}s"
+          # echo "restore_duration=$restore_duration" >> $GITHUB_OUTPUT
+          # echo "total_duration=$total_duration" >> $GITHUB_OUTPUT
 
-      - name: Verify restore
-        run: |
-          echo "Verifying restore by checking table count..."
-          table_count=$(MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
-            mysql \
-            -h ${{ inputs.TARGET_HOST }} \
-            -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ inputs.TARGET_USERNAME }} \
-            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-            -N -s \
-            -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${{ inputs.TARGET_DATABASE }}';" \
-            mysql)
+      # - name: Verify restore
+      #   run: |
+      #     echo "Verifying restore by checking table count..."
+      #     table_count=$(MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
+      #       mysql \
+      #       -h ${{ inputs.TARGET_HOST }} \
+      #       -P ${{ inputs.TARGET_PORT }} \
+      #       -u ${{ inputs.TARGET_USERNAME }} \
+      #       --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+      #       -N -s \
+      #       -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${{ inputs.TARGET_DATABASE }}';" \
+      #       mysql)
 
-          echo "Target database contains $table_count tables"
-          if [ "$table_count" -eq 0 ]; then
-            echo "Warning: No tables found in target database"
-          fi
+      #     echo "Target database contains $table_count tables"
+      #     if [ "$table_count" -eq 0 ]; then
+      #       echo "Warning: No tables found in target database"
+      #     fi
 
       - name: Clean up dump file
         if: always()
