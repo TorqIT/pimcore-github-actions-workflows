@@ -17,7 +17,7 @@
 #     secrets:
 #       SOURCE_PASSWORD: ${{ secrets.PROD_MYSQL_PASSWORD }}
 #       TARGET_PASSWORD: ${{ secrets.STAGING_MYSQL_PASSWORD }}
-#       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DATABASE_DUMP_WEBHOOK_URL }}
+#       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DATABASE_SYNC_WEBHOOK_URL }}
 #
 
 name: MySQL Sync
