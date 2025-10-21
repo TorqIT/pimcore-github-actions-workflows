@@ -128,8 +128,8 @@ on:
         description: Azure service principal password used for interacting with the MySQL resources
 
 jobs:
-  mysql-dump-to-env:
-    name: Perform MySQL dump from source to target
+  db-sync:
+    name: Perform MySQL database sync
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
     steps:
