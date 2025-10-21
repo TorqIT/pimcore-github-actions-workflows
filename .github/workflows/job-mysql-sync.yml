@@ -141,7 +141,7 @@ jobs:
         uses: canonical/get-workflow-version-action@v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: job-mysql-dump-to-env.yml
+          file-name: job-mysql-sync.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
