@@ -20,7 +20,7 @@
 #       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DATABASE_DUMP_WEBHOOK_URL }}
 #
 
-name: MySQL Dump Source to Target
+name: MySQL Sync
 
 on:
   workflow_call:
