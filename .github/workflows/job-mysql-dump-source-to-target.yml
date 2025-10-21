@@ -1,0 +1,288 @@
+# Connects to a source MySQL server, performs a dump of a given schema, then applies that dump to a target MySQL server.
+#
+# Invoke this workflow in your project's workflow as follows:
+# jobs:
+#   db-sync:
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-mysql-dump-to-env.yml@v7
+#     permissions:
+#       contents: read
+#       actions: read
+#     with:
+#       SOURCE_HOST: prod.mysql.example.com
+#       SOURCE_USERNAME: adminuser
+#       SOURCE_DATABASE: production_db
+#       TARGET_HOST: staging.mysql.example.com
+#       TARGET_USERNAME: adminuser
+#       TARGET_DATABASE: staging_db
+#     secrets:
+#       SOURCE_PASSWORD: ${{ secrets.PROD_MYSQL_PASSWORD }}
+#       TARGET_PASSWORD: ${{ secrets.STAGING_MYSQL_PASSWORD }}
+#       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DATABASE_DUMP_WEBHOOK_URL }}
+#
+
+name: MySQL Dump Source to Target
+
+on:
+  workflow_call:
+    inputs:
+      RUNNER:
+        required: false
+        type: string
+        description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
+      SOURCE_HOST:
+        required: true
+        type: string
+        description: Hostname or IP address of the source MySQL server
+      SOURCE_USERNAME:
+        required: true
+        type: string
+        description: Username for connecting to the source MySQL server
+      SOURCE_PORT:
+        required: false
+        type: string
+        default: "3306"
+        description: Port number for the source MySQL server
+      SOURCE_DATABASE:
+        required: true
+        type: string
+        description: Name of the database/schema to dump from the source server
+      TARGET_HOST:
+        required: true
+        type: string
+        description: Hostname or IP address of the target MySQL server
+      TARGET_USERNAME:
+        required: true
+        type: string
+        description: Username for connecting to the target MySQL server
+      TARGET_PORT:
+        required: false
+        type: string
+        default: "3306"
+        description: Port number for the target MySQL server
+      TARGET_DATABASE:
+        required: true
+        type: string
+        description: Name of the database/schema to restore to on the target server
+      MYSQLDUMP_OPTIONS:
+        required: false
+        type: string
+        default: "--single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert"
+        description: Additional options to pass to mysqldump command
+      DROP_TARGET_BEFORE_RESTORE:
+        required: false
+        type: boolean
+        default: false
+        description: Whether to drop and recreate the target database before restoring
+      SOURCE_SSL_MODE:
+        required: false
+        type: string
+        default: "PREFERRED"
+        description: SSL mode for source connection (DISABLED, PREFERRED, REQUIRED, VERIFY_CA, VERIFY_IDENTITY)
+      TARGET_SSL_MODE:
+        required: false
+        type: string
+        default: "PREFERRED"
+        description: SSL mode for target connection (DISABLED, PREFERRED, REQUIRED, VERIFY_CA, VERIFY_IDENTITY)
+
+    secrets:
+      SOURCE_MYSQL_PASSWORD:
+        required: true
+        description: Password for connecting to the source MySQL server
+      TARGET_MYSQL_PASSWORD:
+        required: true
+        description: Password for connecting to the target MySQL server
+      SLACK_WEBHOOK_URL:
+        required: false
+        description: Webhook URL to send job status messages to Slack
+
+jobs:
+  mysql-dump-to-env:
+    name: Perform MySQL dump from source to target
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+
+    steps:
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: job-mysql-dump-to-env.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Install MySQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-client-core-8.0
+
+      - name: Test source database connection
+        run: |
+          echo "Testing connection to source database..."
+          MYSQL_PWD="${{ secrets.SOURCE_MYSQL_PASSWORD }}" \
+            mysql \
+            -h ${{ inputs.SOURCE_HOST }} \
+            -P ${{ inputs.SOURCE_PORT }} \
+            -u ${{ secrets.SOURCE_MYSQL_USERNAME }} \
+            --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
+            -e "SELECT 1;" \
+            ${{ inputs.SOURCE_DATABASE }}
+          echo "Source database connection successful"
+
+      - name: Test target database connection
+        run: |
+          echo "Testing connection to target database..."
+          MYSQL_PWD="${{ secrets.TARGET_MYSQL_PASSWORD }}" \
+            mysql \
+            -h ${{ inputs.TARGET_HOST }} \
+            -P ${{ inputs.TARGET_PORT }} \
+            -u ${{ secrets.TARGET_MYSQL_USERNAME }} \
+            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+            -e "SELECT 1;" \
+            mysql
+          echo "Target database connection successful"
+
+      - name: Create target database if it doesn't exist
+        run: |
+          echo "Ensuring target database exists..."
+          MYSQL_PWD="${{ secrets.TARGET_MYSQL_PASSWORD }}" \
+            mysql \
+            -h ${{ inputs.TARGET_HOST }} \
+            -P ${{ inputs.TARGET_PORT }} \
+            -u ${{ secrets.TARGET_MYSQL_USERNAME }} \
+            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+            -e "CREATE DATABASE IF NOT EXISTS \`${{ inputs.TARGET_DATABASE }}\`;" \
+            mysql
+          echo "Target database exists"
+
+      - name: Drop target database if requested
+        if: ${{ inputs.DROP_TARGET_BEFORE_RESTORE }}
+        run: |
+          echo "Dropping target database before restore..."
+          MYSQL_PWD="${{ secrets.TARGET_MYSQL_PASSWORD }}" \
+            mysql \
+            -h ${{ inputs.TARGET_HOST }} \
+            -P ${{ inputs.TARGET_PORT }} \
+            -u ${{ secrets.TARGET_MYSQL_USERNAME }} \
+            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+            -e "DROP DATABASE IF EXISTS \`${{ inputs.TARGET_DATABASE }}\`; CREATE DATABASE \`${{ inputs.TARGET_DATABASE }}\`;" \
+            mysql
+          echo "Target database dropped"
+
+      - name: Perform MySQL dump and restore
+        id: dump-restore
+        run: |
+          set -e
+
+          # Generate unique filename for this operation
+          DUMP_FILE="db_dump_$(date -u +"%Y%m%d_%H%M%S").sql"
+          echo "dump_file=$DUMP_FILE" >> $GITHUB_OUTPUT
+
+          echo "Starting MySQL dump from ${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}..."
+          start_time=$(date +%s)
+
+          # Perform the dump
+          MYSQL_PWD="${{ secrets.SOURCE_MYSQL_PASSWORD }}" \
+            mysqldump \
+            -h ${{ inputs.SOURCE_HOST }} \
+            -P ${{ inputs.SOURCE_PORT }} \
+            -u ${{ secrets.SOURCE_MYSQL_USERNAME }} \
+            --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
+            ${{ inputs.MYSQLDUMP_OPTIONS }} \
+            ${{ inputs.SOURCE_DATABASE }} \
+            > "$DUMP_FILE"
+
+          dump_time=$(date +%s)
+          dump_duration=$((dump_time - start_time))
+
+          # Check if dump was successful
+          if [ ! -f "$DUMP_FILE" ] || [ ! -s "$DUMP_FILE" ]; then
+            echo "Dump file is empty or doesn't exist"
+            exit 1
+          fi
+
+          file_size=$(stat -c%s "$DUMP_FILE")
+          file_size_mb=$((file_size / 1024 / 1024))
+          echo "Dump completed successfully - ${file_size_mb}MB in ${dump_duration}s"
+          echo "dump_size_mb=$file_size_mb" >> $GITHUB_OUTPUT
+          echo "dump_duration=$dump_duration" >> $GITHUB_OUTPUT
+
+          echo "Starting restore to ${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}..."
+
+          # Restore the dump to target database
+          MYSQL_PWD="${{ secrets.TARGET_MYSQL_PASSWORD }}" \
+            mysql \
+            -h ${{ inputs.TARGET_HOST }} \
+            -P ${{ inputs.TARGET_PORT }} \
+            -u ${{ secrets.TARGET_MYSQL_USERNAME }} \
+            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+            ${{ inputs.TARGET_DATABASE }} \
+            < "$DUMP_FILE"
+
+          restore_time=$(date +%s)
+          restore_duration=$((restore_time - dump_time))
+          total_duration=$((restore_time - start_time))
+
+          echo "Restore completed successfully in ${restore_duration}s"
+          echo "Total operation time: ${total_duration}s"
+          echo "restore_duration=$restore_duration" >> $GITHUB_OUTPUT
+          echo "total_duration=$total_duration" >> $GITHUB_OUTPUT
+
+      - name: Verify restore
+        run: |
+          echo "Verifying restore by checking table count..."
+          table_count=$(MYSQL_PWD="${{ secrets.TARGET_MYSQL_PASSWORD }}" \
+            mysql \
+            -h ${{ inputs.TARGET_HOST }} \
+            -P ${{ inputs.TARGET_PORT }} \
+            -u ${{ secrets.TARGET_MYSQL_USERNAME }} \
+            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+            -N -s \
+            -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${{ inputs.TARGET_DATABASE }}';" \
+            mysql)
+
+          echo "Target database contains $table_count tables"
+          if [ "$table_count" -eq 0 ]; then
+            echo "Warning: No tables found in target database"
+          fi
+
+      - name: Clean up dump file
+        if: always()
+        run: |
+          if [ -f "${{ steps.dump-restore.outputs.dump_file }}" ]; then
+            rm -f "${{ steps.dump-restore.outputs.dump_file }}"
+            echo "Cleaned up temporary dump file"
+          fi
+
+      - name: Check Slack webhook URL
+        id: check-webhook-url
+        if: always()
+        # Hacky workaround to get around the fact that we cannot reference secrets in a conditional
+        run: |
+          if [ "${{ secrets.SLACK_WEBHOOK_URL }}" != '' ]; then
+            echo "Slack webhook URL is defined"
+            echo "slackWebhookDefined=true" >> $GITHUB_OUTPUT;
+          else
+            echo "Slack webhook URL is not defined"
+            echo "slackWebhookDefined=false" >> $GITHUB_OUTPUT;
+          fi
+
+      - name: Send job status to Slack
+        if: ${{ always() && steps.check-webhook-url.outputs.slackWebhookDefined == 'true' }}
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "*MySQL Database Sync Job*"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Database sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source:* `${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}`\n*Target:* `${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}`\n*Dump Size:* ${{ steps.dump-restore.outputs.dump_size_mb || 'N/A' }}MB\n*Duration:* ${{ steps.dump-restore.outputs.total_duration || 'N/A' }}s\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
