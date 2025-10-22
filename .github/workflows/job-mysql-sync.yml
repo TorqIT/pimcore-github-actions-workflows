@@ -272,7 +272,7 @@ jobs:
             mysqldump \
             -h ${{ inputs.SOURCE_HOST }} \
             -P ${{ inputs.SOURCE_PORT }} \
-            -u ${{ secrets.SOURCE_USERNAME }} \
+            -u ${{ inputs.SOURCE_USERNAME }} \
             --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
             ${{ inputs.MYSQLDUMP_OPTIONS }} \
             ${{ inputs.SOURCE_DATABASE }} \
@@ -300,7 +300,7 @@ jobs:
           #   mysql \
           #   -h ${{ inputs.TARGET_HOST }} \
           #   -P ${{ inputs.TARGET_PORT }} \
-          #   -u ${{ secrets.TARGET_USERNAME }} \
+          #   -u ${{ inputs.TARGET_USERNAME }} \
           #   --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
           #   ${{ inputs.TARGET_DATABASE }} \
           #   < "$DUMP_FILE"
