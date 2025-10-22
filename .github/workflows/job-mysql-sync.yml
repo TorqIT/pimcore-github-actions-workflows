@@ -175,7 +175,7 @@ jobs:
             runnerIp=$(curl ipinfo.io/ip)
             echo "Adding temporary network rule for this runner ($runnerIp) to source database server's firewall..."
             az mysql flexible-server firewall-rule create \
-              --name $(echo "${{ inputs.SOURCE_HOST }}" | cut -d'.' -f1)
+              --name $(echo "${{ inputs.SOURCE_HOST }}" | cut -d'.' -f1) \
               --resource-group ${{ inputs.SOURCE_AZURE_RESOURCE_GROUP }} \
               --rule-name allow-runner-ip \
               --start-ip-address $runnerIp \
@@ -191,9 +191,9 @@ jobs:
           inlineScript: |
             set -e
             runnerIp=$(curl ipinfo.io/ip)
-            echo "Adding temporary network rule for this runner ($runnerIp) to source database server's firewall..."
+            echo "Adding temporary network rule for this runner ($runnerIp) to target database server's firewall..."
             az mysql flexible-server firewall-rule create \
-              --name $(echo "${{ inputs.TARGET_HOST }}" | cut -d'.' -f1)
+              --name $(echo "${{ inputs.TARGET_HOST }}" | cut -d'.' -f1) \
               --resource-group ${{ inputs.TARGET_AZURE_RESOURCE_GROUP }} \
               --rule-name allow-runner-ip \
               --start-ip-address $runnerIp \
@@ -228,32 +228,32 @@ jobs:
             ${{ inputs.TARGET_DATABASE }}
           echo "Target database connection successful"
 
-      # - name: Create target database if it doesn't exist
-      #   run: |
-      #     echo "Ensuring target database exists..."
-      #     MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
-      #       mysql \
-      #       -h ${{ inputs.TARGET_HOST }} \
-      #       -P ${{ inputs.TARGET_PORT }} \
-      #       -u ${{ inputs.TARGET_USERNAME }} \
-      #       --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-      #       -e "CREATE DATABASE IF NOT EXISTS \`${{ inputs.TARGET_DATABASE }}\`;" \
-      #       mysql
-      #     echo "Target database exists"
+      - name: Drop target database if requested
+        if: ${{ inputs.DROP_TARGET_BEFORE_RESTORE }}
+        run: |
+          echo "Dropping target database before restore..."
+          MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
+            mysql \
+            -h ${{ inputs.TARGET_HOST }} \
+            -P ${{ inputs.TARGET_PORT }} \
+            -u ${{ inputs.TARGET_USERNAME }} \
+            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+            -e "DROP DATABASE IF EXISTS \`${{ inputs.TARGET_DATABASE }}\`; CREATE DATABASE \`${{ inputs.TARGET_DATABASE }}\`;" \
+            mysql
+          echo "Target database dropped"
 
-      # - name: Drop target database if requested
-      #   if: ${{ inputs.DROP_TARGET_BEFORE_RESTORE }}
-      #   run: |
-      #     echo "Dropping target database before restore..."
-      #     MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
-      #       mysql \
-      #       -h ${{ inputs.TARGET_HOST }} \
-      #       -P ${{ inputs.TARGET_PORT }} \
-      #       -u ${{ inputs.TARGET_USERNAME }} \
-      #       --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-      #       -e "DROP DATABASE IF EXISTS \`${{ inputs.TARGET_DATABASE }}\`; CREATE DATABASE \`${{ inputs.TARGET_DATABASE }}\`;" \
-      #       mysql
-      #     echo "Target database dropped"
+      - name: Create target database if it doesn't exist
+        run: |
+          echo "Ensuring target database exists..."
+          MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
+            mysql \
+            -h ${{ inputs.TARGET_HOST }} \
+            -P ${{ inputs.TARGET_PORT }} \
+            -u ${{ inputs.TARGET_USERNAME }} \
+            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+            -e "CREATE DATABASE IF NOT EXISTS \`${{ inputs.TARGET_DATABASE }}\`;" \
+            mysql
+          echo "Target database exists"
 
       - name: Perform MySQL dump and restore
         id: dump-restore
@@ -295,42 +295,42 @@ jobs:
 
           echo "Starting restore to ${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}..."
 
-          # # Restore the dump to target database
-          # MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
-          #   mysql \
-          #   -h ${{ inputs.TARGET_HOST }} \
-          #   -P ${{ inputs.TARGET_PORT }} \
-          #   -u ${{ inputs.TARGET_USERNAME }} \
-          #   --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-          #   ${{ inputs.TARGET_DATABASE }} \
-          #   < "$DUMP_FILE"
+          # Restore the dump to target database
+          MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
+            mysql \
+            -h ${{ inputs.TARGET_HOST }} \
+            -P ${{ inputs.TARGET_PORT }} \
+            -u ${{ inputs.TARGET_USERNAME }} \
+            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+            ${{ inputs.TARGET_DATABASE }} \
+            < "$DUMP_FILE"
 
-          # restore_time=$(date +%s)
-          # restore_duration=$((restore_time - dump_time))
-          # total_duration=$((restore_time - start_time))
+          restore_time=$(date +%s)
+          restore_duration=$((restore_time - dump_time))
+          total_duration=$((restore_time - start_time))
 
-          # echo "Restore completed successfully in ${restore_duration}s"
-          # echo "Total operation time: ${total_duration}s"
-          # echo "restore_duration=$restore_duration" >> $GITHUB_OUTPUT
-          # echo "total_duration=$total_duration" >> $GITHUB_OUTPUT
+          echo "Restore completed successfully in ${restore_duration}s"
+          echo "Total operation time: ${total_duration}s"
+          echo "restore_duration=$restore_duration" >> $GITHUB_OUTPUT
+          echo "total_duration=$total_duration" >> $GITHUB_OUTPUT
 
-      # - name: Verify restore
-      #   run: |
-      #     echo "Verifying restore by checking table count..."
-      #     table_count=$(MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
-      #       mysql \
-      #       -h ${{ inputs.TARGET_HOST }} \
-      #       -P ${{ inputs.TARGET_PORT }} \
-      #       -u ${{ inputs.TARGET_USERNAME }} \
-      #       --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-      #       -N -s \
-      #       -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${{ inputs.TARGET_DATABASE }}';" \
-      #       mysql)
+      - name: Verify restore
+        run: |
+          echo "Verifying restore by checking table count..."
+          table_count=$(MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
+            mysql \
+            -h ${{ inputs.TARGET_HOST }} \
+            -P ${{ inputs.TARGET_PORT }} \
+            -u ${{ inputs.TARGET_USERNAME }} \
+            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+            -N -s \
+            -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${{ inputs.TARGET_DATABASE }}';" \
+            mysql)
 
-      #     echo "Target database contains $table_count tables"
-      #     if [ "$table_count" -eq 0 ]; then
-      #       echo "Warning: No tables found in target database"
-      #     fi
+          echo "Target database contains $table_count tables"
+          if [ "$table_count" -eq 0 ]; then
+            echo "Warning: No tables found in target database"
+          fi
 
       - name: Clean up dump file
         if: always()
@@ -341,26 +341,26 @@ jobs:
           fi
 
       - name: Remove temporary Azure network rule from source database server firewall
-        if: always() && ${{ inputs.SOURCE_IS_IN_AZURE }}
+        if: ${{ always() && inputs.SOURCE_IS_IN_AZURE }}
         uses: azure/cli@v2
         with:
           inlineScript: |
             set -e
             az mysql flexible-server firewall-rule delete \
               --resource-group ${{ inputs.SOURCE_AZURE_RESOURCE_GROUP }} \
-              --name $(echo "${{ inputs.SOURCE_HOST }}" | cut -d'.' -f1)
+              --name $(echo "${{ inputs.SOURCE_HOST }}" | cut -d'.' -f1) \
               --rule-name allow-runner-ip \
               --yes
 
       - name: Remove temporary Azure network rule from target database server firewall
-        if: always() && ${{ inputs.TARGET_IS_IN_AZURE }}
+        if: ${{ always() && inputs.TARGET_IS_IN_AZURE }}
         uses: azure/cli@v2
         with:
           inlineScript: |
             set -e
             az mysql flexible-server firewall-rule delete \
               --resource-group ${{ inputs.TARGET_AZURE_RESOURCE_GROUP }} \
-              --name $(echo "${{ inputs.TARGET_HOST }}" | cut -d'.' -f1)
+              --name $(echo "${{ inputs.TARGET_HOST }}" | cut -d'.' -f1) \
               --rule-name allow-runner-ip \
               --yes
 
