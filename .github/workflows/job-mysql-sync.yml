@@ -32,7 +32,7 @@ on:
       MYSQLDUMP_OPTIONS:
         required: false
         type: string
-        default: "--single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert"
+        default: "--single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert --no-tablespaces"
         description: Additional options to pass to mysqldump command
       SOURCE_HOST:
         required: true
