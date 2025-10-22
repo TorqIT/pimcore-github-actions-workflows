@@ -205,7 +205,7 @@ jobs:
       - name: Test source database connection
         run: |
           echo "Testing connection to source database..."
-          MYSQL_PWD="${{ secrets.SOURCE_MYSQL_PASSWORD }}" \
+          MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
             mysql \
             -h ${{ inputs.SOURCE_HOST }} \
             -P ${{ inputs.SOURCE_PORT }} \
@@ -268,11 +268,11 @@ jobs:
           start_time=$(date +%s)
 
           # Perform the dump
-          MYSQL_PWD="${{ secrets.SOURCE_MYSQL_PASSWORD }}" \
+          MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
             mysqldump \
             -h ${{ inputs.SOURCE_HOST }} \
             -P ${{ inputs.SOURCE_PORT }} \
-            -u ${{ secrets.SOURCE_MYSQL_USERNAME }} \
+            -u ${{ secrets.SOURCE_USERNAME }} \
             --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
             ${{ inputs.MYSQLDUMP_OPTIONS }} \
             ${{ inputs.SOURCE_DATABASE }} \
