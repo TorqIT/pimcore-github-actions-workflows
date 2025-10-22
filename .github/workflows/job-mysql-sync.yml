@@ -225,7 +225,7 @@ jobs:
             -u ${{ inputs.TARGET_USERNAME }} \
             --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
             -e "SELECT 1;" \
-            ${{ inputs.SOURCE_DATABASE }}
+            ${{ inputs.TARGET_DATABASE }}
           echo "Target database connection successful"
 
       # - name: Create target database if it doesn't exist
