@@ -242,19 +242,6 @@ jobs:
             mysql
           echo "Target database dropped"
 
-      - name: Create target database if it doesn't exist
-        run: |
-          echo "Ensuring target database exists..."
-          MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
-            mysql \
-            -h ${{ inputs.TARGET_HOST }} \
-            -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ inputs.TARGET_USERNAME }} \
-            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-            -e "CREATE DATABASE IF NOT EXISTS \`${{ inputs.TARGET_DATABASE }}\`;" \
-            mysql
-          echo "Target database exists"
-
       - name: Perform MySQL dump and restore
         id: dump-restore
         run: |
