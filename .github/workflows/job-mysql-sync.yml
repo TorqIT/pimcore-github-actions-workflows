@@ -131,6 +131,7 @@ jobs:
   db-sync:
     name: Perform MySQL database sync
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 720 # 12 hours
 
     steps:
       - name: Add pipx binaries to PATH
