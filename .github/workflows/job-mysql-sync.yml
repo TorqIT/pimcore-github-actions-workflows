@@ -29,6 +29,11 @@ on:
         required: false
         type: string
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
+      TIMEOUT_MINUTES:
+        required: false
+        type: number
+        default: 360
+        description: Time in minutes for how long to run the job before GitHub will automatically cancel it. Default 360 (6 hours)
       MYSQLDUMP_OPTIONS:
         required: false
         type: string
@@ -131,7 +136,7 @@ jobs:
   db-sync:
     name: Perform MySQL database sync
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: 720 # 12 hours
+    timeout-minutes: ${{ inputs.TIMEOUT_MINUTES }}
 
     steps:
       - name: Add pipx binaries to PATH
