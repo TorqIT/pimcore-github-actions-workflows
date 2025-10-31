@@ -99,6 +99,9 @@ on:
       BUILD_TIME_SECRETS:
         required: false
         description: A JSON object of secrets required at build-time (see above for example format)
+      PIMCORE_PRODUCT_KEY:
+        required: false
+        description: (Deprecated - use BUILD_TIME_SECRETS instead) The value of your project's Pimcore Product Key
       PIMCORE_ENTERPRISE_TOKEN:
         required: false
         description: (Deprecated - use BUILD_TIME_SECRETS instead) The value of your project's Pimcore Enterprise Token
@@ -150,6 +153,7 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
           PUSH: "false"
 
       - name: Build PHP image

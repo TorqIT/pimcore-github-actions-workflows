@@ -38,6 +38,9 @@ inputs:
   TORQ_GITHUB_TOKEN:
     required: true
     description: "(Optional) A GitHub access token used to access private GitHub repositories"
+  PIMCORE_PRODUCT_KEY:
+    required: false
+    description: "(Optional) The value of your project's Pimcore Product Key"
   BUILD_TIME_ARGS:
     required: true
     description: "(Optional) A JSON object containing a list of args and their values in key: value format"
@@ -142,6 +145,7 @@ runs:
           pimcore-encryption-secret=secret
           pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
           torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
+          pimcore-product-key=${{ inputs.PIMCORE_PRODUCT_KEY }}
           ${{ steps.build-secrets.outputs.secrets }}
         push: ${{ fromJSON(inputs.PUSH) }}
         cache-from: ${{ inputs.CACHE_FROM }}
