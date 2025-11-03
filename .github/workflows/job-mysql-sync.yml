@@ -1,4 +1,5 @@
 # Connects to a source MySQL server, performs a dump of a given schema, then applies that dump to a target MySQL server.
+# By default, ignores the `application_logs` and `versions` tables.
 #
 # Invoke this workflow in your project's workflow as follows:
 # jobs:
@@ -268,6 +269,7 @@ jobs:
             -u ${{ inputs.SOURCE_USERNAME }} \
             --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
             ${{ inputs.MYSQLDUMP_OPTIONS }} \
+            --ignore-table=${{ inputs.SOURCE_DATABASE }}.application_logs --ignore-table=${{ inputs.SOURCE_DATABASE }}.versions \
             ${{ inputs.SOURCE_DATABASE }} \
             > "$DUMP_FILE"
 
