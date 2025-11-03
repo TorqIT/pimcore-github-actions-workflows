@@ -16,8 +16,10 @@
 #       SOURCE_SUBSCRIPTION_ID: ${{ vars.SOURCE_AZURE_SUBSCRIPTION_ID }}
 #       TARGET_SUBSCRIPTION_ID: ${{ vars.TARGET_AZURE_SUBSCRIPTION_ID }}
 #     secrets:
-#       AZURE_SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }}
-#       AZURE_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
+#       SOURCE_SERVICE_PRINCIPAL_ID: ${{ secrets.SOURCE_SERVICE_PRINCIPAL_ID }}
+#       SOURCE_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SOURCE_SERVICE_PRINCIPAL_PASSWORD }}
+#       TARGET_SERVICE_PRINCIPAL_ID: ${{ secrets.TARGET_SERVICE_PRINCIPAL_ID }}
+#       TARGET_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.TARGET_SERVICE_PRINCIPAL_PASSWORD }}
 #       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_STORAGE_SYNC_WEBHOOK_URL }}
 #
 
@@ -90,12 +92,18 @@ on:
                 description: ID of the Azure subscription containing the target Storage Account
 
         secrets:
-            AZURE_SERVICE_PRINCIPAL_ID:
+            SOURCE_SERVICE_PRINCIPAL_ID:
                 required: true
-                description: Azure service principal ID used for authenticating with Azure Storage
-            AZURE_SERVICE_PRINCIPAL_PASSWORD:
+                description: Azure service principal ID used for authenticating to source Storage Account
+            SOURCE_SERVICE_PRINCIPAL_PASSWORD:
                 required: true
-                description: Azure service principal password used for authenticating with Azure Storage
+                description: Azure service principal password used for authenticating to source Storage Account
+            TARGET_SERVICE_PRINCIPAL_ID:
+                required: true
+                description: Azure service principal ID used for authenticating to target Storage Account
+            TARGET_SERVICE_PRINCIPAL_PASSWORD:
+                required: true
+                description: Azure service principal password used for authenticating to target Storage Account
             SLACK_WEBHOOK_URL:
                 required: false
                 description: Webhook URL to send job status messages to Slack
@@ -142,15 +150,71 @@ jobs:
                     exit 1
                   fi
 
-                  echo "Target storage account and container validation passed"
+                  echo "✓ Target storage account and container validation passed"
 
-            - name: Log in to Azure via Service Principal
-              uses: ./reusable-workflow/.github/actions/azure-login
-              with:
-                  SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }}
-                  SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
-                  TENANT: ${{ inputs.AZURE_TENANT_ID }}
-                  SUBSCRIPTION: ${{ inputs.SOURCE_SUBSCRIPTION_ID }}
+            - name: Generate SAS tokens for source and target storage accounts
+              id: generate-sas-tokens
+              run: |
+                  set -e
+
+                  # Install Azure CLI (if not already available)
+                  curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+                  echo "Logging in to source subscription and generating SAS token..."
+                  # Login to source subscription with source service principal
+                  az login --service-principal \
+                    --username ${{ secrets.SOURCE_SERVICE_PRINCIPAL_ID }} \
+                    --password ${{ secrets.SOURCE_SERVICE_PRINCIPAL_PASSWORD }} \
+                    --tenant ${{ inputs.AZURE_TENANT_ID }}
+                  az account set --subscription ${{ inputs.SOURCE_SUBSCRIPTION_ID }}
+
+                  # Generate SAS token for source storage account (valid for 2 hours)
+                  source_expiry=$(date -u -d '+2 hours' '+%Y-%m-%dT%H:%M:%SZ')
+                  echo "Source SAS token expiry: $source_expiry"
+
+                  source_sas_token=$(az storage account generate-sas \
+                    --account-name ${{ inputs.SOURCE_STORAGE_ACCOUNT }} \
+                    --permissions lr \
+                    --resource-types sco \
+                    --services b \
+                    --expiry "$source_expiry" \
+                    --output tsv)
+
+                  if [ -z "$source_sas_token" ]; then
+                    echo "ERROR: Failed to generate SAS token for source storage account"
+                    exit 1
+                  fi
+
+                  echo "source_sas_token=$source_sas_token" >> $GITHUB_OUTPUT
+                  echo "✓ Source SAS token generated successfully"
+
+                  echo "Logging in to target subscription and generating SAS token..."
+                  # Login to target subscription with target service principal
+                  az login --service-principal \
+                    --username ${{ secrets.TARGET_SERVICE_PRINCIPAL_ID }} \
+                    --password ${{ secrets.TARGET_SERVICE_PRINCIPAL_PASSWORD }} \
+                    --tenant ${{ inputs.AZURE_TENANT_ID }}
+                  az account set --subscription ${{ inputs.TARGET_SUBSCRIPTION_ID }}
+
+                  # Generate SAS token for target storage account (valid for 2 hours)
+                  target_expiry=$(date -u -d '+2 hours' '+%Y-%m-%dT%H:%M:%SZ')
+                  echo "Target SAS token expiry: $target_expiry"
+
+                  target_sas_token=$(az storage account generate-sas \
+                    --account-name ${{ inputs.TARGET_STORAGE_ACCOUNT }} \
+                    --permissions lrwc \
+                    --resource-types sco \
+                    --services b \
+                    --expiry "$target_expiry" \
+                    --output tsv)
+
+                  if [ -z "$target_sas_token" ]; then
+                    echo "ERROR: Failed to generate SAS token for target storage account"
+                    exit 1
+                  fi
+
+                  echo "target_sas_token=$target_sas_token" >> $GITHUB_OUTPUT
+                  echo "✓ Target SAS token generated successfully"
 
             - name: Add temporary network rule for this runner to Storage Account firewalls
               uses: azure/cli@v2
@@ -160,7 +224,13 @@ jobs:
                       runnerIp=$(curl ipinfo.io/ip)
 
                       echo "Adding temporary network rule for this runner ($runnerIp) to source Storage Account's firewall..."
+                      az login --service-principal \
+                        --username ${{ secrets.SOURCE_SERVICE_PRINCIPAL_ID }} \
+                        --password ${{ secrets.SOURCE_SERVICE_PRINCIPAL_PASSWORD }} \
+                        --tenant ${{ inputs.AZURE_TENANT_ID }}
                       az account set --subscription "${{ inputs.SOURCE_SUBSCRIPTION_ID }}"
+                      echo "Source subscription: ${{ inputs.SOURCE_SUBSCRIPTION_ID }}"
+
                       if [ -z "${{ inputs.SOURCE_RESOURCE_GROUP }}" ]; then
                         source_rg=$(az storage account show --name ${{ inputs.SOURCE_STORAGE_ACCOUNT }} --query 'resourceGroup' -o tsv)
                       else
@@ -173,7 +243,13 @@ jobs:
                         --verbose
 
                       echo "Adding temporary network rule for this runner ($runnerIp) to target Storage Account's firewall..."
+                      az login --service-principal \
+                        --username ${{ secrets.TARGET_SERVICE_PRINCIPAL_ID }} \
+                        --password ${{ secrets.TARGET_SERVICE_PRINCIPAL_PASSWORD }} \
+                        --tenant ${{ inputs.AZURE_TENANT_ID }}
                       az account set --subscription "${{ inputs.TARGET_SUBSCRIPTION_ID }}"
+                      echo "Target subscription: ${{ inputs.TARGET_SUBSCRIPTION_ID }}"
+
                       if [ -z "${{ inputs.TARGET_RESOURCE_GROUP }}" ]; then
                         target_rg=$(az storage account show --name ${{ inputs.TARGET_STORAGE_ACCOUNT }} --query 'resourceGroup' -o tsv)
                       else
@@ -188,20 +264,13 @@ jobs:
                       echo "Sleeping for 30 seconds to allow network rules to propagate..."
                       sleep 30
 
-            - name: Install and log in to AzCopy
+            - name: Install AzCopy
               run: |
                   echo "Installing AzCopy..."
                   wget -O azcopy.tar.gz https://aka.ms/downloadazcopy-v10-linux
                   tar -xf azcopy.tar.gz --strip-components=1
                   sudo mv azcopy /usr/local/bin/
                   azcopy --version
-
-                  echo "Logging in to AzCopy with service principal..."
-                  azcopy login --service-principal \
-                    --application-id ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
-                    --tenant-id ${{ inputs.AZURE_TENANT_ID }}
-              env:
-                  AZCOPY_SPA_CLIENT_SECRET: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
 
             - name: Perform storage sync
               id: sync-operation
@@ -211,8 +280,12 @@ jobs:
                   echo "Starting Azure Storage sync from ${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }} to ${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}..."
                   start_time=$(date +%s)
 
-                  source_url="https://${{ inputs.SOURCE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ inputs.SOURCE_CONTAINER }}"
-                  target_url="https://${{ inputs.TARGET_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ inputs.TARGET_CONTAINER }}"
+                  # Build URLs with SAS tokens for authentication
+                  source_url="https://${{ inputs.SOURCE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ inputs.SOURCE_CONTAINER }}?${{ steps.generate-sas-tokens.outputs.source_sas_token }}"
+                  target_url="https://${{ inputs.TARGET_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ inputs.TARGET_CONTAINER }}?${{ steps.generate-sas-tokens.outputs.target_sas_token }}"
+
+                  echo "Source URL configured with SAS token"
+                  echo "Target URL configured with SAS token"
 
                   azcopy_cmd="azcopy sync \"$source_url\" \"$target_url\" ${{ inputs.AZCOPY_OPTIONS }}"
 
@@ -225,7 +298,7 @@ jobs:
                     echo "Performing DRY RUN - no files will be actually copied"
                   fi
 
-                  echo "Executing: $azcopy_cmd"
+                  echo "Executing AzCopy sync with SAS token authentication..."
 
                   sync_output=$(eval $azcopy_cmd 2>&1)
                   sync_exit_code=$?
@@ -274,12 +347,19 @@ jobs:
                       runnerIp=$(curl ipinfo.io/ip)
 
                       echo "Removing temporary network rule for this runner ($runnerIp) from source Storage Account's firewall..."
+
+                      az login --service-principal \
+                        --username ${{ secrets.SOURCE_SERVICE_PRINCIPAL_ID }} \
+                        --password ${{ secrets.SOURCE_SERVICE_PRINCIPAL_PASSWORD }} \
+                        --tenant ${{ inputs.AZURE_TENANT_ID }}
                       az account set --subscription "${{ inputs.SOURCE_SUBSCRIPTION_ID }}"
+
                       if [ -z "${{ inputs.SOURCE_RESOURCE_GROUP }}" ]; then
                         source_rg=$(az storage account show --name ${{ inputs.SOURCE_STORAGE_ACCOUNT }} --query 'resourceGroup' -o tsv)
                       else
                         source_rg="${{ inputs.SOURCE_RESOURCE_GROUP }}"
                       fi
+
                       az storage account network-rule remove \
                         --resource-group "$source_rg" \
                         --account-name ${{ inputs.SOURCE_STORAGE_ACCOUNT }} \
@@ -294,7 +374,13 @@ jobs:
                       runnerIp=$(curl ipinfo.io/ip)
 
                       echo "Removing temporary network rule for this runner ($runnerIp) from target Storage Account's firewall..."
+
+                      az login --service-principal \
+                        --username ${{ secrets.TARGET_SERVICE_PRINCIPAL_ID }} \
+                        --password ${{ secrets.TARGET_SERVICE_PRINCIPAL_PASSWORD }} \
+                        --tenant ${{ inputs.AZURE_TENANT_ID }}
                       az account set --subscription "${{ inputs.TARGET_SUBSCRIPTION_ID }}"
+
                       if [ -z "${{ inputs.TARGET_RESOURCE_GROUP }}" ]; then
                         target_rg=$(az storage account show --name ${{ inputs.TARGET_STORAGE_ACCOUNT }} --query 'resourceGroup' -o tsv)
                       else
