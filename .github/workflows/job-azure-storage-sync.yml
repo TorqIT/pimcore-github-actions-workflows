@@ -1,0 +1,334 @@
+# Syncs the contents of one Azure Storage Account container to another Storage Account container.
+#
+# Invoke this workflow in your project's workflow as follows:
+# jobs:
+#   storage-sync:
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-azure-storage-sync.yml@v7
+#     permissions:
+#       contents: read
+#       actions: read
+#     with:
+#       SOURCE_STORAGE_ACCOUNT: prodstorage
+#       SOURCE_CONTAINER: pimcore-assets
+#       TARGET_STORAGE_ACCOUNT: stagingstorage
+#       TARGET_CONTAINER: pimcore-assets
+#       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+#       SOURCE_SUBSCRIPTION_ID: ${{ vars.SOURCE_AZURE_SUBSCRIPTION_ID }}
+#       TARGET_SUBSCRIPTION_ID: ${{ vars.TARGET_AZURE_SUBSCRIPTION_ID }}
+#     secrets:
+#       AZURE_SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }}
+#       AZURE_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
+#       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_STORAGE_SYNC_WEBHOOK_URL }}
+#
+
+name: Azure Storage Sync
+
+on:
+    workflow_call:
+        inputs:
+            RUNNER:
+                required: false
+                type: string
+                description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
+            TIMEOUT_MINUTES:
+                required: false
+                type: number
+                default: 360
+                description: Time in minutes for how long to run the job before GitHub will automatically cancel it. Default 360 (6 hours)
+            AZCOPY_OPTIONS:
+                required: false
+                type: string
+                default: "--recursive --overwrite=true"
+                description: Additional options to pass to azcopy sync command
+            SOURCE_STORAGE_ACCOUNT:
+                required: true
+                type: string
+                description: Name of the source Azure Storage Account
+            SOURCE_CONTAINER:
+                required: false
+                type: string
+                default: pimcore-assets
+                description: Name of the source container
+            SOURCE_RESOURCE_GROUP:
+                required: false
+                type: string
+                description: Azure Resource Group containing the source storage account (optional, will be auto-detected if not provided)
+            TARGET_STORAGE_ACCOUNT:
+                required: true
+                type: string
+                description: Name of the target Azure Storage Account
+            TARGET_CONTAINER:
+                required: false
+                type: string
+                default: pimcore-assets
+                description: Name of the target container
+            TARGET_RESOURCE_GROUP:
+                required: false
+                type: string
+                description: Azure Resource Group containing the target storage account (optional, will be auto-detected if not provided)
+            DELETE_DESTINATION:
+                required: false
+                type: boolean
+                default: false
+                description: Whether to delete files in destination that don't exist in source (--delete-destination=true)
+            DRY_RUN:
+                required: false
+                type: boolean
+                default: false
+                description: Whether to perform a dry run without actually copying files
+            AZURE_TENANT_ID:
+                required: true
+                type: string
+                description: ID of the Azure tenant containing Storage Account resources
+            SOURCE_SUBSCRIPTION_ID:
+                required: true
+                type: string
+                description: ID of the Azure subscription containing the source Storage Account
+            TARGET_SUBSCRIPTION_ID:
+                required: true
+                type: string
+                description: ID of the Azure subscription containing the target Storage Account
+
+        secrets:
+            AZURE_SERVICE_PRINCIPAL_ID:
+                required: true
+                description: Azure service principal ID used for authenticating with Azure Storage
+            AZURE_SERVICE_PRINCIPAL_PASSWORD:
+                required: true
+                description: Azure service principal password used for authenticating with Azure Storage
+            SLACK_WEBHOOK_URL:
+                required: false
+                description: Webhook URL to send job status messages to Slack
+
+jobs:
+    storage-sync:
+        name: Perform Azure Storage container sync
+        runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+        timeout-minutes: ${{ inputs.TIMEOUT_MINUTES }}
+
+        steps:
+            - name: Add pipx binaries to PATH
+              run: echo "/root/.local/bin" >> $GITHUB_PATH
+
+            - name: Get workflow version
+              id: workflow-version
+              uses: canonical/get-workflow-version-action@v1
+              with:
+                  repository-name: TorqIT/pimcore-github-actions-workflows
+                  file-name: job-azure-storage-sync.yml
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Checkout workflow repository to use composite actions
+              uses: actions/checkout@v4
+              with:
+                  repository: TorqIT/pimcore-github-actions-workflows
+                  ref: ${{ steps.workflow-version.outputs.sha }}
+                  path: reusable-workflow
+                  fetch-depth: 1
+
+            - name: Validate target is not production
+              run: |
+                  echo "Validating that target storage account and container names do not contain 'prod'..."
+
+                  # Check target storage account
+                  if echo "${{ inputs.TARGET_STORAGE_ACCOUNT }}" | grep -i "prod" > /dev/null; then
+                    echo "ERROR: Target storage account '${{ inputs.TARGET_STORAGE_ACCOUNT }}' contains 'prod' substring. This is not allowed for safety reasons."
+                    exit 1
+                  fi
+
+                  # Check target container
+                  if echo "${{ inputs.TARGET_CONTAINER }}" | grep -i "prod" > /dev/null; then
+                    echo "ERROR: Target container '${{ inputs.TARGET_CONTAINER }}' contains 'prod' substring. This is not allowed for safety reasons."
+                    exit 1
+                  fi
+
+                  echo "Target storage account and container validation passed"
+
+            - name: Log in to Azure via Service Principal
+              uses: ./reusable-workflow/.github/actions/azure-login
+              with:
+                  SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }}
+                  SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
+                  TENANT: ${{ inputs.AZURE_TENANT_ID }}
+                  SUBSCRIPTION: ${{ inputs.SOURCE_SUBSCRIPTION_ID }}
+
+            - name: Add temporary network rule for this runner to Storage Account firewalls
+              uses: azure/cli@v2
+              with:
+                  inlineScript: |
+                      set -e
+                      runnerIp=$(curl ipinfo.io/ip)
+
+                      echo "Adding temporary network rule for this runner ($runnerIp) to source Storage Account's firewall..."
+                      az account set --subscription "${{ inputs.SOURCE_SUBSCRIPTION_ID }}"
+                      if [ -z "${{ inputs.SOURCE_RESOURCE_GROUP }}" ]; then
+                        source_rg=$(az storage account show --name ${{ inputs.SOURCE_STORAGE_ACCOUNT }} --query 'resourceGroup' -o tsv)
+                      else
+                        source_rg="${{ inputs.SOURCE_RESOURCE_GROUP }}"
+                      fi
+                      az storage account network-rule add \
+                        --resource-group "$source_rg" \
+                        --account-name ${{ inputs.SOURCE_STORAGE_ACCOUNT }} \
+                        --ip-address $runnerIp \
+                        --verbose
+
+                      echo "Adding temporary network rule for this runner ($runnerIp) to target Storage Account's firewall..."
+                      az account set --subscription "${{ inputs.TARGET_SUBSCRIPTION_ID }}"
+                      if [ -z "${{ inputs.TARGET_RESOURCE_GROUP }}" ]; then
+                        target_rg=$(az storage account show --name ${{ inputs.TARGET_STORAGE_ACCOUNT }} --query 'resourceGroup' -o tsv)
+                      else
+                        target_rg="${{ inputs.TARGET_RESOURCE_GROUP }}"
+                      fi
+                      az storage account network-rule add \
+                        --resource-group "$target_rg" \
+                        --account-name ${{ inputs.TARGET_STORAGE_ACCOUNT }} \
+                        --ip-address $runnerIp \
+                        --verbose
+
+                      echo "Sleeping for 30 seconds to allow network rules to propagate..."
+                      sleep 30
+
+            - name: Install and log in to AzCopy
+              run: |
+                  echo "Installing AzCopy..."
+                  wget -O azcopy.tar.gz https://aka.ms/downloadazcopy-v10-linux
+                  tar -xf azcopy.tar.gz --strip-components=1
+                  sudo mv azcopy /usr/local/bin/
+                  azcopy --version
+
+                  echo "Logging in to AzCopy with service principal..."
+                  azcopy login --service-principal \
+                    --application-id ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
+                    --tenant-id ${{ inputs.AZURE_TENANT_ID }}
+              env:
+                  AZCOPY_SPA_CLIENT_SECRET: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
+
+            - name: Perform storage sync
+              id: sync-operation
+              run: |
+                  set -e
+
+                  echo "Starting Azure Storage sync from ${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }} to ${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}..."
+                  start_time=$(date +%s)
+
+                  source_url="https://${{ inputs.SOURCE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ inputs.SOURCE_CONTAINER }}"
+                  target_url="https://${{ inputs.TARGET_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ inputs.TARGET_CONTAINER }}"
+
+                  azcopy_cmd="azcopy sync \"$source_url\" \"$target_url\" ${{ inputs.AZCOPY_OPTIONS }}"
+
+                  if [ "${{ inputs.DELETE_DESTINATION }}" = "true" ]; then
+                    azcopy_cmd="$azcopy_cmd --delete-destination=true"
+                  fi
+
+                  if [ "${{ inputs.DRY_RUN }}" = "true" ]; then
+                    azcopy_cmd="$azcopy_cmd --dry-run"
+                    echo "Performing DRY RUN - no files will be actually copied"
+                  fi
+
+                  echo "Executing: $azcopy_cmd"
+
+                  sync_output=$(eval $azcopy_cmd 2>&1)
+                  sync_exit_code=$?
+
+                  end_time=$(date +%s)
+                  duration=$((end_time - start_time))
+
+                  echo "$sync_output"
+
+                  files_copied=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Completed: \K\d+" || echo "0")
+                  files_skipped=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Skipped: \K\d+" || echo "0")
+                  files_failed=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Failed: \K\d+" || echo "0")
+                  bytes_transferred=$(echo "$sync_output" | grep -oP "Total Bytes Transferred: \K\d+" || echo "0")
+
+                  if [ "$bytes_transferred" -gt 0 ]; then
+                    bytes_transferred_mb=$((bytes_transferred / 1024 / 1024))
+                  else
+                    bytes_transferred_mb=0
+                  fi
+
+                  echo "Sync completed in ${duration}s"
+                  echo "Files copied: $files_copied"
+                  echo "Files skipped: $files_skipped"
+                  echo "Files failed: $files_failed"
+                  echo "Data transferred: ${bytes_transferred_mb}MB"
+
+                  echo "duration=$duration" >> $GITHUB_OUTPUT
+                  echo "files_copied=$files_copied" >> $GITHUB_OUTPUT
+                  echo "files_skipped=$files_skipped" >> $GITHUB_OUTPUT
+                  echo "files_failed=$files_failed" >> $GITHUB_OUTPUT
+                  echo "bytes_transferred_mb=$bytes_transferred_mb" >> $GITHUB_OUTPUT
+
+                  if [ $sync_exit_code -ne 0 ] || [ "$files_failed" -gt 0 ]; then
+                    echo "ERROR: Sync operation failed or had failures"
+                    exit 1
+                  fi
+
+                  echo "Storage sync completed successfully"
+
+            - name: Remove temporary network rule from source Storage Account firewall
+              if: always()
+              uses: azure/cli@v2
+              with:
+                  inlineScript: |
+                      set -e
+                      runnerIp=$(curl ipinfo.io/ip)
+
+                      echo "Removing temporary network rule for this runner ($runnerIp) from source Storage Account's firewall..."
+                      az account set --subscription "${{ inputs.SOURCE_SUBSCRIPTION_ID }}"
+                      if [ -z "${{ inputs.SOURCE_RESOURCE_GROUP }}" ]; then
+                        source_rg=$(az storage account show --name ${{ inputs.SOURCE_STORAGE_ACCOUNT }} --query 'resourceGroup' -o tsv)
+                      else
+                        source_rg="${{ inputs.SOURCE_RESOURCE_GROUP }}"
+                      fi
+                      az storage account network-rule remove \
+                        --resource-group "$source_rg" \
+                        --account-name ${{ inputs.SOURCE_STORAGE_ACCOUNT }} \
+                        --ip-address $runnerIp
+
+            - name: Remove temporary network rule from target Storage Account firewall
+              if: always()
+              uses: azure/cli@v2
+              with:
+                  inlineScript: |
+                      set -e
+                      runnerIp=$(curl ipinfo.io/ip)
+
+                      echo "Removing temporary network rule for this runner ($runnerIp) from target Storage Account's firewall..."
+                      az account set --subscription "${{ inputs.TARGET_SUBSCRIPTION_ID }}"
+                      if [ -z "${{ inputs.TARGET_RESOURCE_GROUP }}" ]; then
+                        target_rg=$(az storage account show --name ${{ inputs.TARGET_STORAGE_ACCOUNT }} --query 'resourceGroup' -o tsv)
+                      else
+                        target_rg="${{ inputs.TARGET_RESOURCE_GROUP }}"
+                      fi
+
+                      az storage account network-rule remove \
+                        --resource-group "$target_rg" \
+                        --account-name ${{ inputs.TARGET_STORAGE_ACCOUNT }} \
+                        --ip-address $runnerIp
+
+            - name: Check Slack webhook URL
+              id: check-webhook-url
+              if: always()
+              # Hacky workaround to get around the fact that we cannot reference secrets in a conditional
+              run: |
+                  if [ "${{ secrets.SLACK_WEBHOOK_URL }}" != '' ]; then
+                    echo "Slack webhook URL is defined"
+                    echo "slackWebhookDefined=true" >> $GITHUB_OUTPUT;
+                  else
+                    echo "Slack webhook URL is not defined"
+                    echo "slackWebhookDefined=false" >> $GITHUB_OUTPUT;
+                  fi
+
+            - name: Send job status to Slack
+              if: ${{ always() && steps.check-webhook-url.outputs.slackWebhookDefined == 'true' }}
+              uses: slackapi/slack-github-action@v2
+              with:
+                  webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+                  webhook-type: incoming-webhook
+                  payload: |
+                      text: "*Azure Storage Sync Job*"
+                      blocks:
+                        - type: "section"
+                          text:
+                            type: "mrkdwn"
+                            text: "*Storage sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source:* `${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }}`\n*Target:* `${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}`\n*Files Copied:* ${{ steps.sync-operation.outputs.files_copied || 'N/A' }}\n*Data Transferred:* ${{ steps.sync-operation.outputs.bytes_transferred_mb || 'N/A' }}MB\n*Duration:* ${{ steps.sync-operation.outputs.duration || 'N/A' }}s\n*Dry Run:* ${{ inputs.DRY_RUN && 'Yes' || 'No' }}\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
