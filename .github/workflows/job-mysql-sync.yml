@@ -159,6 +159,24 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
+      - name: Validate target is not production
+        run: |
+          echo "Validating that target host and database names do not contain 'prod'..."
+
+          # Check target host
+          if echo "${{ inputs.TARGET_HOST }}" | grep -i "prod" > /dev/null; then
+            echo "ERROR: Target host '${{ inputs.TARGET_HOST }}' contains 'prod' substring. This is not allowed for safety reasons."
+            exit 1
+          fi
+
+          # Check target database
+          if echo "${{ inputs.TARGET_DATABASE }}" | grep -i "prod" > /dev/null; then
+            echo "ERROR: Target database '${{ inputs.TARGET_DATABASE }}' contains 'prod' substring. This is not allowed for safety reasons."
+            exit 1
+          fi
+
+          echo "Target host and database validation passed"
+
       - name: Install MySQL client
         run: |
           sudo apt-get update
