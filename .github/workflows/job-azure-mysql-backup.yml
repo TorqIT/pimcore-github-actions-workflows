@@ -130,7 +130,7 @@ jobs:
           MYSQL_PWD="${{ secrets.AZURE_MYSQL_PASSWORD }}" \
             mysqldump \
             -h $dbHost \
-            -u $dbUser \            
+            -u $dbUser \
             --ssl-mode=REQUIRED \
             --ssl-mode=VERIFY_CA \
             --ssl-ca ./reusable-workflow/.azure/config/db/DigiCertGlobalRootCA.crt.pem \
