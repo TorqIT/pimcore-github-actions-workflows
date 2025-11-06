@@ -134,6 +134,7 @@ jobs:
             --ssl-mode=REQUIRED \
             --ssl-mode=VERIFY_CA \
             --ssl-ca ./reusable-workflow/.azure/config/db/DigiCertGlobalRootCA.crt.pem \
+            --single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert --no-tablespaces \
             ${{ vars.AZURE_MYSQL_DATABASE || 'pimcore' }} \
             > $fileName
 
