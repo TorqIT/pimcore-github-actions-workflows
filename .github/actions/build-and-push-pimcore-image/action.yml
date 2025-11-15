@@ -23,9 +23,6 @@ inputs:
   DOCKERFILE_TARGET:
     required: true
     description: "The Docker target to use when building the image"
-  IMAGE:
-    required: true
-    description: "The name of the Docker image to build"
   PIMCORE_ROOT:
     required: true
     description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, etc)"
@@ -148,9 +145,9 @@ runs:
         cache-to: ${{ inputs.CACHE_TO }}
         tags: |
           ${{ inputs.TAGS }},
-          ${{ inputs.IMAGE }}:trivy-scan
+          ${{ inputs.DOCKERFILE_TARGET }}:trivy-scan
 
     - name: Scan image for vulnerabilities
       uses: ./../trivy-scan
       with:
-        IMAGE_REF: ${{ inputs.IMAGE }}:trivy-scan
+        IMAGE_REF: ${{ inputs.DOCKERFILE_TARGET }}:trivy-scan
