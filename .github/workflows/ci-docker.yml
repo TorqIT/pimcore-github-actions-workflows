@@ -1,4 +1,4 @@
-# Builds Pimcore Docker images. Useful for verification in continuous integration scenarios, for example:
+# Continuous integration checks to be run on Pull Requests.
 # on:
 #   pull_request:
 #     types: [opened, reopened, synchronize]
@@ -18,7 +18,7 @@
 #   actions: read
 #
 
-name: Build Docker images
+name: Continuous Integration
 
 on:
   workflow_call:
@@ -110,8 +110,8 @@ on:
         description: (Optional) A client key used when building NPM frontends that require ReCAPTCHA
 
 jobs:
-  build-docker-images:
-    name: Build Docker images
+  continuous-integration:
+    name: Continuous Integration
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
 
@@ -126,7 +126,7 @@ jobs:
         uses: canonical/get-workflow-version-action@v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: docker-builds.yml
+          file-name: ci-docker.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
@@ -139,6 +139,9 @@ jobs:
 
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Lint all files
+        uses: ./reusable-workflow/.github/actions/lint
 
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
