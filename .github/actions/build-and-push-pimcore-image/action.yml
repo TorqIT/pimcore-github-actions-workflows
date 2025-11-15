@@ -143,14 +143,13 @@ runs:
         push: false
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
-        tags: |
-          ${{ inputs.DOCKERFILE_TARGET }}:trivy-scan
+        tags: pimcore:trivy-scan
 
     - name: Trivy scan
       id: trivy-scan
       uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
       with:
-        image-ref: ${{ inputs.DOCKERFILE_TARGET }}:trivy-scan
+        image-ref: pimcore:trivy-scan
         format: 'table'
         exit-code: '1'
         severity: 'CRITICAL,HIGH'
@@ -163,5 +162,4 @@ runs:
         file: ${{ inputs.DOCKERFILE_PATH }}
         target: ${{ inputs.DOCKERFILE_TARGET }}
         push: ${{ inputs.PUSH }}
-        tags: |
-          ${{ inputs.TAGS }}
+        tags: ${{ inputs.TAGS }}
