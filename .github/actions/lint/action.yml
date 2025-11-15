@@ -88,8 +88,6 @@ runs:
     - name: Lint GitHub Actions workflow files
       uses: docker://rhysd/actionlint:latest
       with:
-        args: |
-          -color
-          -shellcheck=
+        args: -color -shellcheck=
 
     # TODO YAML, Dockerfile, JS linting...
