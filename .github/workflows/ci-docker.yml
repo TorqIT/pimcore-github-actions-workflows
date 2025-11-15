@@ -110,10 +110,9 @@ on:
         description: (Optional) A client key used when building NPM frontends that require ReCAPTCHA
 
 jobs:
-  continuous-integration:
+  lint:
     name: Lint, run tests, and build Docker images
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    environment: ${{ inputs.ENVIRONMENT }}
 
     steps:
       - name: Checkout repository
@@ -143,10 +142,38 @@ jobs:
       - name: Lint all files
         uses: ./reusable-workflow/.github/actions/lint
 
+  build-and-scan-init:
+    name: Build init Docker image
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: ${{ inputs.SUBMODULES }}
+
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: ci-docker.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Install tools for workflows/actions
+        uses: ./reusable-workflow/.github/actions/setup-tools
+
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
 
-      - name: Build init image
+      - name: Build and scan init image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
           DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
@@ -158,6 +185,37 @@ jobs:
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           PUSH: "false"
           CACHE_FROM: "type=gha"
+
+  build-and-scan-php:
+    name: Build PHP Docker image
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: ${{ inputs.SUBMODULES }}
+
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: ci-docker.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Install tools for workflows/actions
+        uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Set up Docker
+        uses: ./reusable-workflow/.github/actions/setup-docker
 
       - name: Build PHP image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -177,6 +235,37 @@ jobs:
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
           PUSH: "false"
           CACHE_FROM: "type=gha"
+
+  build-and-scan-supervisord:
+    name: Build and scan supervisord Docker image
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: ${{ inputs.SUBMODULES }}
+
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: ci-docker.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Install tools for workflows/actions
+        uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Set up Docker
+        uses: ./reusable-workflow/.github/actions/setup-docker
 
       - name: Build supervisord image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
