@@ -1,0 +1,23 @@
+name: "Copy Azure MySQL Config Files"
+description: "Copy in configuration files required when running with an Azure MySQL server"
+inputs:
+  PIMCORE_ROOT:
+    required: true
+    description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, etc)"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Copy in config files
+      shell: bash
+      run: |
+        cp ./reusable-workflow/.azure/config/database.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
+        mkdir -p ${{ inputs.PIMCORE_ROOT }}/config/db
+        cp ./reusable-workflow/.azure/config/db/DigiCertGlobalRootCA.crt.pem ${{ inputs.PIMCORE_ROOT }}/config/db/DigiCertGlobalRootCA.crt.pem
+
+    - name: If the client repository contains its own config file, copy that in as well
+      shell: bash
+      run: |
+        if [ -e ${{ inputs.PIMCORE_ROOT }}/config/db/database-dev-prod.yaml ]; then
+          cp ${{ inputs.PIMCORE_ROOT }}/config/db/database-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
+        fi
