@@ -124,7 +124,7 @@ runs:
         echo "EOF" >> $GITHUB_OUTPUT
       shell: bash
 
-    - name: Build and push image
+    - name: Build image
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -140,14 +140,14 @@ runs:
           pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
           torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
           ${{ steps.build-secrets.outputs.secrets }}
-        push: ${{ fromJSON(inputs.PUSH) }}
+        push: false
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
         tags: |
-          ${{ inputs.TAGS }},
           ${{ inputs.DOCKERFILE_TARGET }}:trivy-scan
 
     - name: Trivy scan
+      id: trivy-scan
       uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
       with:
         image-ref: ${{ inputs.DOCKERFILE_TARGET }}:trivy-scan
@@ -155,3 +155,13 @@ runs:
         exit-code: '1'
         severity: 'CRITICAL,HIGH'
         ignore-unfixed: 'true'
+
+    - name: Push image
+      if: inputs.PUSH == 'true' && steps.trivy-scan.outcome == 'success'
+      uses: docker/build-push-action@v5
+      with:
+        file: ${{ inputs.DOCKERFILE_PATH }}
+        target: ${{ inputs.DOCKERFILE_TARGET }}
+        push: ${{ inputs.PUSH }}
+        tags: |
+          ${{ inputs.TAGS }}
