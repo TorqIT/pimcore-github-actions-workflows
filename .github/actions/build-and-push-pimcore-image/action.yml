@@ -1,5 +1,5 @@
-name: "Build and Push Pimcore Image"
-description: "Builds a Pimcore Docker image, and optionally pushes it to a Container Registry"
+name: "Build, Scan and (Optionally) Push Pimcore Image"
+description: "Builds a Pimcore Docker image, scans it for vulnerabilities, and optionally pushes it to a Container Registry"
 inputs:
   CONTAINER_REGISTRY:
     required: false
