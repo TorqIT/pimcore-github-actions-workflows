@@ -264,7 +264,7 @@ jobs:
           BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
+          CACHE_TO: type=gha,mode=max
           TAGS: |
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE || 'init' }}:${{ inputs.IMAGES_TAG }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE || 'init' }}:${{ github.run_id }}
@@ -284,7 +284,7 @@ jobs:
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
           CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
+          CACHE_TO: type=gha,mode=max
           TAGS: |
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE }}:${{ inputs.IMAGES_TAG  }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE }}:${{ github.run_id }}
@@ -298,7 +298,7 @@ jobs:
           BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
+          CACHE_TO: type=gha,mode=max
           TAGS: |
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ inputs.IMAGES_TAG }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ github.run_id }}
