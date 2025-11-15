@@ -217,7 +217,7 @@ jobs:
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
 
-      - name: Build PHP image
+      - name: Build and scan PHP image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
           DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
@@ -267,7 +267,7 @@ jobs:
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
 
-      - name: Build supervisord image
+      - name: Build and scan supervisord image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
           DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
