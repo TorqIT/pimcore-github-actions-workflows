@@ -84,5 +84,10 @@ runs:
         else
           echo "All linting checks passed successfully"
         fi
+      
+    - name: Lint GitHub Actions workflow files
+      uses: docker://rhysd/actionlint:latest
+      with:
+        args: -color
 
     # TODO YAML, Dockerfile, JS linting...
