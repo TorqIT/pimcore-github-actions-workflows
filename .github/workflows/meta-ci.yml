@@ -10,5 +10,8 @@ jobs:
     name: CI
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Lint all files
         uses: ./.github/actions/lint
