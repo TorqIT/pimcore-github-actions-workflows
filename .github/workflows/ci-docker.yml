@@ -1,24 +1,23 @@
-# Continuous integration checks to be run on Pull Requests.
+# Continuous Integration
 # on:
 #   pull_request:
 #     types: [opened, reopened, synchronize]
 # jobs:
-#   build-images:
-#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/docker-builds@v7
+#   ci:
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/ci-docker.yml@v8
+#     permissions:
+#       contents: read
+#       actions: read
 #     secrets:
-#        BUILD_TIME_SECRETS: >
-#          {
-#            "pimcore-enterprise-token": "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}",
-#            ...any other build-time secrets you need
-#          }
-#
-# Requires the following permissions to be set in the callig job:
-# permissions:
-#   contents: read
-#   actions: read
+#       BUILD_TIME_SECRETS: >
+#         {
+#           "pimcore-product-key": "${{ secrets.PIMCORE_PRODUCT_KEY }}",
+#           "pimcore-instance-identifier": "${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}",
+#           "pimcore-encryption-secret": "${{ secrets.PIMCORE_ENCRYPTION_SECRET }}"
+#         }
 #
 
-name: Continuous Integration
+name: CI
 
 on:
   workflow_call:
