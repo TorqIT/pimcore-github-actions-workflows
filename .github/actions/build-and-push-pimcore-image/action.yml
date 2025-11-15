@@ -148,6 +148,6 @@ runs:
           ${{ inputs.DOCKERFILE_TARGET }}:trivy-scan
 
     - name: Scan image for vulnerabilities
-      uses: ./../trivy-scan
+      uses: ./actions/trivy-scan
       with:
         IMAGE_REF: ${{ inputs.DOCKERFILE_TARGET }}:trivy-scan
