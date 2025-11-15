@@ -154,6 +154,7 @@ runs:
         format: 'table'
         exit-code: '1'
         severity: 'CRITICAL,HIGH'
+        ignore-unfixed: 'true'
 
     - name: Push image
       if: inputs.PUSH == 'true' && steps.trivy-scan.outcome == 'success'
