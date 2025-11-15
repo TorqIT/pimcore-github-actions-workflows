@@ -135,6 +135,7 @@ runs:
         target: ${{ inputs.DOCKERFILE_TARGET }}
         build-args: |
           ${{ steps.build-args.outputs.args }}
+        outputs: ${{ fromJSON(inputs.PUSH) && '' || 'type=cacheonly' }}
         # During the build, several secret values don't actually matter but still need to be present (e.g. kernel-secret, pimcore-encryption-secret),
         # so we simply add dummy values here
         secrets: |
