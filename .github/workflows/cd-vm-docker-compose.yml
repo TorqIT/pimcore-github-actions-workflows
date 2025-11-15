@@ -79,11 +79,6 @@ on:
         type: string
         default: "."
         description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, etc)"
-      AZURE_MYSQL:
-        required: false
-        type: boolean
-        default: false
-        description: "Whether the application uses an Azure MySQL server instance as its database"
       CONTAINER_REGISTRY:
         required: true
         type: string
@@ -233,12 +228,6 @@ jobs:
           ref: ${{ steps.workflow-version.outputs.sha }}
           path: reusable-workflow
           fetch-depth: 1
-
-      - name: Copy config files required for running with an Azure MySQL server
-        uses: ./reusable-workflow/.github/actions/azure-mysql-copy-config
-        if: ${{ inputs.AZURE_MYSQL }}
-        with:
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
