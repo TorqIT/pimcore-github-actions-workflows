@@ -141,7 +141,7 @@ jobs:
         uses: ./reusable-workflow/.github/actions/setup-tools
 
       - name: Lint all files
-        uses: ./reusable-workflow/.github/actions/lint/action.yml
+        uses: ./reusable-workflow/.github/actions/lint
 
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
