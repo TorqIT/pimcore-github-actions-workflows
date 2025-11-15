@@ -13,6 +13,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+
       - name: Lint workflow files
         uses: ./.github/actions/lint
 
