@@ -143,7 +143,7 @@ jobs:
         uses: ./reusable-workflow/.github/actions/lint
 
   build-and-scan-init:
-    name: Build init Docker image
+    name: Build and scan init Docker image
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Checkout repository
@@ -187,7 +187,7 @@ jobs:
           CACHE_FROM: "type=gha"
 
   build-and-scan-php:
-    name: Build PHP Docker image
+    name: Build and scan PHP Docker image
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Checkout repository
