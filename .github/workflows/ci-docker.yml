@@ -157,8 +157,6 @@ jobs:
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           PUSH: "false"
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
 
       - name: Build PHP image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -177,8 +175,6 @@ jobs:
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
           PUSH: "false"
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
 
       - name: Build supervisord image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -191,5 +187,3 @@ jobs:
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           PUSH: "false"
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
