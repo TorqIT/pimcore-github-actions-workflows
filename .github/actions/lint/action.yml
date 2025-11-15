@@ -70,6 +70,21 @@ runs:
           echo "No XML syntax errors found"
         fi
 
+    - name: Lint GitHub Actions workflow files
+      id: lint-actions
+      shell: bash
+      continue-on-error: true
+      run: |
+        set -e
+        # Run actionlint and capture exit code
+        if actionlint -color -shellcheck= 2>&1; then
+          echo "errors=0" >> $GITHUB_OUTPUT
+          echo "No GitHub Actions workflow errors found"
+        else
+          echo "errors=1" >> $GITHUB_OUTPUT
+          echo "GitHub Actions workflow errors found"
+        fi
+
     - name: Report linting results
       id: report
       shell: bash
@@ -77,17 +92,13 @@ runs:
         json_errors=${{ steps.lint-json.outputs.errors }}
         php_errors=${{ steps.lint-php.outputs.errors }}
         xml_errors=${{ steps.lint-xml.outputs.errors }}
-        total_errors=$((json_errors + php_errors + xml_errors))
+        actions_errors=${{ steps.lint-actions.outputs.errors }}
+        total_errors=$((json_errors + php_errors + xml_errors + actions_errors))
         if [ $total_errors -ne 0 ]; then
           echo "Linting failed with $total_errors total errors"
           exit 1
         else
           echo "All linting checks passed successfully"
         fi
-      
-    - name: Lint GitHub Actions workflow files
-      uses: docker://rhysd/actionlint:latest
-      with:
-        args: -color -shellcheck=
 
     # TODO YAML, Dockerfile, JS linting...
