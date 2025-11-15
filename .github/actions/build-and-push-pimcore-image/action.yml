@@ -148,7 +148,7 @@ runs:
           ${{ inputs.DOCKERFILE_TARGET }}:trivy-scan
 
     - name: Trivy scan
-      uses: aquasecurity/trivy-action@v0.10.7
+      uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
       with:
         image-ref: ${{ inputs.DOCKERFILE_TARGET }}:trivy-scan
         format: 'table'
