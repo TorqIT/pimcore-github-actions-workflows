@@ -111,7 +111,7 @@ on:
 
 jobs:
   lint:
-    name: Lint, run tests, and build Docker images
+    name: Lint files
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
     steps:
