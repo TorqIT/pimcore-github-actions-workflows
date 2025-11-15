@@ -143,6 +143,7 @@ runs:
         push: false
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
+        load: true # Load the image into the local Docker cache for scanning and pushing
         tags: pimcore:trivy-scan
 
     - name: Trivy scan
