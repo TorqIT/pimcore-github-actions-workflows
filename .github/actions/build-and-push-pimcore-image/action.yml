@@ -147,7 +147,11 @@ runs:
           ${{ inputs.TAGS }},
           ${{ inputs.DOCKERFILE_TARGET }}:trivy-scan
 
-    - name: Scan image for vulnerabilities
-      uses: ./reusable-workflow/.github/actions/trivy-scan
+    - name: Trivy scan
+      uses: aquasecurity/trivy-action@v0.10.7
       with:
-        IMAGE_REF: ${{ inputs.DOCKERFILE_TARGET }}:trivy-scan
+        image-ref: ${{ inputs.DOCKERFILE_TARGET }}:trivy-scan
+        format: 'table'
+        exit-code: '1'
+        severity: 'CRITICAL,HIGH'
+        ignore-unfixed: 'true'
