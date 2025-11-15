@@ -111,7 +111,7 @@ on:
 
 jobs:
   continuous-integration:
-    name: Lint files, run tests, and build Docker images
+    name: Lint, run tests, and build Docker images
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
 
