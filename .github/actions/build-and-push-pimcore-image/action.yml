@@ -146,4 +146,11 @@ runs:
         push: ${{ fromJSON(inputs.PUSH) }}
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
-        tags: ${{ inputs.TAGS }}
+        tags: |
+          ${{ inputs.TAGS }},
+          ${{ inputs.IMAGE }}:trivy-scan
+
+    - name: Scan image for vulnerabilities
+      uses: ./../trivy-scan
+      with:
+        IMAGE_REF: ${{ inputs.IMAGE }}:trivy-scan
