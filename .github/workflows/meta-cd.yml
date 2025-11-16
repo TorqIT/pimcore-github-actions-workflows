@@ -1,0 +1,26 @@
+# META - CD workflow for this repository
+
+name: CD
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  lint:
+    name: Lint all files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+
+      - name: Lint all files
+        uses: ./.github/actions/lint
+
+  tag-major-release:
+    name: Update major release tag
+    needs: [lint]
+    uses: TorqIT/github-actions-workflows/.github/workflows/update-major-release-tag.yml@v1
