@@ -8,6 +8,7 @@ on:
 
 jobs:
   lint:
+    name: Lint all files
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -16,10 +17,10 @@ jobs:
       - name: Setup tools
         uses: ./.github/actions/setup-tools
 
-      - name: Lint workflow files
+      - name: Lint all files
         uses: ./.github/actions/lint
 
   tag-major-release:
+    name: Update major release tag
     needs: [lint]
-    name: Tag major release
     uses: TorqIT/github-actions-workflows/.github/workflows/update-major-release-tag.yml@v1
