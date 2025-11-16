@@ -1,4 +1,5 @@
 # Syncs the contents of one Azure Storage Account container to another Storage Account container.
+# Requires an Azure service principal with access to both source and target storage accounts.
 #
 # Invoke this workflow in your project's workflow as follows:
 # jobs:
@@ -13,11 +14,11 @@
 #       TARGET_STORAGE_ACCOUNT: stagingstorage
 #       TARGET_CONTAINER: pimcore-assets
 #       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-#       SOURCE_SUBSCRIPTION_ID: ${{ vars.SOURCE_AZURE_SUBSCRIPTION_ID }}
-#       TARGET_SUBSCRIPTION_ID: ${{ vars.TARGET_AZURE_SUBSCRIPTION_ID }}
+#       SOURCE_SUBSCRIPTION_ID: 12345678-90ab-cdef-1234-567890abcdef
+#       TARGET_SUBSCRIPTION_ID: 98765432-10fe-dcba-4321-fedcba098765
 #     secrets:
-#       AZURE_SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }}
-#       AZURE_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
+#       AZURE_SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SYNC_SERVICE_PRINCIPAL_ID }}
+#       AZURE_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SYNC_SERVICE_PRINCIPAL_PASSWORD }}
 #       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_STORAGE_SYNC_WEBHOOK_URL }}
 #
 
