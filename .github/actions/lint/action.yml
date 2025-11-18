@@ -11,7 +11,6 @@ runs:
         set -e
         errors=0
         
-        # Safely iterate over filenames with spaces
         find . -name '*.json' -not -path './.vscode/*' -print0 | while IFS= read -r -d '' file; do
           if ! output=$(jq empty "$file" 2>&1); then
             echo "JSON syntax error in $file:"
@@ -21,7 +20,6 @@ runs:
           fi
         done
         echo "errors=$errors" >> "$GITHUB_OUTPUT"
-        
         if [ "$errors" -ne 0 ]; then
           echo "$errors JSON files found with syntax errors"
         else
