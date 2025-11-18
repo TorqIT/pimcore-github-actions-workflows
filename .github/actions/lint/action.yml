@@ -9,7 +9,7 @@ runs:
       continue-on-error: true
       run: |
         set -e
-        errors=0        
+        errors=0
         find . -name '*.json' -not -path './.vscode/*' -print0 | while IFS= read -r -d '' file; do
           if ! output=$(jq empty "$file" 2>&1); then
             echo "JSON syntax error in $file:"
@@ -18,7 +18,7 @@ runs:
             errors=$((errors+1))
           fi
         done
-        echo errors=$errors >> $GITHUB_OUTPUT
+        echo "errors=$errors" >> $GITHUB_OUTPUT
         if [ $errors -ne 0 ]; then
           echo "$errors JSON files found with syntax errors"
         else
