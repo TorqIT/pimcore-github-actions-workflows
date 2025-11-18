@@ -20,8 +20,6 @@ runs:
             errors=$((errors+1))
           fi
         done
-        
-        # Export errors to GitHub Actions output
         echo "errors=$errors" >> "$GITHUB_OUTPUT"
         
         if [ "$errors" -ne 0 ]; then
