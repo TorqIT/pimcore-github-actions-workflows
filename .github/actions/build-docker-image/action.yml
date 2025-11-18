@@ -1,22 +1,15 @@
-name: "Build and Push Pimcore Image"
-description: "Builds a Pimcore Docker image, and optionally pushes it to a Container Registry"
+name: "Build Docker Image"
+description: "Builds a Docker image"
 inputs:
   CONTAINER_REGISTRY:
     required: false
     description: "The Docker registry to push the image to"
-  PUSH:
-    required: false
-    description: "Whether to push the image to the registry"
-    default: "true"
   CACHE_FROM:
     required: false
     description: "Defines where to pull cached Docker layers from"
   CACHE_TO:
     required: false
     description: "Defines where to push cached Docker layers to"
-  TAGS:
-    required: false
-    description: "Defines the tags to associate with the image"
   DOCKERFILE_PATH:
     required: true
     description: "The path (relative to the project's root) of the Dockerfile used to build image"
@@ -127,7 +120,7 @@ runs:
         echo "EOF" >> $GITHUB_OUTPUT
       shell: bash
 
-    - name: Build and push image
+    - name: Build image
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -143,7 +136,5 @@ runs:
           pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
           torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
           ${{ steps.build-secrets.outputs.secrets }}
-        push: ${{ fromJSON(inputs.PUSH) }}
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
-        tags: ${{ inputs.TAGS }}

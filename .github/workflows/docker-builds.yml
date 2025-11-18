@@ -144,7 +144,7 @@ jobs:
         uses: ./reusable-workflow/.github/actions/setup-docker
 
       - name: Build init image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+        uses: ./reusable-workflow/.github/actions/build-docker-image
         with:
           DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
           DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
@@ -153,10 +153,9 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          PUSH: "false"
 
       - name: Build PHP image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+        uses: ./reusable-workflow/.github/actions/build-docker-image
         with:
           DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
@@ -171,10 +170,9 @@ jobs:
           NPM_SPA: ${{ inputs.NPM_SPA }}
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
-          PUSH: "false"
 
       - name: Build supervisord image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+        uses: ./reusable-workflow/.github/actions/build-docker-image
         with:
           DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
@@ -183,4 +181,3 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          PUSH: "false"

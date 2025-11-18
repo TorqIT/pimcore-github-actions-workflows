@@ -257,18 +257,8 @@ jobs:
           CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
 
-      - name: Apply Azure infrastructure changes
-        uses: ./reusable-workflow/.github/actions/azure-apply-infra-changes
-        with:
-          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ vars.AZURE_TENANT_ID }}
-          AZURE_DIRECTORY: ${{ inputs.AZURE_DIRECTORY }}
-          AZURE_IMAGE_TAG: ${{ inputs.AZURE_IMAGE_TAG }}
-          AZURE_PARAMETERS_FILE: ${{ vars.AZURE_PARAMETERS_FILE }}
-
-      - name: Build and push init image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+      - name: Build init image
+        uses: ./reusable-workflow/.github/actions/build-docker-image
         with:
           DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
@@ -278,12 +268,9 @@ jobs:
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min
-          TAGS: |
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:latest,
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:${{ github.run_id }}
 
-      - name: Build and push PHP image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+      - name: Build PHP image
+        uses: ./reusable-workflow/.github/actions/build-docker-image
         with:
           DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
@@ -297,12 +284,9 @@ jobs:
           NPM_SPA: ${{ inputs.NPM_SPA }}
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
-          TAGS: |
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:latest,
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:${{ github.run_id }}
 
-      - name: Build and push supervisord image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+      - name: Build supervisord image
+        uses: ./reusable-workflow/.github/actions/build-docker-image
         with:
           DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
@@ -310,6 +294,42 @@ jobs:
           BUILD_TIME_SECRETS: ${{secrets.BUILD_TIME_SECRETS }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+
+      - name: Apply Azure infrastructure changes
+        uses: ./reusable-workflow/.github/actions/azure-apply-infra-changes
+        with:
+          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          TENANT: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_DIRECTORY: ${{ inputs.AZURE_DIRECTORY }}
+          AZURE_IMAGE_TAG: ${{ inputs.AZURE_IMAGE_TAG }}
+          AZURE_PARAMETERS_FILE: ${{ vars.AZURE_PARAMETERS_FILE }}
+
+      # TODO image scanning, tests, etc
+
+      - name: Push init image
+        uses: ./reusable-workflow/.github/actions/push-docker-image
+        with:
+          DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
+          DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
+          TAGS: |
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:latest,
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:${{ github.run_id }}
+
+      - name: Push PHP image
+        uses: ./reusable-workflow/.github/actions/push-docker-image
+        with:
+          DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
+          DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
+          TAGS: |
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:latest,
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:${{ github.run_id }}
+
+      - name: Push supervisord image
+        uses: ./reusable-workflow/.github/actions/push-docker-image
+        with:
+          DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
+          DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
           TAGS: |
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:latest,
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}

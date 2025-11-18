@@ -1,0 +1,44 @@
+name: "Push Docker Image"
+description: "Pushes a Docker image to a Container Registry"
+inputs:
+  CONTAINER_REGISTRY:
+    required: false
+    description: "The Docker registry to log in to"
+  CONTAINER_REGISTRY_USERNAME:
+    required: false
+    description: "The registry username"
+  CONTAINER_REGISTRY_PASSWORD:
+    required: false
+    description: "The registry password"
+  DOCKERFILE_PATH:
+    required: true
+    description: "The path (relative to the project's root) of the Dockerfile used to build image"
+  DOCKERFILE_TARGET:
+    required: true
+    description: "The Docker target to use when building the image"
+  TAGS:
+    required: true
+    description: "A comma-separated list of tags to push the Docker image with"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Log in to Container Registry ${{ inputs.CONTAINER_REGISTRY }}
+      if: inputs.CONTAINER_REGISTRY != ''
+      shell: bash
+      run: |
+        if ! docker system info | grep -q "Username:"; then
+          echo "${{ inputs.CONTAINER_REGISTRY_PASSWORD }}" \
+            | docker login ${{ inputs.CONTAINER_REGISTRY }} \
+              -u ${{ inputs.CONTAINER_REGISTRY_USERNAME }} --password-stdin
+        else
+          echo "Already logged in, skipping"
+        fi
+
+    - name: Push Docker image
+      uses: docker/build-push-action@v6
+      with:
+        push: true
+        file: ${{ inputs.DOCKERFILE_PATH }}
+        target: ${{ inputs.DOCKERFILE_TARGET }}
+        tags: ${{ inputs.TAGS }}
