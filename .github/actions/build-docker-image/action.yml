@@ -136,3 +136,4 @@ runs:
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
         tags: ${{ inputs.TAGS }}
+        load: true
