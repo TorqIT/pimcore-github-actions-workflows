@@ -295,6 +295,8 @@ jobs:
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
 
+      # TODO image scanning, tests, etc
+
       - name: Apply Azure infrastructure changes
         uses: ./reusable-workflow/.github/actions/azure-apply-infra-changes
         with:
@@ -304,8 +306,6 @@ jobs:
           AZURE_DIRECTORY: ${{ inputs.AZURE_DIRECTORY }}
           AZURE_IMAGE_TAG: ${{ inputs.AZURE_IMAGE_TAG }}
           AZURE_PARAMETERS_FILE: ${{ vars.AZURE_PARAMETERS_FILE }}
-
-      # TODO image scanning, tests, etc
 
       - name: Push init image
         uses: ./reusable-workflow/.github/actions/push-docker-image
