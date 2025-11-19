@@ -10,9 +10,12 @@ inputs:
   CONTAINER_REGISTRY_PASSWORD:
     required: false
     description: "The registry password"
-  TAGS:
+  BUILD_TAG:
     required: true
-    description: "A comma-separated list of tags to push the Docker image with"
+    description: "Tag that was used to build the Docker image, simply for reference purposes"
+  PUSH_TAGS:
+    required: true
+    description: "A space-separated list of tags to push the Docker image with"
 
 runs:
   using: "composite"
@@ -30,7 +33,8 @@ runs:
         fi
 
     - name: Push Docker image
-      uses: docker/build-push-action@v6
-      with:
-        push: true
-        tags: ${{ inputs.TAGS }}
+      shell: bash
+      run: |
+        docker tag ${{ inputs.BUILD_TAG }} ${{ inputs.PUSH_TAGS }}
+        docker push ${{ inputs.PUSH_TAGS }}
+

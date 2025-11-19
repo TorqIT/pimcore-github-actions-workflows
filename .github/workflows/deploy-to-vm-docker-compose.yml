@@ -267,7 +267,7 @@ jobs:
           CACHE_TO: type=gha,mode=min
           TAGS: init:latest
 
-      - name: Build and push PHP image
+      - name: Build PHP image
         uses: ./reusable-workflow/.github/actions/build-docker-image
         with:
           DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
@@ -285,7 +285,7 @@ jobs:
           CACHE_TO: type=gha,mode=min
           TAGS: php:latest
 
-      - name: Build and push supervisord image
+      - name: Build supervisord image
         uses: ./reusable-workflow/.github/actions/build-docker-image
         with:
           DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
@@ -303,25 +303,25 @@ jobs:
         if: ${{ inputs.INIT }}
         uses: ./reusable-workflow/.github/actions/push-docker-image
         with:
-          TAGS: |
-            init:latest,
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE }}:${{ inputs.IMAGES_TAG }},
+          BUILD_TAG: init:latest
+          PUSH_TAGS: >
+            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE }}:${{ inputs.IMAGES_TAG }}
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE }}:${{ github.run_id }}
 
       - name: Push PHP image
         uses: ./reusable-workflow/.github/actions/push-docker-image
         with:
-          TAGS: |
-            php:latest,
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE }}:${{ inputs.IMAGES_TAG }},
+          BUILD_TAG: php:latest
+          PUSH_TAGS: >
+            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE }}:${{ inputs.IMAGES_TAG }}
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE }}:${{ github.run_id }}
 
       - name: Push supervisord image
         uses: ./reusable-workflow/.github/actions/push-docker-image
         with:
-          TAGS: |
-            supervisord:latest,
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ inputs.IMAGES_TAG }},
+          BUILD_TAG: supervisord:latest
+          PUSH_TAGS: >
+            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ inputs.IMAGES_TAG }}
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ github.run_id }}
 
   deploy-containers:

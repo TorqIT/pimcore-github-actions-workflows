@@ -313,25 +313,26 @@ jobs:
       - name: Push init image
         uses: ./reusable-workflow/.github/actions/push-docker-image
         with:
-          TAGS: |
-            init:latest,
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:latest,
+          BUILD_TAG: init:latest
+          PUSH_TAGS: >
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:latest
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:${{ github.run_id }}
 
       - name: Push PHP image
         uses: ./reusable-workflow/.github/actions/push-docker-image
         with:
-          TAGS: |
-            php:latest,
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:latest,
+          BUILD_TAG: php:latest
+          PUSH_TAGS: >
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:latest
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:${{ github.run_id }}
 
       - name: Push supervisord image
         uses: ./reusable-workflow/.github/actions/push-docker-image
         with:
-          TAGS: |
-            supervisord:latest,
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:latest,
+          BUILD_TAG: supervisord:latest
+          PUSH_TAGS: >
+            supervisord:latest
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:latest
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
 
       - name: Remove exception from Azure Container Registry firewall, if one is in place
