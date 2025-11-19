@@ -1,5 +1,4 @@
-# Shuts down target Azure Container App revisions (PHP and supervisord), then orchestrates storage sync 
-# and MySQL sync operations in parallel, and optionally restarts the Container Apps after syncs complete.
+# Performs Storage Account and MySQL sync operations from a source Azure Container Apps environment to a target environment.
 #
 # Invoke this workflow in your project's workflow as follows:
 # jobs:
@@ -40,7 +39,7 @@ on:
         required: false
         type: string
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
-      
+
       # Azure Configuration
       AZURE_TENANT_ID:
         required: true
@@ -71,7 +70,7 @@ on:
         type: boolean
         default: true
         description: Whether to restart apps after sync
-      
+
       # Storage Sync Inputs
       SOURCE_STORAGE_ACCOUNT:
         required: true
@@ -104,7 +103,7 @@ on:
         type: boolean
         default: false
         description: Whether to delete files in destination that don't exist in source (--delete-destination=true)
-      
+
       # MySQL Sync Inputs
       SOURCE_MYSQL_HOST:
         required: true
@@ -177,7 +176,7 @@ jobs:
   shutdown-target-container-apps:
     name: Shutdown target Container Apps
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    
+
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -206,47 +205,47 @@ jobs:
           TENANT: ${{ inputs.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
 
-      - name: Deactivate PHP Container App revisions
-        uses: azure/cli@v2
-        with:
-          inlineScript: |
-            set -e
-            
-            echo "Fetching active revisions for PHP Container App: ${{ inputs.TARGET_PHP_CONTAINER_APP }}..."
-            activeRevisions=$(az containerapp revision list \
-              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-              --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
-              --query "[?properties.active==\`true\`].name" \
-              --output tsv)
-            
-            if [ -z "$activeRevisions" ]; then
-              echo "No active revisions found for PHP Container App"
-            else
-              echo "Deactivating active revisions..."
-              for revision in $activeRevisions
-              do
-                echo "Deactivating revision: $revision"
-                az containerapp revision deactivate \
-                  --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-                  --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
-                  --revision $revision
-              done
-              echo "Successfully deactivated all PHP Container App revisions"
-            fi
+      # - name: Deactivate PHP Container App revisions
+      #   uses: azure/cli@v2
+      #   with:
+      #     inlineScript: |
+      #       set -e
+
+      #       echo "Fetching active revisions for PHP Container App: ${{ inputs.TARGET_PHP_CONTAINER_APP }}..."
+      #       activeRevisions=$(az containerapp revision list \
+      #         --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+      #         --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
+      #         --query "[?properties.active==\`true\`].name" \
+      #         --output tsv)
+
+      #       if [ -z "$activeRevisions" ]; then
+      #         echo "No active revisions found for PHP Container App"
+      #       else
+      #         echo "Deactivating active revisions..."
+      #         for revision in $activeRevisions
+      #         do
+      #           echo "Deactivating revision: $revision"
+      #           az containerapp revision deactivate \
+      #             --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+      #             --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
+      #             --revision $revision
+      #         done
+      #         echo "Successfully deactivated all PHP Container App revisions"
+      #       fi
 
       - name: Deactivate supervisord Container App revisions
         uses: azure/cli@v2
         with:
           inlineScript: |
             set -e
-            
+
             echo "Fetching active revisions for supervisord Container App: ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}..."
             activeRevisions=$(az containerapp revision list \
               --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
               --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
               --query "[?properties.active==\`true\`].name" \
               --output tsv)
-            
+
             if [ -z "$activeRevisions" ]; then
               echo "No active revisions found for supervisord Container App"
             else
@@ -348,7 +347,7 @@ jobs:
     needs: [storage-sync, mysql-sync]
     if: ${{ inputs.RESTART_APPS_AFTER_SYNC }}
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    
+
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -377,31 +376,31 @@ jobs:
           TENANT: ${{ inputs.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
 
-      - name: Restart PHP Container App
-        uses: azure/cli@v2
-        with:
-          inlineScript: |
-            set -e
-            
-            echo "Restarting PHP Container App: ${{ inputs.TARGET_PHP_CONTAINER_APP }}..."
-            az containerapp revision restart \
-              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-              --name ${{ inputs.TARGET_PHP_CONTAINER_APP }}
-            
-            echo "PHP Container App restarted successfully"
+      # - name: Restart PHP Container App
+      #   uses: azure/cli@v2
+      #   with:
+      #     inlineScript: |
+      #       set -e
 
-      - name: Restart supervisord Container App
-        uses: azure/cli@v2
-        with:
-          inlineScript: |
-            set -e
-            
-            echo "Restarting supervisord Container App: ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}..."
-            az containerapp revision restart \
-              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-              --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}
-            
-            echo "Supervisord Container App restarted successfully"
+      #       echo "Restarting PHP Container App: ${{ inputs.TARGET_PHP_CONTAINER_APP }}..."
+      #       az containerapp revision restart \
+      #         --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+      #         --name ${{ inputs.TARGET_PHP_CONTAINER_APP }}
+
+      #       echo "PHP Container App restarted successfully"
+
+      # - name: Restart supervisord Container App
+      #   uses: azure/cli@v2
+      #   with:
+      #     inlineScript: |
+      #       set -e
+
+      #       echo "Restarting supervisord Container App: ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}..."
+      #       az containerapp revision restart \
+      #         --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+      #         --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}
+
+      #       echo "Supervisord Container App restarted successfully"
 
       - name: Check Slack webhook URL
         id: check-webhook-url
