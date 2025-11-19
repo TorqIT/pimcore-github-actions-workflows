@@ -35,7 +35,10 @@ runs:
     - name: Push Docker image
       shell: bash
       run: |
-        for push_tag in ${{ inputs.PUSH_TAGS }}; do
+        TAGS="${{ inputs.PUSH_TAGS }}"
+        # Get rid of potential newlines
+        TAGS=$(echo "$TAGS" | tr '\n' ' ')
+        for push_tag in $TAGS; do
           echo "Tagging and pushing: $push_tag"
           docker tag "${{ inputs.BUILD_TAG }}" "$push_tag"
           docker push "$push_tag"
