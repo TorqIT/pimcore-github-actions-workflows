@@ -23,8 +23,8 @@ jobs:
             TARGET_MYSQL_USERNAME: adminuser
             TARGET_MYSQL_DATABASE: pimcore
         secrets:
-            SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }}
-            SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
-            SOURCE_MYSQL_PASSWORD: ${{ secrets.PROD_MYSQL_PASSWORD }}
-            TARGET_MYSQL_PASSWORD: ${{ secrets.STAGING_MYSQL_PASSWORD }}
-            SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+            SERVICE_PRINCIPAL_ID: ${{ secrets.SYNC_SERVICE_PRINCIPAL_ID }}
+            SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SYNC_SERVICE_PRINCIPAL_PASSWORD }}
+            SOURCE_MYSQL_PASSWORD: ${{ secrets.SOURCE_MYSQL_PASSWORD }}
+            TARGET_MYSQL_PASSWORD: ${{ secrets.TARGET_MYSQL_PASSWORD }}
+            # SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
