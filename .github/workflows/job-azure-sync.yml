@@ -299,7 +299,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-azure-storage-sync.yml@main
+    uses: ./.github/workflows/job-azure-storage-sync.yml
     with:
       RUNNER: ${{ inputs.RUNNER }}
       SOURCE_STORAGE_ACCOUNT: ${{ inputs.SOURCE_STORAGE_ACCOUNT }}
@@ -312,6 +312,7 @@ jobs:
       AZURE_TENANT_ID: ${{ inputs.AZURE_TENANT_ID }}
       SOURCE_SUBSCRIPTION_ID: ${{ inputs.SOURCE_SUBSCRIPTION_ID }}
       TARGET_SUBSCRIPTION_ID: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
+
     secrets:
       AZURE_SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
       AZURE_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
@@ -323,7 +324,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-mysql-sync.yml@main
+    uses: ./.github/workflows/job-mysql-sync.yml
     with:
       RUNNER: ${{ inputs.RUNNER }}
       SOURCE_HOST: ${{ inputs.SOURCE_MYSQL_HOST }}
@@ -331,11 +332,15 @@ jobs:
       SOURCE_DATABASE: ${{ inputs.SOURCE_MYSQL_DATABASE }}
       SOURCE_PORT: ${{ inputs.SOURCE_MYSQL_PORT }}
       SOURCE_SSL_MODE: ${{ inputs.SOURCE_MYSQL_SSL_MODE }}
+      SOURCE_IS_IN_AZURE: true
+      SOURCE_AZURE_RESOURCE_GROUP: ${{ inputs.SOURCE_STORAGE_RESOURCE_GROUP }}
       TARGET_HOST: ${{ inputs.TARGET_MYSQL_HOST }}
       TARGET_USERNAME: ${{ inputs.TARGET_MYSQL_USERNAME }}
       TARGET_DATABASE: ${{ inputs.TARGET_MYSQL_DATABASE }}
       TARGET_PORT: ${{ inputs.TARGET_MYSQL_PORT }}
       TARGET_SSL_MODE: ${{ inputs.TARGET_MYSQL_SSL_MODE }}
+      TARGET_IS_IN_AZURE: true
+      TARGET_AZURE_RESOURCE_GROUP: ${{ inputs.TARGET_STORAGE_RESOURCE_GROUP }}
       MYSQLDUMP_OPTIONS: ${{ inputs.MYSQLDUMP_OPTIONS }}
     secrets:
       SOURCE_PASSWORD: ${{ secrets.SOURCE_MYSQL_PASSWORD }}
