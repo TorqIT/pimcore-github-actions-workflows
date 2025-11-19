@@ -190,9 +190,6 @@ jobs:
               --ip-address $runnerIp \
               --verbose
 
-            echo "Sleeping for 30 seconds to allow network rules to propagate..."
-            sleep 30
-
       - name: Install and configure AzCopy
         run: |
           echo "Installing AzCopy..."

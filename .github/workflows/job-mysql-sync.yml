@@ -212,8 +212,6 @@ jobs:
               --start-ip-address $runnerIp \
               --end-ip-address $runnerIp \
               --verbose
-            echo "Sleeping for 30 seconds to allow network rules to propagate..."
-            sleep 30
 
       - name: If target is an Azure MySQL server, add temporary network rule for this runner
         if: ${{ inputs.TARGET_IS_IN_AZURE }}
@@ -231,8 +229,6 @@ jobs:
               --start-ip-address $runnerIp \
               --end-ip-address $runnerIp \
               --verbose
-            echo "Sleeping for 30 seconds to allow network rules to propagate..."
-            sleep 30
 
       - name: Test source database connection
         run: |
