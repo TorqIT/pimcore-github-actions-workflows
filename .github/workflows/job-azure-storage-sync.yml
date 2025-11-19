@@ -226,7 +226,7 @@ jobs:
           echo "Source URL: $source_url"
           echo "Target URL: $target_url"
 
-          azcopy sync "$source_url" "$target_url" ${{ inputs.AZCOPY_OPTIONS }}
+          azcopy sync "$source_url" "$target_url"
 
           # azcopy_cmd="azcopy sync \"$source_url\" \"$target_url\" ${{ inputs.AZCOPY_OPTIONS }}"
 
