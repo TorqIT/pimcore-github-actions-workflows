@@ -7,6 +7,9 @@ inputs:
   CACHE_TO:
     required: false
     description: "Defines where to push cached Docker layers to"
+  TAGS:
+    required: false
+    description: "A comma-separated list of tags to build the Docker image with"
   DOCKERFILE_PATH:
     required: true
     description: "The path (relative to the project's root) of the Dockerfile used to build image"
@@ -132,3 +135,4 @@ runs:
           ${{ steps.build-secrets.outputs.secrets }}
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
+        tags: ${{ inputs.TAGS }}

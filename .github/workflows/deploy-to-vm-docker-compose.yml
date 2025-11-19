@@ -265,6 +265,7 @@ jobs:
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min
+          TAGS: init:latest
 
       - name: Build and push PHP image
         uses: ./reusable-workflow/.github/actions/build-docker-image
@@ -282,6 +283,7 @@ jobs:
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min
+          TAGS: php:latest
 
       - name: Build and push supervisord image
         uses: ./reusable-workflow/.github/actions/build-docker-image
@@ -293,6 +295,7 @@ jobs:
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min
+          TAGS: supervisord:latest
 
       # TODO scan images, run tests, etc.
 
@@ -300,27 +303,24 @@ jobs:
         if: ${{ inputs.INIT }}
         uses: ./reusable-workflow/.github/actions/push-docker-image
         with:
-          DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
-          DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
           TAGS: |
+            init:latest,
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE }}:${{ inputs.IMAGES_TAG }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE }}:${{ github.run_id }}
 
       - name: Push PHP image
         uses: ./reusable-workflow/.github/actions/push-docker-image
         with:
-          DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
-          DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
           TAGS: |
+            php:latest,
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE }}:${{ inputs.IMAGES_TAG }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE }}:${{ github.run_id }}
 
       - name: Push supervisord image
         uses: ./reusable-workflow/.github/actions/push-docker-image
         with:
-          DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
-          DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
           TAGS: |
+            supervisord:latest,
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ inputs.IMAGES_TAG }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ github.run_id }}
 

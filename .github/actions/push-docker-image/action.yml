@@ -10,12 +10,6 @@ inputs:
   CONTAINER_REGISTRY_PASSWORD:
     required: false
     description: "The registry password"
-  DOCKERFILE_PATH:
-    required: true
-    description: "The path (relative to the project's root) of the Dockerfile used to build image"
-  DOCKERFILE_TARGET:
-    required: true
-    description: "The Docker target to use when building the image"
   TAGS:
     required: true
     description: "A comma-separated list of tags to push the Docker image with"
@@ -39,6 +33,4 @@ runs:
       uses: docker/build-push-action@v6
       with:
         push: true
-        file: ${{ inputs.DOCKERFILE_PATH }}
-        target: ${{ inputs.DOCKERFILE_TARGET }}
         tags: ${{ inputs.TAGS }}
