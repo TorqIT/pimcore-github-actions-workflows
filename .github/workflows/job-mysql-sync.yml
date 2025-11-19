@@ -184,11 +184,6 @@ jobs:
 
           echo "Target host and database validation passed"
 
-      - name: Install MySQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mysql-client-core-8.0
-
       - name: If source or target are in Azure, log in to Azure via Service Principal
         if: ${{ inputs.SOURCE_IS_IN_AZURE || inputs.TARGET_IS_IN_AZURE }}
         uses: azure/cli@v2
