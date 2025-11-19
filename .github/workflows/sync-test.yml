@@ -22,6 +22,7 @@ jobs:
             TARGET_MYSQL_HOST: test-target.mysql.database.azure.com
             TARGET_MYSQL_USERNAME: adminuser
             TARGET_MYSQL_DATABASE: pimcore
+            SOURCE_RESOURCE_GROUP: Test-Source
         secrets:
             SERVICE_PRINCIPAL_ID: ${{ secrets.SYNC_SERVICE_PRINCIPAL_ID }}
             SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SYNC_SERVICE_PRINCIPAL_PASSWORD }}
