@@ -243,13 +243,6 @@ jobs:
           TENANT: ${{ vars.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Add exception to Azure Container Registry firewall, if one is in place
-        if: ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }}
-        run: |
-          az acr network-rule add -n ${{ vars.CONTAINER_REGISTRY }} --ip-address $(curl ipinfo.io/ip)
-          # Sleep for a few seconds to allow network rules to propagate
-          sleep 60
-
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
         with:
@@ -309,6 +302,13 @@ jobs:
           AZURE_DIRECTORY: ${{ inputs.AZURE_DIRECTORY }}
           AZURE_IMAGE_TAG: ${{ inputs.AZURE_IMAGE_TAG }}
           AZURE_PARAMETERS_FILE: ${{ vars.AZURE_PARAMETERS_FILE }}
+
+      - name: Add exception to Azure Container Registry firewall, if one is in place
+        if: ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }}
+        run: |
+          az acr network-rule add -n ${{ vars.CONTAINER_REGISTRY }} --ip-address $(curl ipinfo.io/ip)
+          # Sleep for a few seconds to allow network rules to propagate
+          sleep 60
 
       - name: Push init image
         uses: ./reusable-workflow/.github/actions/push-docker-image
