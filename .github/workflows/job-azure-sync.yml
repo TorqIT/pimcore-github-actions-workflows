@@ -169,129 +169,129 @@ on:
         description: Webhook URL to send job status messages to Slack
 
 jobs:
-  shutdown-target-container-apps:
-    name: Shutdown target Container Apps
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+  # shutdown-target-container-apps:
+  #   name: Shutdown target Container Apps
+  #   runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
-    steps:
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@v1
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: job-azure-sync.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+  #   steps:
+  # - name: Get workflow version
+  #   id: workflow-version
+  #   uses: canonical/get-workflow-version-action@v1
+  #   with:
+  #     repository-name: TorqIT/pimcore-github-actions-workflows
+  #     file-name: job-azure-sync.yml
+  #     github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
+  # - name: Checkout workflow repository to use composite actions
+  #   uses: actions/checkout@v4
+  #   with:
+  #     repository: TorqIT/pimcore-github-actions-workflows
+  #     ref: ${{ steps.workflow-version.outputs.sha }}
+  #     path: reusable-workflow
+  #     fetch-depth: 1
 
-      - name: Install tools for workflows/actions
-        uses: ./reusable-workflow/.github/actions/setup-tools
+  # - name: Install tools for workflows/actions
+  #   uses: ./reusable-workflow/.github/actions/setup-tools
 
-      - name: Log in to Azure
-        uses: ./reusable-workflow/.github/actions/azure-login
-        with:
-          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ inputs.AZURE_TENANT_ID }}
-          SUBSCRIPTION: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
+  # - name: Log in to Azure
+  #   uses: ./reusable-workflow/.github/actions/azure-login
+  #   with:
+  #     SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+  #     SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+  #     TENANT: ${{ inputs.AZURE_TENANT_ID }}
+  #     SUBSCRIPTION: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
 
-      # - name: Deactivate PHP Container App revisions
-      #   uses: azure/cli@v2
-      #   with:
-      #     inlineScript: |
-      #       set -e
+  # - name: Deactivate PHP Container App revisions
+  #   uses: azure/cli@v2
+  #   with:
+  #     inlineScript: |
+  #       set -e
 
-      #       echo "Fetching active revisions for PHP Container App: ${{ inputs.TARGET_PHP_CONTAINER_APP }}..."
-      #       activeRevisions=$(az containerapp revision list \
-      #         --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-      #         --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
-      #         --query "[?properties.active==\`true\`].name" \
-      #         --output tsv)
+  #       echo "Fetching active revisions for PHP Container App: ${{ inputs.TARGET_PHP_CONTAINER_APP }}..."
+  #       activeRevisions=$(az containerapp revision list \
+  #         --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+  #         --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
+  #         --query "[?properties.active==\`true\`].name" \
+  #         --output tsv)
 
-      #       if [ -z "$activeRevisions" ]; then
-      #         echo "No active revisions found for PHP Container App"
-      #       else
-      #         echo "Deactivating active revisions..."
-      #         for revision in $activeRevisions
-      #         do
-      #           echo "Deactivating revision: $revision"
-      #           az containerapp revision deactivate \
-      #             --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-      #             --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
-      #             --revision $revision
-      #         done
-      #         echo "Successfully deactivated all PHP Container App revisions"
-      #       fi
+  #       if [ -z "$activeRevisions" ]; then
+  #         echo "No active revisions found for PHP Container App"
+  #       else
+  #         echo "Deactivating active revisions..."
+  #         for revision in $activeRevisions
+  #         do
+  #           echo "Deactivating revision: $revision"
+  #           az containerapp revision deactivate \
+  #             --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+  #             --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
+  #             --revision $revision
+  #         done
+  #         echo "Successfully deactivated all PHP Container App revisions"
+  #       fi
 
-      # - name: Deactivate supervisord Container App revisions
-      #   uses: azure/cli@v2
-      #   with:
-      #     inlineScript: |
-      #       set -e
+  # - name: Deactivate supervisord Container App revisions
+  #   uses: azure/cli@v2
+  #   with:
+  #     inlineScript: |
+  #       set -e
 
-      #       echo "Fetching active revisions for supervisord Container App: ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}..."
-      #       activeRevisions=$(az containerapp revision list \
-      #         --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-      #         --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
-      #         --query "[?properties.active==\`true\`].name" \
-      #         --output tsv)
+  #       echo "Fetching active revisions for supervisord Container App: ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}..."
+  #       activeRevisions=$(az containerapp revision list \
+  #         --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+  #         --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
+  #         --query "[?properties.active==\`true\`].name" \
+  #         --output tsv)
 
-      #       if [ -z "$activeRevisions" ]; then
-      #         echo "No active revisions found for supervisord Container App"
-      #       else
-      #         echo "Deactivating active revisions..."
-      #         for revision in $activeRevisions
-      #         do
-      #           echo "Deactivating revision: $revision"
-      #           az containerapp revision deactivate \
-      #             --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-      #             --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
-      #             --revision $revision
-      #         done
-      #         echo "Successfully deactivated all supervisord Container App revisions"
-      #       fi
+  #       if [ -z "$activeRevisions" ]; then
+  #         echo "No active revisions found for supervisord Container App"
+  #       else
+  #         echo "Deactivating active revisions..."
+  #         for revision in $activeRevisions
+  #         do
+  #           echo "Deactivating revision: $revision"
+  #           az containerapp revision deactivate \
+  #             --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+  #             --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
+  #             --revision $revision
+  #         done
+  #         echo "Successfully deactivated all supervisord Container App revisions"
+  #       fi
 
-      # - name: Wait for shutdown to complete
-      #   run: |
-      #     echo "Waiting 30 seconds for Container Apps to fully shut down..."
-      #     sleep 30
-      #     echo "Container Apps shutdown complete"
+  # - name: Wait for shutdown to complete
+  #   run: |
+  #     echo "Waiting 30 seconds for Container Apps to fully shut down..."
+  #     sleep 30
+  #     echo "Container Apps shutdown complete"
 
-      - name: Check Slack webhook URL
-        id: check-webhook-url
-        # Hacky workaround to get around the fact that we cannot reference secrets in a conditional
-        run: |
-          if [ "${{ secrets.SLACK_WEBHOOK_URL }}" != '' ]; then
-            echo "Slack webhook URL is defined"
-            echo "slackWebhookDefined=true" >> $GITHUB_OUTPUT;
-          else
-            echo "Slack webhook URL is not defined"
-            echo "slackWebhookDefined=false" >> $GITHUB_OUTPUT;
-          fi
+  # - name: Check Slack webhook URL
+  #   id: check-webhook-url
+  #   # Hacky workaround to get around the fact that we cannot reference secrets in a conditional
+  #   run: |
+  #     if [ "${{ secrets.SLACK_WEBHOOK_URL }}" != '' ]; then
+  #       echo "Slack webhook URL is defined"
+  #       echo "slackWebhookDefined=true" >> $GITHUB_OUTPUT;
+  #     else
+  #       echo "Slack webhook URL is not defined"
+  #       echo "slackWebhookDefined=false" >> $GITHUB_OUTPUT;
+  #     fi
 
-      - name: Send shutdown status to Slack
-        if: ${{ steps.check-webhook-url.outputs.slackWebhookDefined == 'true' }}
-        uses: slackapi/slack-github-action@v2
-        with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "*Container Apps Shutdown Complete*"
-            blocks:
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Container Apps shutdown for ${{ github.repository }}*: Success! :white_check_mark:\n\n*PHP Container App:* `${{ inputs.TARGET_PHP_CONTAINER_APP }}`\n*Supervisord Container App:* `${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}`\n*Resource Group:* `${{ inputs.TARGET_RESOURCE_GROUP }}`\n\nProceeding with storage and database sync...\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+  # - name: Send shutdown status to Slack
+  #   if: ${{ steps.check-webhook-url.outputs.slackWebhookDefined == 'true' }}
+  #   uses: slackapi/slack-github-action@v2
+  #   with:
+  #     webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+  #     webhook-type: incoming-webhook
+  #     payload: |
+  #       text: "*Container Apps Shutdown Complete*"
+  #       blocks:
+  #         - type: "section"
+  #           text:
+  #             type: "mrkdwn"
+  #             text: "*Container Apps shutdown for ${{ github.repository }}*: Success! :white_check_mark:\n\n*PHP Container App:* `${{ inputs.TARGET_PHP_CONTAINER_APP }}`\n*Supervisord Container App:* `${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}`\n*Resource Group:* `${{ inputs.TARGET_RESOURCE_GROUP }}`\n\nProceeding with storage and database sync...\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   storage-sync:
     name: Storage sync
-    needs: shutdown-target-container-apps
+    # needs: shutdown-target-container-apps
     permissions:
       contents: read
       actions: read
@@ -315,7 +315,7 @@ jobs:
 
   mysql-sync:
     name: MySQL sync
-    needs: shutdown-target-container-apps
+    # needs: shutdown-target-container-apps
     permissions:
       contents: read
       actions: read
