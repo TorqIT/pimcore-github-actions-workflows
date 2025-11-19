@@ -1,5 +1,5 @@
-name: "Build and Push Pimcore Image"
-description: "Builds a Pimcore Docker image, and optionally pushes it to a Container Registry"
+name: "Build, Scan and (Optionally) Push Pimcore Image"
+description: "Builds a Pimcore Docker image, scans it for vulnerabilities, and optionally pushes it to a Container Registry"
 inputs:
   CONTAINER_REGISTRY:
     required: false
@@ -23,9 +23,6 @@ inputs:
   DOCKERFILE_TARGET:
     required: true
     description: "The Docker target to use when building the image"
-  IMAGE:
-    required: true
-    description: "The name of the Docker image to build"
   PIMCORE_ROOT:
     required: true
     description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, etc)"
@@ -127,7 +124,7 @@ runs:
         echo "EOF" >> $GITHUB_OUTPUT
       shell: bash
 
-    - name: Build and push image
+    - name: Build image
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -143,7 +140,27 @@ runs:
           pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
           torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
           ${{ steps.build-secrets.outputs.secrets }}
-        push: ${{ fromJSON(inputs.PUSH) }}
+        push: false
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
+        load: true # Load the image into the local Docker cache for scanning and pushing
+        tags: pimcore:trivy-scan
+
+    - name: Trivy scan
+      id: trivy-scan
+      uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+      with:
+        image-ref: pimcore:trivy-scan
+        format: 'table'
+        exit-code: '1'
+        severity: 'CRITICAL,HIGH'
+        ignore-unfixed: 'true'
+
+    - name: Push image
+      if: inputs.PUSH == 'true' && steps.trivy-scan.outcome == 'success'
+      uses: docker/build-push-action@v5
+      with:
+        file: ${{ inputs.DOCKERFILE_PATH }}
+        target: ${{ inputs.DOCKERFILE_TARGET }}
+        push: ${{ inputs.PUSH }}
         tags: ${{ inputs.TAGS }}
