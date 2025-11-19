@@ -146,12 +146,15 @@ jobs:
           echo "✓ Target storage account and container validation passed"
 
       - name: Log in to Azure via Service Principal
-        uses: ./reusable-workflow/.github/actions/azure-login
+        uses: azure/cli@v2
         with:
-          SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ inputs.AZURE_TENANT_ID }}
-          SUBSCRIPTION: ${{ inputs.SOURCE_SUBSCRIPTION_ID }}
+          azcliversion: latest
+          inlineScript: |
+            az login --service-principal \
+              -u ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
+              -p ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }} \
+              --tenant ${{ inputs.AZURE_TENANT_ID }}
+            echo "Azure login successful"
 
       - name: Add temporary network rule for this runner to Storage Account firewalls
         uses: azure/cli@v2

@@ -111,10 +111,14 @@ on:
         required: false
         type: string
         description: ID of the Azure tenant containing MySQL resources
-      AZURE_SUBSCRIPTION_ID:
+      AZURE_SOURCE_SUBSCRIPTION_ID:
         required: false
         type: string
-        description: ID of the Azure subscription containing MySQL resources
+        description: ID of the Azure subscription containing the source MySQL server
+      AZURE_TARGET_SUBSCRIPTION_ID:
+        required: false
+        type: string
+        description: ID of the Azure subscription containing the target MySQL server
 
     secrets:
       SOURCE_PASSWORD:
@@ -187,12 +191,15 @@ jobs:
 
       - name: If source or target are in Azure, log in to Azure via Service Principal
         if: ${{ inputs.SOURCE_IS_IN_AZURE || inputs.TARGET_IS_IN_AZURE }}
-        uses: ./reusable-workflow/.github/actions/azure-login
+        uses: azure/cli@v2
         with:
-          SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ inputs.AZURE_TENANT_ID }}
-          SUBSCRIPTION: ${{ inputs.AZURE_SUBSCRIPTION_ID }}
+          azcliversion: latest
+          inlineScript: |
+            az login --service-principal \
+              -u ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
+              -p ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }} \
+              --tenant ${{ inputs.AZURE_TENANT_ID }}
+            echo "Azure login successful"
 
       - name: If source is an Azure MySQL server, add temporary network rule for this runner
         if: ${{ inputs.SOURCE_IS_IN_AZURE }}
@@ -202,6 +209,7 @@ jobs:
             set -e
             runnerIp=$(curl ipinfo.io/ip)
             echo "Adding temporary network rule for this runner ($runnerIp) to source database server's firewall..."
+            az account set --subscription "${{ inputs.AZURE_SOURCE_SUBSCRIPTION_ID }}"
             az mysql flexible-server firewall-rule create \
               --name $(echo "${{ inputs.SOURCE_HOST }}" | cut -d'.' -f1) \
               --resource-group ${{ inputs.SOURCE_AZURE_RESOURCE_GROUP }} \
@@ -220,6 +228,7 @@ jobs:
             set -e
             runnerIp=$(curl ipinfo.io/ip)
             echo "Adding temporary network rule for this runner ($runnerIp) to target database server's firewall..."
+            az account set --subscription "${{ inputs.AZURE_TARGET_SUBSCRIPTION_ID }}"
             az mysql flexible-server firewall-rule create \
               --name $(echo "${{ inputs.TARGET_HOST }}" | cut -d'.' -f1) \
               --resource-group ${{ inputs.TARGET_AZURE_RESOURCE_GROUP }} \

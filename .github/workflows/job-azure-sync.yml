@@ -65,6 +65,10 @@ on:
         required: true
         type: string
         description: Name of supervisord Container App to shutdown
+      SOURCE_RESOURCE_GROUP:
+        required: false
+        type: string
+        description: Azure Resource Group containing the source Storage Account and MySQL server
       RESTART_APPS_AFTER_SYNC:
         required: false
         type: boolean
@@ -81,10 +85,6 @@ on:
         type: string
         default: pimcore-assets
         description: Name of the source container
-      SOURCE_STORAGE_RESOURCE_GROUP:
-        required: false
-        type: string
-        description: Azure Resource Group containing the source storage account (optional, will be auto-detected if not provided)
       TARGET_STORAGE_ACCOUNT:
         required: true
         type: string
@@ -94,10 +94,6 @@ on:
         type: string
         default: pimcore-assets
         description: Name of the target container
-      TARGET_STORAGE_RESOURCE_GROUP:
-        required: false
-        type: string
-        description: Azure Resource Group containing the target storage account (optional, will be auto-detected if not provided)
       DELETE_DESTINATION:
         required: false
         type: boolean
@@ -304,10 +300,10 @@ jobs:
       RUNNER: ${{ inputs.RUNNER }}
       SOURCE_STORAGE_ACCOUNT: ${{ inputs.SOURCE_STORAGE_ACCOUNT }}
       SOURCE_CONTAINER: ${{ inputs.SOURCE_CONTAINER }}
-      SOURCE_RESOURCE_GROUP: ${{ inputs.SOURCE_STORAGE_RESOURCE_GROUP }}
+      SOURCE_RESOURCE_GROUP: ${{ inputs.SOURCE_RESOURCE_GROUP }}
       TARGET_STORAGE_ACCOUNT: ${{ inputs.TARGET_STORAGE_ACCOUNT }}
       TARGET_CONTAINER: ${{ inputs.TARGET_CONTAINER }}
-      TARGET_RESOURCE_GROUP: ${{ inputs.TARGET_STORAGE_RESOURCE_GROUP }}
+      TARGET_RESOURCE_GROUP: ${{ inputs.TARGET_RESOURCE_GROUP }}
       DELETE_DESTINATION: ${{ inputs.DELETE_DESTINATION }}
       AZURE_TENANT_ID: ${{ inputs.AZURE_TENANT_ID }}
       SOURCE_SUBSCRIPTION_ID: ${{ inputs.SOURCE_SUBSCRIPTION_ID }}
@@ -333,14 +329,14 @@ jobs:
       SOURCE_PORT: ${{ inputs.SOURCE_MYSQL_PORT }}
       SOURCE_SSL_MODE: ${{ inputs.SOURCE_MYSQL_SSL_MODE }}
       SOURCE_IS_IN_AZURE: true
-      SOURCE_AZURE_RESOURCE_GROUP: ${{ inputs.SOURCE_STORAGE_RESOURCE_GROUP }}
+      SOURCE_AZURE_RESOURCE_GROUP: ${{ inputs.SOURCE_RESOURCE_GROUP }}
       TARGET_HOST: ${{ inputs.TARGET_MYSQL_HOST }}
       TARGET_USERNAME: ${{ inputs.TARGET_MYSQL_USERNAME }}
       TARGET_DATABASE: ${{ inputs.TARGET_MYSQL_DATABASE }}
       TARGET_PORT: ${{ inputs.TARGET_MYSQL_PORT }}
       TARGET_SSL_MODE: ${{ inputs.TARGET_MYSQL_SSL_MODE }}
       TARGET_IS_IN_AZURE: true
-      TARGET_AZURE_RESOURCE_GROUP: ${{ inputs.TARGET_STORAGE_RESOURCE_GROUP }}
+      TARGET_AZURE_RESOURCE_GROUP: ${{ inputs.TARGET_RESOURCE_GROUP }}
       MYSQLDUMP_OPTIONS: ${{ inputs.MYSQLDUMP_OPTIONS }}
     secrets:
       SOURCE_PASSWORD: ${{ secrets.SOURCE_MYSQL_PASSWORD }}
