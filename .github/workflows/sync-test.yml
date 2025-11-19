@@ -2,7 +2,8 @@ name: Sync Test
 on:
     push:
 jobs:
-    sync-with-shutdown:
+    sync:
+        name: Sync Source to Target
         uses: ./.github/workflows/job-azure-sync.yml
         permissions:
             contents: read
