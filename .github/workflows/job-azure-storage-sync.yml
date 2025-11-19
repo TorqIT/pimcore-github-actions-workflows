@@ -103,7 +103,7 @@ on:
 
 jobs:
   storage-sync:
-    name: Perform Azure Storage container sync
+    name: Azure Storage Sync
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: ${{ inputs.TIMEOUT_MINUTES }}
 

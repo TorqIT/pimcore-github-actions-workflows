@@ -139,7 +139,7 @@ on:
 
 jobs:
   db-sync:
-    name: Perform MySQL database sync
+    name: MySQL Sync
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: ${{ inputs.TIMEOUT_MINUTES }}
 

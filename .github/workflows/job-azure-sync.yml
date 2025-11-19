@@ -30,7 +30,7 @@
 #       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 #
 
-name: Azure Sync with Container Shutdown
+name: Azure Sync
 
 on:
   workflow_call:
