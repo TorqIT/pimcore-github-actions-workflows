@@ -332,6 +332,7 @@ jobs:
   restart-target-container-apps:
     name: Restart target Container Apps
     needs: [storage-sync, mysql-sync]
+    if: ${{ always() && inputs.RESTART_APPS_AFTER_SYNC }}
     runs-on: ${{ inputs.RUNNER }}
 
     steps:
@@ -389,6 +390,7 @@ jobs:
             echo "PHP Container App restarted revision: $latestInactiveRevision"
 
       - name: Restart supervisord Container App latest deactivated revision
+        if: always()
         uses: azure/cli@v2
         with:
           inlineScript: |
