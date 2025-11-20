@@ -319,6 +319,7 @@ jobs:
           MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
             mydumper \
             --host=${{ inputs.SOURCE_HOST }} \
+            --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
             --port=${{ inputs.SOURCE_PORT }} \
             --user=${{ inputs.SOURCE_USERNAME }} \
             --database=${{ inputs.SOURCE_DATABASE }} \
@@ -349,6 +350,7 @@ jobs:
           MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
             myloader \
             --host=${{ inputs.TARGET_HOST }} \
+            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
             --port=${{ inputs.TARGET_PORT }} \
             --user=${{ inputs.TARGET_USERNAME }} \
             --database=${{ inputs.TARGET_DATABASE }} \
