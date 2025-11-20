@@ -330,8 +330,8 @@ jobs:
             --routines \
             --events \
             --triggers \
-            --trx-consistency-only \
-            --no-locks \
+            --trx-tables \
+            --sync-thread-lock-mode=NO_LOCK \
             $OMIT_OPTION \
             --verbose=3
 
