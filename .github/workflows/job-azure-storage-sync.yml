@@ -60,7 +60,7 @@ on:
       DELETE_DESTINATION:
         required: false
         type: boolean
-        default: true
+        default: false
         description: Whether to delete files in destination that don't exist in source (--delete-destination=true)
       AZURE_TENANT_ID:
         required: true
