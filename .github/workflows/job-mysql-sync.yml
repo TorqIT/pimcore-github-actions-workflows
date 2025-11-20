@@ -38,7 +38,7 @@ on:
       IGNORE_TABLES:
         required: false
         type: string
-        default: "application_logs,versions"
+        default: "application_logs,messenger_messages,versions"
         description: Comma-separated list of table names to ignore during dump (e.g., "application_logs,versions,cache")
       SOURCE_HOST:
         required: true
@@ -293,18 +293,26 @@ jobs:
           echo "Starting MySQL dump from ${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}..."
           start_time=$(date +%s)
 
-          # Build omit-from-file list for tables to exclude
-          OMIT_OPTIONS=""
+          OMIT_FILE=""
           if [ -n "${{ inputs.IGNORE_TABLES }}" ]; then
+            OMIT_FILE="omit_tables.txt"
+            touch "$OMIT_FILE"
             IFS=',' read -ra TABLES <<< "${{ inputs.IGNORE_TABLES }}"
             for table in "${TABLES[@]}"; do
               # Trim whitespace
               table=$(echo "$table" | xargs)
               if [ -n "$table" ]; then
-                OMIT_OPTIONS="$OMIT_OPTIONS --omit-from-file=${{ inputs.SOURCE_DATABASE }}.$table"
+                echo "${{ inputs.SOURCE_DATABASE }}.$table" >> "$OMIT_FILE"
                 echo "Will exclude table: $table"
               fi
             done
+            echo "Created omit file:"
+            cat "$OMIT_FILE"
+          fi
+
+          OMIT_OPTION=""
+          if [ -n "$OMIT_FILE" ]; then
+            OMIT_OPTION="--omit-from-file=$OMIT_FILE"
           fi
 
           # Perform the dump using mydumper
@@ -322,9 +330,9 @@ jobs:
             --routines \
             --events \
             --triggers \
-            --trx-tables \
-            --sync-thread-lock-mode=NO_LOCK \
-            $OMIT_OPTIONS \
+            --trx-consistency-only \
+            --no-locks \
+            $OMIT_OPTION \
             --verbose=3
 
           dump_time=$(date +%s)
@@ -336,6 +344,11 @@ jobs:
           echo "Dump completed successfully - ${dump_size_mb}MB in ${dump_duration}s"
           echo "dump_size_mb=$dump_size_mb" >> $GITHUB_OUTPUT
           echo "dump_duration=$dump_duration" >> $GITHUB_OUTPUT
+
+          # Clean up omit file if created
+          if [ -n "$OMIT_FILE" ] && [ -f "$OMIT_FILE" ]; then
+            rm "$OMIT_FILE"
+          fi
 
           echo "Starting restore to ${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}..."
 
