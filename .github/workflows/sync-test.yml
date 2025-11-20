@@ -1,6 +1,9 @@
 name: Sync Test
 on:
     push:
+concurrency:
+    group: sync-test
+    cancel-in-progress: true
 jobs:
     sync:
         name: Sync Source to Target
