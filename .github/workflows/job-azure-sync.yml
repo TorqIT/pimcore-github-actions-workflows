@@ -389,6 +389,7 @@ jobs:
       #       echo "Supervisord Container App restarted successfully"
 
   send-workflow-status-message:
+    name: Send workflow status message to Slack
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     needs:
       [
