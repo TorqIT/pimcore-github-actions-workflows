@@ -275,7 +275,7 @@ jobs:
         run: |
           set -e
           echo "Installing mydumper/myloader..."
-          wget -qO- 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1D357EA7D10C9320371BDD0179EA15C0E82E34BA&exact=on' | sudo tee /etc/apt/keyrings/mydumper.asc
+          wget -qO- 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1D357EA7D10C9320371BDD0279EA15C0E82E34BA&exact=on' | sudo tee /etc/apt/keyrings/mydumper.asc
           echo "deb [signed-by=/etc/apt/keyrings/mydumper.asc] https://repo.mydumper.com/ubuntu $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/mydumper.list
           sudo apt update
           sudo apt install -y mydumper
