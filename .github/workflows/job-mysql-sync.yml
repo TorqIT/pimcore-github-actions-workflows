@@ -293,25 +293,18 @@ jobs:
           echo "Starting MySQL dump from ${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}..."
           start_time=$(date +%s)
 
-          # Build regex pattern to exclude tables
-          REGEX_OPTION=""
+          # Build omit-from-file list for tables to exclude
+          OMIT_OPTIONS=""
           if [ -n "${{ inputs.IGNORE_TABLES }}" ]; then
             IFS=',' read -ra TABLES <<< "${{ inputs.IGNORE_TABLES }}"
-            regex_parts=()
             for table in "${TABLES[@]}"; do
               # Trim whitespace
               table=$(echo "$table" | xargs)
               if [ -n "$table" ]; then
-                regex_parts+=("$table")
+                OMIT_OPTIONS="$OMIT_OPTIONS --omit-from-file=${{ inputs.SOURCE_DATABASE }}.$table"
                 echo "Will exclude table: $table"
               fi
             done
-            if [ ${#regex_parts[@]} -gt 0 ]; then
-              IFS='|'
-              REGEX_OPTION="--regex '^(?!(${{ inputs.SOURCE_DATABASE }}\\.(${regex_parts[*]})))'"
-              unset IFS
-              echo "Using regex pattern: $REGEX_OPTION"
-            fi
           fi
 
           # Perform the dump using mydumper
@@ -329,8 +322,8 @@ jobs:
             --routines \
             --events \
             --triggers \
-            --sync-thread-lock-mode=NO_LOCK \
-            $REGEX_OPTION \
+            --trx-consistency-only \
+            $OMIT_OPTIONS \
             --verbose=3
 
           dump_time=$(date +%s)
