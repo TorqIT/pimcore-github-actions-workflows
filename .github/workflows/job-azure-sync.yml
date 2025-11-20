@@ -374,6 +374,7 @@ jobs:
               --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
               --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
               --query "[?properties.active==\`false\`] | sort_by(@, &properties.createdTime) | [-1].name" \
+              --all \
               --output tsv)
 
             if [ -z "$latestInactiveRevision" ]; then
@@ -401,6 +402,7 @@ jobs:
               --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
               --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
               --query "[?properties.active==\`false\`] | sort_by(@, &properties.createdTime) | [-1].name" \
+              --all \
               --output tsv)
 
             if [ -z "$latestInactiveRevision" ]; then
