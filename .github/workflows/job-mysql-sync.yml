@@ -119,6 +119,11 @@ on:
         required: false
         type: string
         description: ID of the Azure subscription containing the target MySQL server
+      MYDUMPER_THREADS:
+        required: false
+        type: number
+        default: 2
+        description: Number of threads to use for mydumper/myloader operations
 
     secrets:
       SOURCE_PASSWORD:
@@ -266,64 +271,92 @@ jobs:
             ${{ inputs.TARGET_DATABASE }}
           echo "Target database dropped"
 
+      - name: Install mydumper
+        run: |
+          set -e
+          echo "Installing mydumper/myloader..."
+          wget -qO- 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1D357EA7D10C9320371BDD0179EA15C0E82E34BA&exact=on' | sudo tee /etc/apt/keyrings/mydumper.asc
+          echo "deb [signed-by=/etc/apt/keyrings/mydumper.asc] https://repo.mydumper.com/ubuntu $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/mydumper.list
+          sudo apt update
+          sudo apt install -y mydumper
+          mydumper --version
+          myloader --version
+
       - name: Perform MySQL dump and restore
         id: dump-restore
         run: |
           set -e
 
-          DUMP_FILE="db_dump_$(date -u +"%Y%m%d_%H%M%S").sql"
-          echo "dump_file=$DUMP_FILE" >> $GITHUB_OUTPUT
-
-          IGNORE_TABLE_OPTIONS=""
-          if [ -n "${{ inputs.IGNORE_TABLES }}" ]; then
-            IFS=',' read -ra TABLES <<< "${{ inputs.IGNORE_TABLES }}"
-            for table in "${TABLES[@]}"; do
-              # Trim whitespace
-              table=$(echo "$table" | xargs)
-              if [ -n "$table" ]; then
-                IGNORE_TABLE_OPTIONS="$IGNORE_TABLE_OPTIONS --ignore-table=${{ inputs.SOURCE_DATABASE }}.$table"
-                echo "Ignoring table: $table"
-              fi
-            done
-          fi
+          DUMP_DIR="db_dump_$(date -u +"%Y%m%d_%H%M%S")"
+          mkdir -p "$DUMP_DIR"
+          echo "dump_dir=$DUMP_DIR" >> $GITHUB_OUTPUT
 
           echo "Starting MySQL dump from ${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}..."
           start_time=$(date +%s)
 
+          # Build regex pattern to exclude tables
+          REGEX_OPTION=""
+          if [ -n "${{ inputs.IGNORE_TABLES }}" ]; then
+            IFS=',' read -ra TABLES <<< "${{ inputs.IGNORE_TABLES }}"
+            regex_parts=()
+            for table in "${TABLES[@]}"; do
+              # Trim whitespace
+              table=$(echo "$table" | xargs)
+              if [ -n "$table" ]; then
+                regex_parts+=("$table")
+                echo "Will exclude table: $table"
+              fi
+            done
+            if [ ${#regex_parts[@]} -gt 0 ]; then
+              IFS='|'
+              REGEX_OPTION="--regex '^(?!(${{ inputs.SOURCE_DATABASE }}\\.(${regex_parts[*]})))'"
+              unset IFS
+              echo "Using regex pattern: $REGEX_OPTION"
+            fi
+          fi
+
+          # Perform the dump using mydumper
           MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
-            mysqldump \
-            -h ${{ inputs.SOURCE_HOST }} \
-            -P ${{ inputs.SOURCE_PORT }} \
-            -u ${{ inputs.SOURCE_USERNAME }} \
-            --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
-            ${{ inputs.MYSQLDUMP_OPTIONS }} \
-            $IGNORE_TABLE_OPTIONS \
-            ${{ inputs.SOURCE_DATABASE }} \
-            > "$DUMP_FILE"
+            mydumper \
+            --host=${{ inputs.SOURCE_HOST }} \
+            --port=${{ inputs.SOURCE_PORT }} \
+            --user=${{ inputs.SOURCE_USERNAME }} \
+            --database=${{ inputs.SOURCE_DATABASE }} \
+            --outputdir="$DUMP_DIR" \
+            --threads=${{ inputs.MYDUMPER_THREADS }} \
+            --compress \
+            --build-empty-files \
+            --routines \
+            --events \
+            --triggers \
+            --no-locks \
+            $REGEX_OPTION \
+            --verbose=3
 
           dump_time=$(date +%s)
           dump_duration=$((dump_time - start_time))
 
-          if [ ! -f "$DUMP_FILE" ] || [ ! -s "$DUMP_FILE" ]; then
-            echo "Dump file is empty or doesn't exist"
-            exit 1
-          fi
-
-          file_size=$(stat -c%s "$DUMP_FILE")
-          file_size_mb=$((file_size / 1024 / 1024))
-          echo "Dump completed successfully - ${file_size_mb}MB in ${dump_duration}s"
-          echo "dump_size_mb=$file_size_mb" >> $GITHUB_OUTPUT
+          # Calculate dump directory size
+          dump_size=$(du -sb "$DUMP_DIR" | cut -f1)
+          dump_size_mb=$((dump_size / 1024 / 1024))
+          echo "Dump completed successfully - ${dump_size_mb}MB in ${dump_duration}s"
+          echo "dump_size_mb=$dump_size_mb" >> $GITHUB_OUTPUT
           echo "dump_duration=$dump_duration" >> $GITHUB_OUTPUT
 
           echo "Starting restore to ${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}..."
+
+          # Perform the restore using myloader
           MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
-            mysql \
-            -h ${{ inputs.TARGET_HOST }} \
-            -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ inputs.TARGET_USERNAME }} \
-            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-            ${{ inputs.TARGET_DATABASE }} \
-            < "$DUMP_FILE"
+            myloader \
+            --host=${{ inputs.TARGET_HOST }} \
+            --port=${{ inputs.TARGET_PORT }} \
+            --user=${{ inputs.TARGET_USERNAME }} \
+            --database=${{ inputs.TARGET_DATABASE }} \
+            --directory="$DUMP_DIR" \
+            --threads=${{ inputs.MYDUMPER_THREADS }} \
+            --overwrite-tables \
+            --verbose=3
+
           restore_time=$(date +%s)
           restore_duration=$((restore_time - dump_time))
           total_duration=$((restore_time - start_time))
@@ -353,9 +386,9 @@ jobs:
       - name: Clean up dump file
         if: always()
         run: |
-          if [ -f "${{ steps.dump-restore.outputs.dump_file }}" ]; then
-            rm -f "${{ steps.dump-restore.outputs.dump_file }}"
-            echo "Cleaned up temporary dump file"
+          if [ -d "${{ steps.dump-restore.outputs.dump_dir }}" ]; then
+            rm -rf "${{ steps.dump-restore.outputs.dump_dir }}"
+            echo "Cleaned up temporary dump directory"
           fi
 
       - name: Remove temporary Azure network rule from source database server firewall
