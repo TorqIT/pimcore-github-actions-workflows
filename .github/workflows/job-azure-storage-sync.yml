@@ -210,51 +210,49 @@ jobs:
           echo "Source URL: $source_url"
           echo "Target URL: $target_url"
 
-          azcopy sync "$source_url" "$target_url"
+          azcopy_cmd="azcopy sync \"$source_url\" \"$target_url\""
 
-          # if [ "${{ inputs.DELETE_DESTINATION }}" = "true" ]; then
-          #   azcopy_cmd="$azcopy_cmd --delete-destination=true"
-          # fi
+          if [ "${{ inputs.DELETE_DESTINATION }}" = "true" ]; then
+            azcopy_cmd="$azcopy_cmd --delete-destination=true"
+          fi
 
-          # echo "Executing AzCopy sync with service principal authentication..."
+          sync_output=$(eval $azcopy_cmd 2>&1)
+          sync_exit_code=$?
 
-          # sync_output=$(eval $azcopy_cmd 2>&1)
-          # sync_exit_code=$?
+          end_time=$(date +%s)
+          duration=$((end_time - start_time))
 
-          # end_time=$(date +%s)
-          # duration=$((end_time - start_time))
+          echo "$sync_output"
 
-          # echo "$sync_output"
+          files_copied=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Completed: \K\d+" || echo "0")
+          files_skipped=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Skipped: \K\d+" || echo "0")
+          files_failed=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Failed: \K\d+" || echo "0")
+          bytes_transferred=$(echo "$sync_output" | grep -oP "Total Bytes Transferred: \K\d+" || echo "0")
 
-          # files_copied=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Completed: \K\d+" || echo "0")
-          # files_skipped=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Skipped: \K\d+" || echo "0")
-          # files_failed=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Failed: \K\d+" || echo "0")
-          # bytes_transferred=$(echo "$sync_output" | grep -oP "Total Bytes Transferred: \K\d+" || echo "0")
+          if [ "$bytes_transferred" -gt 0 ]; then
+            bytes_transferred_mb=$((bytes_transferred / 1024 / 1024))
+          else
+            bytes_transferred_mb=0
+          fi
 
-          # if [ "$bytes_transferred" -gt 0 ]; then
-          #   bytes_transferred_mb=$((bytes_transferred / 1024 / 1024))
-          # else
-          #   bytes_transferred_mb=0
-          # fi
+          echo "Sync completed in ${duration}s"
+          echo "Files copied: $files_copied"
+          echo "Files skipped: $files_skipped"
+          echo "Files failed: $files_failed"
+          echo "Data transferred: ${bytes_transferred_mb}MB"
 
-          # echo "Sync completed in ${duration}s"
-          # echo "Files copied: $files_copied"
-          # echo "Files skipped: $files_skipped"
-          # echo "Files failed: $files_failed"
-          # echo "Data transferred: ${bytes_transferred_mb}MB"
+          echo "duration=$duration" >> $GITHUB_OUTPUT
+          echo "files_copied=$files_copied" >> $GITHUB_OUTPUT
+          echo "files_skipped=$files_skipped" >> $GITHUB_OUTPUT
+          echo "files_failed=$files_failed" >> $GITHUB_OUTPUT
+          echo "bytes_transferred_mb=$bytes_transferred_mb" >> $GITHUB_OUTPUT
 
-          # echo "duration=$duration" >> $GITHUB_OUTPUT
-          # echo "files_copied=$files_copied" >> $GITHUB_OUTPUT
-          # echo "files_skipped=$files_skipped" >> $GITHUB_OUTPUT
-          # echo "files_failed=$files_failed" >> $GITHUB_OUTPUT
-          # echo "bytes_transferred_mb=$bytes_transferred_mb" >> $GITHUB_OUTPUT
+          if [ $sync_exit_code -ne 0 ] || [ "$files_failed" -gt 0 ]; then
+            echo "ERROR: Sync operation failed or had failures"
+            exit 1
+          fi
 
-          # if [ $sync_exit_code -ne 0 ] || [ "$files_failed" -gt 0 ]; then
-          #   echo "ERROR: Sync operation failed or had failures"
-          #   exit 1
-          # fi
-
-          # echo "Storage sync completed successfully"
+          echo "Storage sync completed successfully"
 
       - name: Remove temporary network rule from source Storage Account firewall
         if: always()
