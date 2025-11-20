@@ -323,6 +323,7 @@ jobs:
             --events \
             --triggers \
             --trx-tables \
+            --sync-thread-lock-mode=NO_LOCK \
             $OMIT_OPTIONS \
             --verbose=3
 
