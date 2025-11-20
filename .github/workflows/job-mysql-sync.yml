@@ -275,10 +275,12 @@ jobs:
         run: |
           set -e
           echo "Installing mydumper/myloader..."
-          wget -qO- 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1D357EA7D10C9320371BDD0279EA15C0E82E34BA&exact=on' | sudo tee /etc/apt/keyrings/mydumper.asc
-          echo "deb [signed-by=/etc/apt/keyrings/mydumper.asc] https://repo.mydumper.com/ubuntu $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/mydumper.list
-          sudo apt update
-          sudo apt install -y mydumper
+
+          # Download and install a recent version of mydumper that supports --ssl-mode
+          MYDUMPER_VERSION="0.20.1-2"
+          wget https://github.com/mydumper/mydumper/releases/download/v${MYDUMPER_VERSION}/mydumper_${MYDUMPER_VERSION}.$(lsb_release -cs)_amd64.deb
+          sudo dpkg -i mydumper_${MYDUMPER_VERSION}.$(lsb_release -cs)_amd64.deb || sudo apt-get install -f -y
+
           mydumper --version
           myloader --version
 
