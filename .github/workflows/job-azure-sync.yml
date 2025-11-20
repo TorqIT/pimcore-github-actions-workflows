@@ -398,7 +398,7 @@ jobs:
         mysql-sync,
         restart-target-container-apps,
       ]
-    if: always()
+    if: ${{ !cancelled() }}
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -440,4 +440,4 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Azure sync job for ${{ github.repository }}*: ${{ steps.status.outputs.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source Storage:* `${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }}` -> *Target Storage:* `${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}`\n*Source Database:* `${{ inputs.SOURCE_MYSQL_HOST }}/${{ inputs.SOURCE_MYSQL_DATABASE }}` -> *Target Database:* `${{ inputs.TARGET_MYSQL_HOST }}/${{ inputs.TARGET_MYSQL_DATABASE }}`\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  text: "*Azure sync job for ${{ github.repository }}*: ${{ steps.status.outputs.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
