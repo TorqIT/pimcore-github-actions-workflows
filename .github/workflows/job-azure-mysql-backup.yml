@@ -193,4 +193,4 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Database backup job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\nDumped file *${{ steps.dump.outputs.fileName }}* was *${{ steps.dump.outputs.fileSize }}* bytes\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  text: "*Database backup job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\nDumped file *${{ steps.dump.outputs.fileName }}* was *${{ steps.dump.outputs.fileSize }}* bytes\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }}"

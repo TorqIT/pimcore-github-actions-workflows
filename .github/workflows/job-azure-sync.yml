@@ -393,19 +393,50 @@ jobs:
     needs:
       [
         shutdown-target-container-apps,
+        storage-sync,
         mysql-sync,
         restart-target-container-apps,
       ]
     if: always()
     steps:
-      - name: Send restart status to Slack
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: job-azure-sync.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Determine overall workflow status
+        id: status
+        run: |
+          set -e
+          if [ "${{ needs.shutdown-target-container-apps.result }}" != "success" ] && [ "${{ needs.shutdown-target-container-apps.result}}" != "cancelled" ] \
+              || [ "${{ needs.mysql-sync.result }}" != "success" ] && [ "${{ needs.mysql-sync.result}}" != "cancelled" ] \
+              || [ "${{ needs.storage-sync.result }}" != "success" ] && [ "${{ needs.storage-sync.result}}" != "cancelled" ] \
+              || [ "${{ needs.restart-target-container-apps.result }}" != "success" ] && [ "${{ needs.restart-target-container-apps.result}}" != "cancelled" ]; then
+            echo "status=failure" >> $GITHUB_OUTPUT
+          else
+            echo "status=success" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send status to Slack
         uses: ./reusable-workflow/.github/actions/send-slack-message
+        if: always()
         with:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           PAYLOAD: |
-            text: "*Azure Sync with Container Shutdown Complete*"
+            text: "*Azure Sync Job"
             blocks:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Azure sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source Storage:* `${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }}` -> *Target Storage:* `${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}`\n*Source Database:* `${{ inputs.SOURCE_MYSQL_HOST }}/${{ inputs.SOURCE_MYSQL_DATABASE }}` -> *Target Database:* `${{ inputs.TARGET_MYSQL_HOST }}/${{ inputs.TARGET_MYSQL_DATABASE }}`\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  text: "*Azure sync job for ${{ github.repository }}*: ${{ steps.status.outputs.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source Storage:* `${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }}` -> *Target Storage:* `${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}`\n*Source Database:* `${{ inputs.SOURCE_MYSQL_HOST }}/${{ inputs.SOURCE_MYSQL_DATABASE }}` -> *Target Database:* `${{ inputs.TARGET_MYSQL_HOST }}/${{ inputs.TARGET_MYSQL_DATABASE }}`\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
