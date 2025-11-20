@@ -394,7 +394,7 @@ jobs:
               --yes
 
       - name: Send job status to Slack
-        if: always()
+        if: ${{ !cancelled() }}
         uses: ./reusable-workflow/.github/actions/send-slack-message
         with:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
