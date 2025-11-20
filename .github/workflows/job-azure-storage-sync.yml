@@ -207,9 +207,6 @@ jobs:
           source_url="https://${{ inputs.SOURCE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ inputs.SOURCE_CONTAINER }}"
           target_url="https://${{ inputs.TARGET_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ inputs.TARGET_CONTAINER }}"
 
-          echo "Source URL: $source_url"
-          echo "Target URL: $target_url"
-
           azcopy_cmd="azcopy sync \"$source_url\" \"$target_url\""
 
           if [ "${{ inputs.DELETE_DESTINATION }}" = "true" ]; then
@@ -227,7 +224,7 @@ jobs:
           files_copied=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Completed: \K\d+" || echo "0")
           files_skipped=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Skipped: \K\d+" || echo "0")
           files_failed=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Failed: \K\d+" || echo "0")
-          bytes_transferred=$(echo "$sync_output" | grep -oP "Total Bytes Transferred: \K\d+" || echo "0")
+          bytes_transferred=$(echo "$sync_output" | grep -oP "Total Number of Bytes Transferred: \K\d+" || echo "0")
 
           if [ "$bytes_transferred" -gt 0 ]; then
             bytes_transferred_mb=$((bytes_transferred / 1024 / 1024))
