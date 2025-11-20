@@ -450,10 +450,10 @@ jobs:
         id: status
         run: |
           set -e
-          if [ "${{ needs.shutdown-target-container-apps.result }}" != "success" ] && [ "${{ needs.shutdown-target-container-apps.result}}" != "cancelled" ] \
-              || [ "${{ needs.mysql-sync.result }}" != "success" ] && [ "${{ needs.mysql-sync.result}}" != "cancelled" ] \
-              || [ "${{ needs.storage-sync.result }}" != "success" ] && [ "${{ needs.storage-sync.result}}" != "cancelled" ] \
-              || [ "${{ needs.restart-target-container-apps.result }}" != "success" ] && [ "${{ needs.restart-target-container-apps.result}}" != "cancelled" ]; then
+          if [[  "${{ needs.shutdown-target-container-apps.result }}" != "success" && "${{ needs.shutdown-target-container-apps.result}}" != "cancelled" ]] \
+              || [[ "${{ needs.mysql-sync.result }}" != "success" && "${{ needs.mysql-sync.result}}" != "cancelled" ]] \
+              || [[ "${{ needs.storage-sync.result }}" != "success" && "${{ needs.storage-sync.result}}" != "cancelled" ]] \
+              || [[ "${{ needs.restart-target-container-apps.result }}" != "success" && "${{ needs.restart-target-container-apps.result}}" != "cancelled" ]]; then
             echo "status=failure" >> $GITHUB_OUTPUT
           else
             echo "status=success" >> $GITHUB_OUTPUT
