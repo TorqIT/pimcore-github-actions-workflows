@@ -182,7 +182,7 @@ jobs:
               --ip-address $runnerIp
 
       - name: Send job status to Slack
-        if: always()
+        if: ${{ !cancelled() }}
         uses: slackapi/slack-github-action@v2
         with:
           webhook: ${{ secrets.SLACK_BACKUPS_WEBHOOK_URL }}
