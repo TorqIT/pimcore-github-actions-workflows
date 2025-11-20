@@ -164,9 +164,6 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - name: Install tools for workflows/actions
-        uses: ./reusable-workflow/.github/actions/setup-tools
-
       - name: Validate target is not production
         run: |
           echo "Validating that target host and database names do not contain 'prod'..."
