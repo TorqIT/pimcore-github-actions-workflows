@@ -362,31 +362,57 @@ jobs:
           TENANT: ${{ inputs.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
 
-      # - name: Restart PHP Container App
-      #   uses: azure/cli@v2
-      #   with:
-      #     inlineScript: |
-      #       set -e
+      - name: Restart PHP Container App latest deactivated revision
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            set -e
 
-      #       echo "Restarting PHP Container App: ${{ inputs.TARGET_PHP_CONTAINER_APP }}..."
-      #       az containerapp revision restart \
-      #         --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-      #         --name ${{ inputs.TARGET_PHP_CONTAINER_APP }}
+            # Get the most recent inactive revision (sorted by creation time, newest first)
+            latestInactiveRevision=$(az containerapp revision list \
+              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+              --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
+              --query "[?properties.active==\`false\`] | sort_by(@, &properties.createdTime) | [-1].name" \
+              --output tsv)
 
-      #       echo "PHP Container App restarted successfully"
+            if [ -z "$latestInactiveRevision" ]; then
+              echo "No inactive revisions found for PHP Container App"
+              exit 1
+            fi
 
-      # - name: Restart supervisord Container App
-      #   uses: azure/cli@v2
-      #   with:
-      #     inlineScript: |
-      #       set -e
+            echo "Activating most recent inactive revision: $latestInactiveRevision"
+            az containerapp revision activate \
+              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+              --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
+              --revision $latestInactiveRevision
 
-      #       echo "Restarting supervisord Container App: ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}..."
-      #       az containerapp revision restart \
-      #         --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-      #         --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}
+            echo "PHP Container App restarted revision: $latestInactiveRevision"
 
-      #       echo "Supervisord Container App restarted successfully"
+      - name: Restart supervisord Container App latest deactivated revision
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            set -e
+
+            # Get the most recent inactive revision (sorted by creation time, newest first)
+            latestInactiveRevision=$(az containerapp revision list \
+              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+              --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
+              --query "[?properties.active==\`false\`] | sort_by(@, &properties.createdTime) | [-1].name" \
+              --output tsv)
+
+            if [ -z "$latestInactiveRevision" ]; then
+              echo "No inactive revisions found for supervisord Container App"
+              exit 1
+            fi
+
+            echo "Activating most recent inactive revision: $latestInactiveRevision"
+            az containerapp revision activate \
+              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+              --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
+              --revision $latestInactiveRevision
+
+            echo "Supervisord Container App restarted revision: $latestInactiveRevision"
 
   send-workflow-status-message:
     name: Send workflow status message to Slack
