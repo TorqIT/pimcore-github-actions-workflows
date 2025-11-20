@@ -186,38 +186,19 @@ jobs:
     runs-on: ${{ inputs.RUNNER }}
 
     steps:
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@v1
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: job-azure-sync.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
-
-      - name: Install tools for workflows/actions
-        uses: ./reusable-workflow/.github/actions/setup-tools
-
-      - name: Log in to Azure
-        uses: ./reusable-workflow/.github/actions/azure-login
-        with:
-          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ inputs.AZURE_TENANT_ID }}
-          SUBSCRIPTION: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
-
-      - name: Deactivate PHP Container App revisions
+      - name: Deactivate Container App revisions
         uses: azure/cli@v2
         with:
           inlineScript: |
             set -e
+
+            echo "Logging into Azure..."
+            az login \
+              --service-principal \
+              -u "${{ secrets.SERVICE_PRINCIPAL_ID }}" \
+              -p "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}" \
+              --tenant "${{ inputs.AZURE_TENANT_ID }}"
+            az account set --subscription "${{ inputs.TARGET_SUBSCRIPTION_ID }}"
 
             echo "Fetching active revisions for PHP Container App: ${{ inputs.TARGET_PHP_CONTAINER_APP }}..."
             activeRevisions=$(az containerapp revision list \
@@ -240,12 +221,6 @@ jobs:
               done
               echo "Successfully deactivated all PHP Container App revisions"
             fi
-
-      - name: Deactivate supervisord Container App revisions
-        uses: azure/cli@v2
-        with:
-          inlineScript: |
-            set -e
 
             echo "Fetching active revisions for supervisord Container App: ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}..."
             activeRevisions=$(az containerapp revision list \
@@ -336,40 +311,21 @@ jobs:
     runs-on: ${{ inputs.RUNNER }}
 
     steps:
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@v1
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: job-azure-sync.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
-
-      - name: Install tools for workflows/actions
-        uses: ./reusable-workflow/.github/actions/setup-tools
-
-      - name: Log in to Azure
-        uses: ./reusable-workflow/.github/actions/azure-login
-        with:
-          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ inputs.AZURE_TENANT_ID }}
-          SUBSCRIPTION: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
-
       - name: Restart PHP Container App latest deactivated revision
         uses: azure/cli@v2
         with:
           inlineScript: |
             set -e
 
-            # Get the most recent inactive revision (sorted by creation time, newest first)
+            echo "Logging into Azure..."
+            az login \
+              --service-principal \
+              -u "${{ secrets.SERVICE_PRINCIPAL_ID }}" \
+              -p "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}" \
+              --tenant "${{ inputs.AZURE_TENANT_ID }}"
+            az account set --subscription "${{ inputs.TARGET_SUBSCRIPTION_ID }}"
+
+            # Get the most recent inactive PHP revision (sorted by creation time, newest first)
             latestInactiveRevision=$(az containerapp revision list \
               --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
               --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
@@ -390,14 +346,7 @@ jobs:
 
             echo "PHP Container App restarted revision: $latestInactiveRevision"
 
-      - name: Restart supervisord Container App latest deactivated revision
-        if: always()
-        uses: azure/cli@v2
-        with:
-          inlineScript: |
-            set -e
-
-            # Get the most recent inactive revision (sorted by creation time, newest first)
+            # Get the most recent inactive supervisord revision (sorted by creation time, newest first)
             latestInactiveRevision=$(az containerapp revision list \
               --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
               --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
@@ -416,7 +365,7 @@ jobs:
               --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
               --revision $latestInactiveRevision
 
-            echo "Supervisord Container App restarted revision: $latestInactiveRevision"
+            echo "supervisord Container App restarted revision: $latestInactiveRevision"
 
   send-workflow-status-message:
     name: Send workflow status message to Slack
