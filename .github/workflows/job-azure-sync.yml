@@ -39,6 +39,7 @@ on:
       RUNNER:
         required: false
         type: string
+        default: ubuntu-latest
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
 
       # Azure Configuration
@@ -182,7 +183,7 @@ on:
 jobs:
   shutdown-target-container-apps:
     name: Shutdown target Container Apps
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
 
     steps:
       - name: Get workflow version
@@ -268,18 +269,6 @@ jobs:
               echo "Successfully deactivated all supervisord Container App revisions"
             fi
 
-      - name: Send shutdown status to Slack
-        uses: ./reusable-workflow/.github/actions/send-slack-message
-        with:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          PAYLOAD: |
-            text: "*Container Apps Shutdown Complete*"
-            blocks:
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Container Apps shutdown for ${{ github.repository }}*: Success! :white_check_mark:\n\n*PHP Container App:* `${{ inputs.TARGET_PHP_CONTAINER_APP }}`\n*Supervisord Container App:* `${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}`\n*Resource Group:* `${{ inputs.TARGET_RESOURCE_GROUP }}`\n\nProceeding with storage and database sync...\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
   storage-sync:
     name: Storage sync
     needs: shutdown-target-container-apps
@@ -343,7 +332,7 @@ jobs:
   restart-target-container-apps:
     name: Restart target Container Apps
     needs: [storage-sync, mysql-sync]
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
 
     steps:
       - name: Get workflow version
@@ -399,8 +388,17 @@ jobs:
 
       #       echo "Supervisord Container App restarted successfully"
 
+  send-workflow-status-message:
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    needs:
+      [
+        shutdown-target-container-apps,
+        mysql-sync,
+        restart-target-container-apps,
+      ]
+    if: always()
+    steps:
       - name: Send restart status to Slack
-        if: always()
         uses: ./reusable-workflow/.github/actions/send-slack-message
         with:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -410,4 +408,4 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Sync and restart job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*PHP Container App:* `${{ inputs.TARGET_PHP_CONTAINER_APP }}`\n*Supervisord Container App:* `${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}`\n*Source Storage:* `${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }}`\n*Target Storage:* `${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}`\n*Source Database:* `${{ inputs.SOURCE_MYSQL_HOST }}/${{ inputs.SOURCE_MYSQL_DATABASE }}`\n*Target Database:* `${{ inputs.TARGET_MYSQL_HOST }}/${{ inputs.TARGET_MYSQL_DATABASE }}`\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  text: "*Azure sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source Storage:* `${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }}` -> *Target Storage:* `${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}`\n*Source Database:* `${{ inputs.SOURCE_MYSQL_HOST }}/${{ inputs.SOURCE_MYSQL_DATABASE }}` -> *Target Database:* `${{ inputs.TARGET_MYSQL_HOST }}/${{ inputs.TARGET_MYSQL_DATABASE }}`\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
