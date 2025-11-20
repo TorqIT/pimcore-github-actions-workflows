@@ -329,7 +329,7 @@ jobs:
             --routines \
             --events \
             --triggers \
-            --sync-thread-lock-mode=0 \
+            --sync-thread-lock-mode=NO_LOCK \
             $REGEX_OPTION \
             --verbose=3
 
