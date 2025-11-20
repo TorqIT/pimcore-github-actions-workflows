@@ -30,11 +30,6 @@ on:
         required: false
         type: string
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
-      MYSQLDUMP_OPTIONS:
-        required: false
-        type: string
-        default: "--single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert --no-tablespaces"
-        description: Additional options to pass to mysqldump command
       IGNORE_TABLES:
         required: false
         type: string

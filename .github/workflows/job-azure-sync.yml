@@ -147,15 +147,10 @@ on:
         type: string
         default: "PREFERRED"
         description: SSL mode for target connection (DISABLED, PREFERRED, REQUIRED, VERIFY_CA, VERIFY_IDENTITY)
-      MYSQLDUMP_OPTIONS:
-        required: false
-        type: string
-        default: "--single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert --no-tablespaces"
-        description: Additional options to pass to mysqldump command
       IGNORE_TABLES:
         required: false
         type: string
-        default: "application_logs,versions"
+        default: "application_logs,messenger_messages,versions"
         description: Comma-separated list of tables to ignore during sync (e.g. "table1,table2")
       DROP_TARGET_BEFORE_RESTORE:
         required: false
@@ -291,7 +286,6 @@ jobs:
       TARGET_SSL_MODE: ${{ inputs.TARGET_MYSQL_SSL_MODE }}
       TARGET_IS_IN_AZURE: true
       TARGET_AZURE_RESOURCE_GROUP: ${{ inputs.TARGET_RESOURCE_GROUP }}
-      MYSQLDUMP_OPTIONS: ${{ inputs.MYSQLDUMP_OPTIONS }}
       AZURE_TENANT_ID: ${{ inputs.AZURE_TENANT_ID }}
       AZURE_SOURCE_SUBSCRIPTION_ID: ${{ inputs.SOURCE_SUBSCRIPTION_ID }}
       AZURE_TARGET_SUBSCRIPTION_ID: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
