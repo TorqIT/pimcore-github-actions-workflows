@@ -322,7 +322,7 @@ jobs:
             --routines \
             --events \
             --triggers \
-            --trx-consistency-only \
+            --trx-tables \
             $OMIT_OPTIONS \
             --verbose=3
 
