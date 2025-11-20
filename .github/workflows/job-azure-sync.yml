@@ -14,14 +14,15 @@
 #       TARGET_RESOURCE_GROUP: staging-rg
 #       TARGET_PHP_CONTAINER_APP: staging-php-app
 #       TARGET_SUPERVISORD_CONTAINER_APP: staging-supervisord-app
-#       SOURCE_STORAGE_ACCOUNT: prodstorage
 #       TARGET_STORAGE_ACCOUNT: stagingstorage
-#       SOURCE_MYSQL_HOST: prod.mysql.example.com
-#       SOURCE_MYSQL_USERNAME: adminuser
-#       SOURCE_MYSQL_DATABASE: production_db
 #       TARGET_MYSQL_HOST: staging.mysql.example.com
 #       TARGET_MYSQL_USERNAME: adminuser
 #       TARGET_MYSQL_DATABASE: staging_db
+#       SOURCE_RESOURCE_GROUP: production-rg
+#       SOURCE_STORAGE_ACCOUNT: prodstorage
+#       SOURCE_MYSQL_HOST: prod.mysql.example.com
+#       SOURCE_MYSQL_USERNAME: adminuser
+#       SOURCE_MYSQL_DATABASE: production_db
 #     secrets:
 #       SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }}
 #       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
@@ -84,7 +85,7 @@ on:
         required: false
         type: string
         default: pimcore-assets
-        description: Name of the source container
+        description: Name of the source Storage Account container
       TARGET_STORAGE_ACCOUNT:
         required: true
         type: string
@@ -93,7 +94,7 @@ on:
         required: false
         type: string
         default: pimcore-assets
-        description: Name of the target container
+        description: Name of the target Storage Account container
       DELETE_DESTINATION:
         required: false
         type: boolean
@@ -150,6 +151,16 @@ on:
         type: string
         default: "--single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert --no-tablespaces"
         description: Additional options to pass to mysqldump command
+      IGNORE_TABLES:
+        required: false
+        type: string
+        default: "application_logs,versions"
+        description: Comma-separated list of tables to ignore during sync (e.g. "table1,table2")
+      DROP_TARGET_BEFORE_RESTORE:
+        required: false
+        type: boolean
+        default: false
+        description: Whether to drop the target database before restoring
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -340,6 +351,8 @@ jobs:
       AZURE_TENANT_ID: ${{ inputs.AZURE_TENANT_ID }}
       AZURE_SOURCE_SUBSCRIPTION_ID: ${{ inputs.SOURCE_SUBSCRIPTION_ID }}
       AZURE_TARGET_SUBSCRIPTION_ID: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
+      DROP_TARGET_BEFORE_RESTORE: ${{ inputs.DROP_TARGET_BEFORE_RESTORE }}
+      IGNORE_TABLES: ${{ inputs.IGNORE_TABLES }}
     secrets:
       AZURE_SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
       AZURE_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}

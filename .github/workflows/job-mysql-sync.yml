@@ -30,16 +30,16 @@ on:
         required: false
         type: string
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
-      TIMEOUT_MINUTES:
-        required: false
-        type: number
-        default: 360
-        description: Time in minutes for how long to run the job before GitHub will automatically cancel it. Default 360 (6 hours)
       MYSQLDUMP_OPTIONS:
         required: false
         type: string
         default: "--single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert --no-tablespaces"
         description: Additional options to pass to mysqldump command
+      IGNORE_TABLES:
+        required: false
+        type: string
+        default: "application_logs,versions"
+        description: Comma-separated list of table names to ignore during dump (e.g., "application_logs,versions,cache")
       SOURCE_HOST:
         required: true
         type: string
@@ -141,7 +141,6 @@ jobs:
   db-sync:
     name: MySQL Sync
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: ${{ inputs.TIMEOUT_MINUTES }}
 
     steps:
       - name: Add pipx binaries to PATH
@@ -282,6 +281,20 @@ jobs:
           echo "Starting MySQL dump from ${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}..."
           start_time=$(date +%s)
 
+          # Build ignore-table options from comma-separated list
+          IGNORE_TABLE_OPTIONS=""
+          if [ -n "${{ inputs.IGNORE_TABLES }}" ]; then
+            IFS=',' read -ra TABLES <<< "${{ inputs.IGNORE_TABLES }}"
+            for table in "${TABLES[@]}"; do
+              # Trim whitespace
+              table=$(echo "$table" | xargs)
+              if [ -n "$table" ]; then
+                IGNORE_TABLE_OPTIONS="$IGNORE_TABLE_OPTIONS --ignore-table=${{ inputs.SOURCE_DATABASE }}.$table"
+                echo "Ignoring table: $table"
+              fi
+            done
+          fi
+
           # Perform the dump
           MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
             mysqldump \
@@ -290,7 +303,7 @@ jobs:
             -u ${{ inputs.SOURCE_USERNAME }} \
             --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
             ${{ inputs.MYSQLDUMP_OPTIONS }} \
-            --ignore-table=${{ inputs.SOURCE_DATABASE }}.application_logs --ignore-table=${{ inputs.SOURCE_DATABASE }}.versions \
+            $IGNORE_TABLE_OPTIONS \
             ${{ inputs.SOURCE_DATABASE }} \
             > "$DUMP_FILE"
 

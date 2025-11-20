@@ -31,16 +31,6 @@ on:
         required: false
         type: string
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
-      TIMEOUT_MINUTES:
-        required: false
-        type: number
-        default: 360
-        description: Time in minutes for how long to run the job before GitHub will automatically cancel it. Default 360 (6 hours)
-      AZCOPY_OPTIONS:
-        required: false
-        type: string
-        default: "--recursive --overwrite=true"
-        description: Additional options to pass to azcopy sync command
       SOURCE_STORAGE_ACCOUNT:
         required: true
         type: string
@@ -72,11 +62,6 @@ on:
         type: boolean
         default: false
         description: Whether to delete files in destination that don't exist in source (--delete-destination=true)
-      DRY_RUN:
-        required: false
-        type: boolean
-        default: false
-        description: Whether to perform a dry run without actually copying files
       AZURE_TENANT_ID:
         required: true
         type: string
@@ -105,7 +90,6 @@ jobs:
   storage-sync:
     name: Azure Storage Sync
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: ${{ inputs.TIMEOUT_MINUTES }}
 
     steps:
       - name: Add pipx binaries to PATH
@@ -228,15 +212,8 @@ jobs:
 
           azcopy sync "$source_url" "$target_url"
 
-          # azcopy_cmd="azcopy sync \"$source_url\" \"$target_url\" ${{ inputs.AZCOPY_OPTIONS }}"
-
           # if [ "${{ inputs.DELETE_DESTINATION }}" = "true" ]; then
           #   azcopy_cmd="$azcopy_cmd --delete-destination=true"
-          # fi
-
-          # if [ "${{ inputs.DRY_RUN }}" = "true" ]; then
-          #   azcopy_cmd="$azcopy_cmd --dry-run"
-          #   echo "Performing DRY RUN - no files will be actually copied"
           # fi
 
           # echo "Executing AzCopy sync with service principal authentication..."
