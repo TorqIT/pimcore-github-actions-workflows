@@ -268,25 +268,11 @@ jobs:
               echo "Successfully deactivated all supervisord Container App revisions"
             fi
 
-      - name: Check Slack webhook URL
-        id: check-webhook-url
-        # Hacky workaround to get around the fact that we cannot reference secrets in a conditional
-        run: |
-          if [ "${{ secrets.SLACK_WEBHOOK_URL }}" != '' ]; then
-            echo "Slack webhook URL is defined"
-            echo "slackWebhookDefined=true" >> $GITHUB_OUTPUT;
-          else
-            echo "Slack webhook URL is not defined"
-            echo "slackWebhookDefined=false" >> $GITHUB_OUTPUT;
-          fi
-
       - name: Send shutdown status to Slack
-        if: ${{ steps.check-webhook-url.outputs.slackWebhookDefined == 'true' }}
-        uses: slackapi/slack-github-action@v2
+        uses: ./reusable-workflow/.github/actions/send-slack-message
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PAYLOAD: |
             text: "*Container Apps Shutdown Complete*"
             blocks:
               - type: "section"
@@ -357,7 +343,6 @@ jobs:
   restart-target-container-apps:
     name: Restart target Container Apps
     needs: [storage-sync, mysql-sync]
-    if: ${{ inputs.RESTART_APPS_AFTER_SYNC }}
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
     steps:
@@ -414,26 +399,12 @@ jobs:
 
       #       echo "Supervisord Container App restarted successfully"
 
-      - name: Check Slack webhook URL
-        id: check-webhook-url
+      - name: Send restart status to Slack
         if: always()
-        # Hacky workaround to get around the fact that we cannot reference secrets in a conditional
-        run: |
-          if [ "${{ secrets.SLACK_WEBHOOK_URL }}" != '' ]; then
-            echo "Slack webhook URL is defined"
-            echo "slackWebhookDefined=true" >> $GITHUB_OUTPUT;
-          else
-            echo "Slack webhook URL is not defined"
-            echo "slackWebhookDefined=false" >> $GITHUB_OUTPUT;
-          fi
-
-      - name: Send final status to Slack
-        if: ${{ always() && steps.check-webhook-url.outputs.slackWebhookDefined == 'true' }}
-        uses: slackapi/slack-github-action@v2
+        uses: ./reusable-workflow/.github/actions/send-slack-message
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PAYLOAD: |
             text: "*Azure Sync with Container Shutdown Complete*"
             blocks:
               - type: "section"

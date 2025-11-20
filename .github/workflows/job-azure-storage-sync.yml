@@ -297,26 +297,12 @@ jobs:
               --account-name ${{ inputs.TARGET_STORAGE_ACCOUNT }} \
               --ip-address $runnerIp
 
-      - name: Check Slack webhook URL
-        id: check-webhook-url
-        if: always()
-        # Hacky workaround to get around the fact that we cannot reference secrets in a conditional
-        run: |
-          if [ "${{ secrets.SLACK_WEBHOOK_URL }}" != '' ]; then
-            echo "Slack webhook URL is defined"
-            echo "slackWebhookDefined=true" >> $GITHUB_OUTPUT;
-          else
-            echo "Slack webhook URL is not defined"
-            echo "slackWebhookDefined=false" >> $GITHUB_OUTPUT;
-          fi
-
       - name: Send job status to Slack
-        if: ${{ always() && steps.check-webhook-url.outputs.slackWebhookDefined == 'true' }}
-        uses: slackapi/slack-github-action@v2
+        if: always()
+        uses: ./reusable-workflow/.github/actions/send-slack-message
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PAYLOAD: |
             text: "*Azure Storage Sync Job*"
             blocks:
               - type: "section"
