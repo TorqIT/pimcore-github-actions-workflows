@@ -357,7 +357,7 @@ jobs:
             --database=${{ inputs.TARGET_DATABASE }} \
             --directory="$DUMP_DIR" \
             --threads=${{ inputs.MYDUMPER_THREADS }} \
-            --overwrite-tables \
+            --drop-table \
             --verbose=3
 
           restore_time=$(date +%s)
