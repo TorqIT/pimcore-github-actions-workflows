@@ -295,9 +295,9 @@ jobs:
         with:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           PAYLOAD: |
-            text: "*Azure Storage Sync Job*"
+            text: "*Storage Sync Job*"
             blocks:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Azure Storage sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source:* `${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }}`\n*Target:* `${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}`\n*Files Copied:* ${{ steps.sync-operation.outputs.files_copied || 'N/A' }}\n*Data Transferred:* ${{ steps.sync-operation.outputs.bytes_transferred_mb || 'N/A' }}MB\n*Duration:* ${{ steps.sync-operation.outputs.duration || 'N/A' }}s\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }}"
+                  text: "*Azure Storage Account sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source:* `${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }}`\n*Target:* `${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}`\n*Files Copied:* ${{ steps.sync-operation.outputs.files_copied || 'N/A' }}\n*Data Transferred:* ${{ steps.sync-operation.outputs.bytes_transferred_mb || 'N/A' }}MB\n*Duration:* ${{ steps.sync-operation.outputs.duration || 'N/A' }}s\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
