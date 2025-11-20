@@ -143,9 +143,6 @@ jobs:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
     steps:
-      - name: Add pipx binaries to PATH
-        run: echo "/root/.local/bin" >> $GITHUB_PATH
-
       - name: Get workflow version
         id: workflow-version
         uses: canonical/get-workflow-version-action@v1
@@ -274,14 +271,9 @@ jobs:
         run: |
           set -e
 
-          # Generate unique filename for this operation
           DUMP_FILE="db_dump_$(date -u +"%Y%m%d_%H%M%S").sql"
           echo "dump_file=$DUMP_FILE" >> $GITHUB_OUTPUT
 
-          echo "Starting MySQL dump from ${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}..."
-          start_time=$(date +%s)
-
-          # Build ignore-table options from comma-separated list
           IGNORE_TABLE_OPTIONS=""
           if [ -n "${{ inputs.IGNORE_TABLES }}" ]; then
             IFS=',' read -ra TABLES <<< "${{ inputs.IGNORE_TABLES }}"
@@ -295,7 +287,9 @@ jobs:
             done
           fi
 
-          # Perform the dump
+          echo "Starting MySQL dump from ${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}..."
+          start_time=$(date +%s)
+
           MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
             mysqldump \
             -h ${{ inputs.SOURCE_HOST }} \
@@ -310,7 +304,6 @@ jobs:
           dump_time=$(date +%s)
           dump_duration=$((dump_time - start_time))
 
-          # Check if dump was successful
           if [ ! -f "$DUMP_FILE" ] || [ ! -s "$DUMP_FILE" ]; then
             echo "Dump file is empty or doesn't exist"
             exit 1
@@ -323,8 +316,6 @@ jobs:
           echo "dump_duration=$dump_duration" >> $GITHUB_OUTPUT
 
           echo "Starting restore to ${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}..."
-
-          # Restore the dump to target database
           MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
             mysql \
             -h ${{ inputs.TARGET_HOST }} \
@@ -333,11 +324,9 @@ jobs:
             --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
             ${{ inputs.TARGET_DATABASE }} \
             < "$DUMP_FILE"
-
           restore_time=$(date +%s)
           restore_duration=$((restore_time - dump_time))
           total_duration=$((restore_time - start_time))
-
           echo "Restore completed successfully in ${restore_duration}s"
           echo "Total operation time: ${total_duration}s"
           echo "restore_duration=$restore_duration" >> $GITHUB_OUTPUT

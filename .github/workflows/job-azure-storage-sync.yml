@@ -92,9 +92,6 @@ jobs:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
     steps:
-      - name: Add pipx binaries to PATH
-        run: echo "/root/.local/bin" >> $GITHUB_PATH
-
       - name: Get workflow version
         id: workflow-version
         uses: canonical/get-workflow-version-action@v1
@@ -303,4 +300,4 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Storage sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source:* `${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }}`\n*Target:* `${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}`\n*Files Copied:* ${{ steps.sync-operation.outputs.files_copied || 'N/A' }}\n*Data Transferred:* ${{ steps.sync-operation.outputs.bytes_transferred_mb || 'N/A' }}MB\n*Duration:* ${{ steps.sync-operation.outputs.duration || 'N/A' }}s\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }}"
+                  text: "*Azure Storage sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source:* `${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }}`\n*Target:* `${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}`\n*Files Copied:* ${{ steps.sync-operation.outputs.files_copied || 'N/A' }}\n*Data Transferred:* ${{ steps.sync-operation.outputs.bytes_transferred_mb || 'N/A' }}MB\n*Duration:* ${{ steps.sync-operation.outputs.duration || 'N/A' }}s\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }}"
