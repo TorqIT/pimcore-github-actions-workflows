@@ -150,7 +150,7 @@ on:
       IGNORE_TABLES:
         required: false
         type: string
-        default: "application_logs,messenger_messages,versions"
+        default: "application_logs,messenger_messages,recyclebin,search_backend_data,versions"
         description: Comma-separated list of tables to ignore during sync (e.g. "table1,table2")
       DROP_TARGET_BEFORE_RESTORE:
         required: false

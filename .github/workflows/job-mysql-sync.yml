@@ -33,7 +33,7 @@ on:
       IGNORE_TABLES:
         required: false
         type: string
-        default: "application_logs,messenger_messages,recyclebin,versions"
+        default: "application_logs,messenger_messages,recyclebin,search_backend_data,versions"
         description: Comma-separated list of table names to ignore during dump (e.g., "application_logs,versions,cache")
       IGNORE_TABLE_PATTERNS:
         required: false
