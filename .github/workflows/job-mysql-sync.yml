@@ -457,24 +457,6 @@ jobs:
           echo "dump_size_mb=$dump_size_mb" >> $GITHUB_OUTPUT
           echo "total_duration=$total_duration" >> $GITHUB_OUTPUT
 
-      - name: Verify restore
-        run: |
-          echo "Verifying restore by checking table count..."
-          table_count=$(MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
-            mysql \
-            -h ${{ inputs.TARGET_HOST }} \
-            -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ inputs.TARGET_USERNAME }} \
-            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-            -N -s \
-            -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${{ inputs.TARGET_DATABASE }}';" \
-            mysql)
-
-          echo "Target database contains $table_count tables"
-          if [ "$table_count" -eq 0 ]; then
-            echo "Warning: No tables found in target database"
-          fi
-
       - name: Clean up dump files
         if: always()
         run: |
