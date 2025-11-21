@@ -157,6 +157,16 @@ on:
         type: boolean
         default: false
         description: Whether to drop the target database before restoring
+      MYDUMPER_THREADS:
+        required: false
+        type: number
+        default: 2
+        description: Number of threads to use for mydumper/myloader
+      IGNORE_TABLE_PATTERNS:
+        required: false
+        type: string
+        default: "application_logs_archive_.*,messenger_messages_.*"
+        description: Comma-separated list of table name patterns (regex) to ignore during sync (e.g. "cache_.*,temp_.*")
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -291,6 +301,8 @@ jobs:
       AZURE_TARGET_SUBSCRIPTION_ID: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
       DROP_TARGET_BEFORE_RESTORE: ${{ inputs.DROP_TARGET_BEFORE_RESTORE }}
       IGNORE_TABLES: ${{ inputs.IGNORE_TABLES }}
+      IGNORE_TABLE_PATTERNS: ${{ inputs.IGNORE_TABLE_PATTERNS }}
+      MYDUMPER_THREADS: ${{ inputs.MYDUMPER_THREADS }}
     secrets:
       AZURE_SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
       AZURE_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
