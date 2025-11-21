@@ -418,9 +418,9 @@ jobs:
 
           data_dump_time=$(date +%s)
           data_dump_duration=$((data_dump_time - data_start))
-          data_size=$(du -sb "$DUMP_DIR_DATA" | cut -f1)
-          data_size_mb=$((data_size / 1024 / 1024))
-          echo "Data dump completed - ${data_size_mb}MB in ${data_dump_duration}s"
+          dump_size=$(du -sb "$DUMP_DIR_DATA" | cut -f1)
+          dump_size_mb=$((dump_size / 1024 / 1024))
+          echo "Data dump completed - ${dump_size_mb}MB in ${data_dump_duration}s"
 
           rm -f "$OMIT_FILE"
 
@@ -451,16 +451,10 @@ jobs:
           echo "============================================"
           total_time=$(date +%s)
           total_duration=$((total_time - start_time))
-          total_size_mb=$((schema_size_mb + data_size_mb))
-
-          echo "Schema: ${schema_size_mb}MB (dump: ${schema_dump_duration}s, restore: ${schema_restore_duration}s)"
-          echo "Data: ${data_size_mb}MB (dump: ${data_dump_duration}s, restore: ${data_restore_duration}s)"
-          echo "Total: ${total_size_mb}MB in ${total_duration}s"
+          echo "${dump_size_mb}MB (compressed) synced in ${total_duration}s"
           echo "============================================"
 
-          echo "schema_size_mb=$schema_size_mb" >> $GITHUB_OUTPUT
-          echo "data_size_mb=$data_size_mb" >> $GITHUB_OUTPUT
-          echo "dump_size_mb=$total_size_mb" >> $GITHUB_OUTPUT
+          echo "dump_size_mb=$dump_size_mb" >> $GITHUB_OUTPUT
           echo "total_duration=$total_duration" >> $GITHUB_OUTPUT
 
       - name: Verify restore
@@ -528,4 +522,4 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Database sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source:* `${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}`\n*Target:* `${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}`\n*Schema:* ${{ steps.dump-restore.outputs.schema_size_mb || 'N/A' }}MB\n*Data:* ${{ steps.dump-restore.outputs.data_size_mb || 'N/A' }}MB\n*Total:* ${{ steps.dump-restore.outputs.dump_size_mb || 'N/A' }}MB in ${{ steps.dump-restore.outputs.total_duration || 'N/A' }}s\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  text: "*Database sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source:* `${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}`\n*Target:* `${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}`\n*Data synced (compressed):* ${{ steps.dump-restore.outputs.dump_size_mb || 'N/A' }}MB in ${{ steps.dump-restore.outputs.total_duration || 'N/A' }}s\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
