@@ -30,16 +30,16 @@ on:
         required: false
         type: string
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
-      TIMEOUT_MINUTES:
-        required: false
-        type: number
-        default: 360
-        description: Time in minutes for how long to run the job before GitHub will automatically cancel it. Default 360 (6 hours)
-      MYSQLDUMP_OPTIONS:
+      IGNORE_TABLES:
         required: false
         type: string
-        default: "--single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert --no-tablespaces"
-        description: Additional options to pass to mysqldump command
+        default: "application_logs,messenger_messages,recyclebin,search_backend_data,versions"
+        description: Comma-separated list of table names to ignore during dump (e.g., "application_logs,versions,cache")
+      IGNORE_TABLE_PATTERNS:
+        required: false
+        type: string
+        default: "application_logs_archive_.*,messenger_messages_.*"
+        description: Regex pattern for table names to ignore during dump (e.g., "cache_.*,temp_.*")
       SOURCE_HOST:
         required: true
         type: string
@@ -111,10 +111,19 @@ on:
         required: false
         type: string
         description: ID of the Azure tenant containing MySQL resources
-      AZURE_SUBSCRIPTION_ID:
+      AZURE_SOURCE_SUBSCRIPTION_ID:
         required: false
         type: string
-        description: ID of the Azure subscription containing MySQL resources
+        description: ID of the Azure subscription containing the source MySQL server
+      AZURE_TARGET_SUBSCRIPTION_ID:
+        required: false
+        type: string
+        description: ID of the Azure subscription containing the target MySQL server
+      MYDUMPER_THREADS:
+        required: false
+        type: number
+        default: 8
+        description: Number of threads to use for mydumper/myloader operations
 
     secrets:
       SOURCE_PASSWORD:
@@ -135,14 +144,10 @@ on:
 
 jobs:
   db-sync:
-    name: Perform MySQL database sync
+    name: MySQL Sync
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: ${{ inputs.TIMEOUT_MINUTES }}
 
     steps:
-      - name: Add pipx binaries to PATH
-        run: echo "/root/.local/bin" >> $GITHUB_PATH
-
       - name: Get workflow version
         id: workflow-version
         uses: canonical/get-workflow-version-action@v1
@@ -158,9 +163,6 @@ jobs:
           ref: ${{ steps.workflow-version.outputs.sha }}
           path: reusable-workflow
           fetch-depth: 1
-
-      - name: Install tools for workflows/actions
-        uses: ./reusable-workflow/.github/actions/setup-tools
 
       - name: Validate target is not production
         run: |
@@ -180,19 +182,17 @@ jobs:
 
           echo "Target host and database validation passed"
 
-      - name: Install MySQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mysql-client-core-8.0
-
       - name: If source or target are in Azure, log in to Azure via Service Principal
         if: ${{ inputs.SOURCE_IS_IN_AZURE || inputs.TARGET_IS_IN_AZURE }}
-        uses: ./reusable-workflow/.github/actions/azure-login
+        uses: azure/cli@v2
         with:
-          SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ inputs.AZURE_TENANT_ID }}
-          SUBSCRIPTION: ${{ inputs.AZURE_SUBSCRIPTION_ID }}
+          azcliversion: latest
+          inlineScript: |
+            az login --service-principal \
+              -u ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
+              -p ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }} \
+              --tenant ${{ inputs.AZURE_TENANT_ID }}
+            echo "Azure login successful"
 
       - name: If source is an Azure MySQL server, add temporary network rule for this runner
         if: ${{ inputs.SOURCE_IS_IN_AZURE }}
@@ -202,6 +202,7 @@ jobs:
             set -e
             runnerIp=$(curl ipinfo.io/ip)
             echo "Adding temporary network rule for this runner ($runnerIp) to source database server's firewall..."
+            az account set --subscription "${{ inputs.AZURE_SOURCE_SUBSCRIPTION_ID }}"
             az mysql flexible-server firewall-rule create \
               --name $(echo "${{ inputs.SOURCE_HOST }}" | cut -d'.' -f1) \
               --resource-group ${{ inputs.SOURCE_AZURE_RESOURCE_GROUP }} \
@@ -209,8 +210,6 @@ jobs:
               --start-ip-address $runnerIp \
               --end-ip-address $runnerIp \
               --verbose
-            echo "Sleeping for 30 seconds to allow network rules to propagate..."
-            sleep 30
 
       - name: If target is an Azure MySQL server, add temporary network rule for this runner
         if: ${{ inputs.TARGET_IS_IN_AZURE }}
@@ -220,6 +219,7 @@ jobs:
             set -e
             runnerIp=$(curl ipinfo.io/ip)
             echo "Adding temporary network rule for this runner ($runnerIp) to target database server's firewall..."
+            az account set --subscription "${{ inputs.AZURE_TARGET_SUBSCRIPTION_ID }}"
             az mysql flexible-server firewall-rule create \
               --name $(echo "${{ inputs.TARGET_HOST }}" | cut -d'.' -f1) \
               --resource-group ${{ inputs.TARGET_AZURE_RESOURCE_GROUP }} \
@@ -227,8 +227,6 @@ jobs:
               --start-ip-address $runnerIp \
               --end-ip-address $runnerIp \
               --verbose
-            echo "Sleeping for 30 seconds to allow network rules to propagate..."
-            sleep 30
 
       - name: Test source database connection
         run: |
@@ -270,90 +268,205 @@ jobs:
             ${{ inputs.TARGET_DATABASE }}
           echo "Target database dropped"
 
+      - name: Install mydumper
+        run: |
+          set -e
+          echo "Installing mydumper/myloader..."
+
+          # Download and install a recent version of mydumper that supports --ssl-mode
+          MYDUMPER_VERSION="0.20.1-2"
+          wget https://github.com/mydumper/mydumper/releases/download/v${MYDUMPER_VERSION}/mydumper_${MYDUMPER_VERSION}.$(lsb_release -cs)_amd64.deb
+          sudo dpkg -i mydumper_${MYDUMPER_VERSION}.$(lsb_release -cs)_amd64.deb || sudo apt-get install -f -y
+
+          mydumper --version
+          myloader --version
+
       - name: Perform MySQL dump and restore
         id: dump-restore
         run: |
           set -e
 
-          # Generate unique filename for this operation
-          DUMP_FILE="db_dump_$(date -u +"%Y%m%d_%H%M%S").sql"
-          echo "dump_file=$DUMP_FILE" >> $GITHUB_OUTPUT
-
-          echo "Starting MySQL dump from ${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}..."
+          echo "Starting MySQL sync from ${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }} to ${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}..."
           start_time=$(date +%s)
 
-          # Perform the dump
+          # ============================================
+          # SCHEMA DUMP AND RESTORE
+          # ============================================
+          DUMP_DIR_SCHEMA="db_dump_schema_$(date -u +"%Y%m%d_%H%M%S")"
+          mkdir -p "$DUMP_DIR_SCHEMA"
+          echo "dump_dir_schema=$DUMP_DIR_SCHEMA" >> $GITHUB_OUTPUT
+          echo ""
+          echo "Dumping all table schemas..."
+          schema_start=$(date +%s)
+
           MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
-            mysqldump \
-            -h ${{ inputs.SOURCE_HOST }} \
-            -P ${{ inputs.SOURCE_PORT }} \
-            -u ${{ inputs.SOURCE_USERNAME }} \
+            mydumper \
+            --host=${{ inputs.SOURCE_HOST }} \
             --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
-            ${{ inputs.MYSQLDUMP_OPTIONS }} \
-            --ignore-table=${{ inputs.SOURCE_DATABASE }}.application_logs --ignore-table=${{ inputs.SOURCE_DATABASE }}.versions \
-            ${{ inputs.SOURCE_DATABASE }} \
-            > "$DUMP_FILE"
+            --port=${{ inputs.SOURCE_PORT }} \
+            --user=${{ inputs.SOURCE_USERNAME }} \
+            --database=${{ inputs.SOURCE_DATABASE }} \
+            --outputdir="$DUMP_DIR_SCHEMA" \
+            --threads=${{ inputs.MYDUMPER_THREADS }} \
+            --no-data \
+            --routines \
+            --events \
+            --triggers \
+            --trx-tables \
+            --sync-thread-lock-mode=NO_LOCK \
+            --verbose=3
 
-          dump_time=$(date +%s)
-          dump_duration=$((dump_time - start_time))
+          schema_dump_time=$(date +%s)
+          schema_dump_duration=$((schema_dump_time - schema_start))
+          schema_size=$(du -sb "$DUMP_DIR_SCHEMA" | cut -f1)
+          schema_size_mb=$((schema_size / 1024 / 1024))
+          echo "Schema dump completed - ${schema_size_mb}MB in ${schema_dump_duration}s"
 
-          # Check if dump was successful
-          if [ ! -f "$DUMP_FILE" ] || [ ! -s "$DUMP_FILE" ]; then
-            echo "Dump file is empty or doesn't exist"
-            exit 1
+          echo ""
+          echo "Restoring all table schemas..."
+
+          MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
+            myloader \
+            --host=${{ inputs.TARGET_HOST }} \
+            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+            --port=${{ inputs.TARGET_PORT }} \
+            --user=${{ inputs.TARGET_USERNAME }} \
+            --database=${{ inputs.TARGET_DATABASE }} \
+            --directory="$DUMP_DIR_SCHEMA" \
+            --threads=${{ inputs.MYDUMPER_THREADS }} \
+            --drop-table \
+            --verbose=3
+
+          schema_restore_time=$(date +%s)
+          schema_restore_duration=$((schema_restore_time - schema_dump_time))
+          echo "Schema restore completed in ${schema_restore_duration}s"
+
+          # ============================================
+          # DATA DUMP AND RESTORE (with table exclusions)
+          # ============================================
+          DUMP_DIR_DATA="db_dump_data_$(date -u +"%Y%m%d_%H%M%S")"
+          mkdir -p "$DUMP_DIR_DATA"
+          echo "dump_dir_data=$DUMP_DIR_DATA" >> $GITHUB_OUTPUT
+          echo ""
+          echo "Building list of tables to exclude from data dump..."
+
+          OMIT_FILE="omit_tables.txt"
+          touch "$OMIT_FILE"
+
+          # Add specific tables to exclude data
+          if [ -n "${{ inputs.IGNORE_TABLES }}" ]; then
+            IFS=',' read -ra TABLES <<< "${{ inputs.IGNORE_TABLES }}"
+            for table in "${TABLES[@]}"; do
+              table=$(echo "$table" | xargs)
+              if [ -n "$table" ]; then
+                echo "${{ inputs.SOURCE_DATABASE }}.$table" >> "$OMIT_FILE"
+                echo "Will exclude data for table: $table"
+              fi
+            done
           fi
 
-          file_size=$(stat -c%s "$DUMP_FILE")
-          file_size_mb=$((file_size / 1024 / 1024))
-          echo "Dump completed successfully - ${file_size_mb}MB in ${dump_duration}s"
-          echo "dump_size_mb=$file_size_mb" >> $GITHUB_OUTPUT
-          echo "dump_duration=$dump_duration" >> $GITHUB_OUTPUT
+          # Query database for tables matching patterns and add them to omit file
+          if [ -n "${{ inputs.IGNORE_TABLE_PATTERNS }}" ]; then
+            IFS=',' read -ra PATTERNS <<< "${{ inputs.IGNORE_TABLE_PATTERNS }}"
+            for pattern in "${PATTERNS[@]}"; do
+              pattern=$(echo "$pattern" | xargs)
+              if [ -n "$pattern" ]; then
+                echo "Finding tables matching pattern: $pattern"
+                
+                MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
+                  mysql \
+                  -h ${{ inputs.SOURCE_HOST }} \
+                  -P ${{ inputs.SOURCE_PORT }} \
+                  -u ${{ inputs.SOURCE_USERNAME }} \
+                  --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
+                  -N -s \
+                  -e "SELECT CONCAT('${{ inputs.SOURCE_DATABASE }}.', table_name) \
+                      FROM information_schema.tables \
+                      WHERE table_schema = '${{ inputs.SOURCE_DATABASE }}' \
+                      AND table_name REGEXP '$pattern';" \
+                  >> "$OMIT_FILE"
+              fi
+            done
+          fi
 
-          echo "Starting restore to ${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}..."
+          OMIT_OPTION=""
+          if [ -s "$OMIT_FILE" ]; then
+            echo "Tables to exclude data:"
+            cat "$OMIT_FILE"
+            OMIT_OPTION="--omit-from-file=$OMIT_FILE"
+          fi
 
-          # Restore the dump to target database
+          echo ""
+          echo "Dumping data for non-excluded tables..."
+          data_start=$(date +%s)
+
+          MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
+            mydumper \
+            --host=${{ inputs.SOURCE_HOST }} \
+            --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
+            --port=${{ inputs.SOURCE_PORT }} \
+            --user=${{ inputs.SOURCE_USERNAME }} \
+            --database=${{ inputs.SOURCE_DATABASE }} \
+            --outputdir="$DUMP_DIR_DATA" \
+            --threads=${{ inputs.MYDUMPER_THREADS }} \
+            --compress \
+            --no-schemas \
+            --trx-tables \
+            --sync-thread-lock-mode=NO_LOCK \
+            $OMIT_OPTION \
+            --verbose=3
+
+          data_dump_time=$(date +%s)
+          data_dump_duration=$((data_dump_time - data_start))
+          dump_size=$(du -sb "$DUMP_DIR_DATA" | cut -f1)
+          dump_size_mb=$((dump_size / 1024 / 1024))
+          echo "Data dump completed - ${dump_size_mb}MB in ${data_dump_duration}s"
+
+          rm -f "$OMIT_FILE"
+
+          echo ""
+          echo "Restoring data..."
+
           MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
-            mysql \
-            -h ${{ inputs.TARGET_HOST }} \
-            -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ inputs.TARGET_USERNAME }} \
+            myloader \
+            --host=${{ inputs.TARGET_HOST }} \
             --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-            ${{ inputs.TARGET_DATABASE }} \
-            < "$DUMP_FILE"
+            --port=${{ inputs.TARGET_PORT }} \
+            --user=${{ inputs.TARGET_USERNAME }} \
+            --database=${{ inputs.TARGET_DATABASE }} \
+            --directory="$DUMP_DIR_DATA" \
+            --threads=${{ inputs.MYDUMPER_THREADS }} \
+            --verbose=3
 
-          restore_time=$(date +%s)
-          restore_duration=$((restore_time - dump_time))
-          total_duration=$((restore_time - start_time))
+          data_restore_time=$(date +%s)
+          data_restore_duration=$((data_restore_time - data_dump_time))
+          echo "Data restore completed in ${data_restore_duration}s"
 
-          echo "Restore completed successfully in ${restore_duration}s"
-          echo "Total operation time: ${total_duration}s"
-          echo "restore_duration=$restore_duration" >> $GITHUB_OUTPUT
+          # ============================================
+          # SUMMARY
+          # ============================================
+          echo ""
+          echo "============================================"
+          echo "MySQL Sync Summary"
+          echo "============================================"
+          total_time=$(date +%s)
+          total_duration=$((total_time - start_time))
+          echo "${dump_size_mb}MB (compressed) synced in ${total_duration}s"
+          echo "============================================"
+
+          echo "dump_size_mb=$dump_size_mb" >> $GITHUB_OUTPUT
           echo "total_duration=$total_duration" >> $GITHUB_OUTPUT
 
-      - name: Verify restore
-        run: |
-          echo "Verifying restore by checking table count..."
-          table_count=$(MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
-            mysql \
-            -h ${{ inputs.TARGET_HOST }} \
-            -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ inputs.TARGET_USERNAME }} \
-            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-            -N -s \
-            -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${{ inputs.TARGET_DATABASE }}';" \
-            mysql)
-
-          echo "Target database contains $table_count tables"
-          if [ "$table_count" -eq 0 ]; then
-            echo "Warning: No tables found in target database"
-          fi
-
-      - name: Clean up dump file
+      - name: Clean up dump files
         if: always()
         run: |
-          if [ -f "${{ steps.dump-restore.outputs.dump_file }}" ]; then
-            rm -f "${{ steps.dump-restore.outputs.dump_file }}"
-            echo "Cleaned up temporary dump file"
+          if [ -d "${{ steps.dump-restore.outputs.dump_dir_schema }}" ]; then
+            rm -rf "${{ steps.dump-restore.outputs.dump_dir_schema }}"
+            echo "Cleaned up temporary schema dump directory"
+          fi
+          if [ -d "${{ steps.dump-restore.outputs.dump_dir_data }}" ]; then
+            rm -rf "${{ steps.dump-restore.outputs.dump_dir_data }}"
+            echo "Cleaned up temporary data dump directory"
           fi
 
       - name: Remove temporary Azure network rule from source database server firewall
@@ -380,29 +493,15 @@ jobs:
               --rule-name allow-runner-ip \
               --yes
 
-      - name: Check Slack webhook URL
-        id: check-webhook-url
-        if: always()
-        # Hacky workaround to get around the fact that we cannot reference secrets in a conditional
-        run: |
-          if [ "${{ secrets.SLACK_WEBHOOK_URL }}" != '' ]; then
-            echo "Slack webhook URL is defined"
-            echo "slackWebhookDefined=true" >> $GITHUB_OUTPUT;
-          else
-            echo "Slack webhook URL is not defined"
-            echo "slackWebhookDefined=false" >> $GITHUB_OUTPUT;
-          fi
-
       - name: Send job status to Slack
-        if: ${{ always() && steps.check-webhook-url.outputs.slackWebhookDefined == 'true' }}
-        uses: slackapi/slack-github-action@v2
+        if: ${{ !cancelled() }}
+        uses: ./reusable-workflow/.github/actions/send-slack-message
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PAYLOAD: |
             text: "*MySQL Database Sync Job*"
             blocks:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Database sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source:* `${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}`\n*Target:* `${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}`\n*Dump Size:* ${{ steps.dump-restore.outputs.dump_size_mb || 'N/A' }}MB\n*Duration:* ${{ steps.dump-restore.outputs.total_duration || 'N/A' }}s\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  text: "*Database sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source:* `${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}`\n*Target:* `${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}`\n*Data Synced:* ${{ steps.dump-restore.outputs.dump_size_mb || 'N/A' }}MB (compressed) in ${{ steps.dump-restore.outputs.total_duration || 'N/A' }}s\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
