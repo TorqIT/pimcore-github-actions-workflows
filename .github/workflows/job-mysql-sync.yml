@@ -38,9 +38,8 @@ on:
       IGNORE_TABLE_PATTERNS:
         required: false
         type: string
-        default: "application_logs_archive_.*"
+        default: "application_logs_archive_.*,messenger_messages_.*"
         description: Regex pattern for table names to ignore during dump (e.g., "cache_.*,temp_.*")
-
       SOURCE_HOST:
         required: true
         type: string
