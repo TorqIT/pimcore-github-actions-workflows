@@ -293,50 +293,56 @@ jobs:
           echo "Starting MySQL dump from ${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}..."
           start_time=$(date +%s)
 
-          # Build omit file for specific tables to exclude
-          OMIT_FILE=""
+          # Build omit file for specific tables and pattern-matched tables
+          OMIT_FILE="omit_tables.txt"
+          touch "$OMIT_FILE"
+
+          # Add specific tables to exclude
           if [ -n "${{ inputs.IGNORE_TABLES }}" ]; then
-            OMIT_FILE="omit_tables.txt"
-            touch "$OMIT_FILE"
             IFS=',' read -ra TABLES <<< "${{ inputs.IGNORE_TABLES }}"
             for table in "${TABLES[@]}"; do
-              # Trim whitespace
               table=$(echo "$table" | xargs)
               if [ -n "$table" ]; then
                 echo "${{ inputs.SOURCE_DATABASE }}.$table" >> "$OMIT_FILE"
                 echo "Will exclude table: $table"
               fi
             done
-            echo "Created omit file:"
-            cat "$OMIT_FILE"
           fi
 
-          OMIT_OPTION=""
-          if [ -n "$OMIT_FILE" ]; then
-            OMIT_OPTION="--omit-from-file=$OMIT_FILE"
-          fi
-
-          # Build regex pattern for tables to exclude
-          REGEX_OPTION=""
+          # Query database for tables matching patterns and add them to omit file
           if [ -n "${{ inputs.IGNORE_TABLE_PATTERNS }}" ]; then
             IFS=',' read -ra PATTERNS <<< "${{ inputs.IGNORE_TABLE_PATTERNS }}"
-            regex_parts=()
             for pattern in "${PATTERNS[@]}"; do
-              # Trim whitespace
               pattern=$(echo "$pattern" | xargs)
               if [ -n "$pattern" ]; then
-                regex_parts+=("$pattern")
-                echo "Will exclude tables matching pattern: $pattern"
+                echo "Finding tables matching pattern: $pattern"
+                # Convert regex pattern to MySQL LIKE pattern (basic conversion)
+                mysql_pattern=$(echo "$pattern" | sed 's/\.\*/\%/g')
+                
+                # Query for matching tables
+                MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
+                  mysql \
+                  -h ${{ inputs.SOURCE_HOST }} \
+                  -P ${{ inputs.SOURCE_PORT }} \
+                  -u ${{ inputs.SOURCE_USERNAME }} \
+                  --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
+                  -N -s \
+                  -e "SELECT CONCAT('${{ inputs.SOURCE_DATABASE }}.', table_name) \
+                      FROM information_schema.tables \
+                      WHERE table_schema = '${{ inputs.SOURCE_DATABASE }}' \
+                      AND table_name REGEXP '$pattern';" \
+                  >> "$OMIT_FILE"
               fi
             done
-            
-            # Join with pipe (|) for regex OR operation
-            if [ ${#regex_parts[@]} -gt 0 ]; then
-              IFS='|'
-              REGEX_OPTION="--regex '^(?!(${{ inputs.SOURCE_DATABASE }}\\.(${regex_parts[*]})))'"
-              unset IFS
-              echo "Using regex pattern: $REGEX_OPTION"
-            fi
+          fi
+
+          # Show final omit file contents
+          if [ -s "$OMIT_FILE" ]; then
+            echo "Tables to exclude:"
+            cat "$OMIT_FILE"
+            OMIT_OPTION="--omit-from-file=$OMIT_FILE"
+          else
+            OMIT_OPTION=""
           fi
 
           # Perform the dump using mydumper
@@ -357,7 +363,6 @@ jobs:
             --trx-tables \
             --sync-thread-lock-mode=NO_LOCK \
             $OMIT_OPTION \
-            $REGEX_OPTION \
             --verbose=3
 
           dump_time=$(date +%s)
@@ -370,8 +375,8 @@ jobs:
           echo "dump_size_mb=$dump_size_mb" >> $GITHUB_OUTPUT
           echo "dump_duration=$dump_duration" >> $GITHUB_OUTPUT
 
-          # Clean up omit file if created
-          if [ -n "$OMIT_FILE" ] && [ -f "$OMIT_FILE" ]; then
+          # Clean up omit file
+          if [ -f "$OMIT_FILE" ]; then
             rm "$OMIT_FILE"
           fi
 
