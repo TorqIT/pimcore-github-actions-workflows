@@ -522,4 +522,4 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Database sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source:* `${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}`\n*Target:* `${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}`\n*Data synced (compressed):* ${{ steps.dump-restore.outputs.dump_size_mb || 'N/A' }}MB in ${{ steps.dump-restore.outputs.total_duration || 'N/A' }}s\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  text: "*Database sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source:* `${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}`\n*Target:* `${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}`\n*Data Synced:* ${{ steps.dump-restore.outputs.dump_size_mb || 'N/A' }}MB (compressed) in ${{ steps.dump-restore.outputs.total_duration || 'N/A' }}s\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
