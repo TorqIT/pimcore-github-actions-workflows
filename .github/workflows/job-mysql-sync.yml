@@ -312,8 +312,8 @@ jobs:
             --routines \
             --events \
             --triggers \
-            --trx-consistency-only \
-            --no-locks \
+            --trx-tables \
+            --sync-thread-lock-mode=NO_LOCK \
             --verbose=3
 
           schema_dump_time=$(date +%s)
@@ -334,7 +334,7 @@ jobs:
             --database=${{ inputs.TARGET_DATABASE }} \
             --directory="$DUMP_DIR_SCHEMA" \
             --threads=${{ inputs.MYDUMPER_THREADS }} \
-            --overwrite-tables \
+            --drop-table \
             --verbose=3
 
           schema_restore_time=$(date +%s)
@@ -411,8 +411,8 @@ jobs:
             --threads=${{ inputs.MYDUMPER_THREADS }} \
             --compress \
             --no-schemas \
-            --trx-consistency-only \
-            --no-locks \
+            --trx-tables \
+            --sync-thread-lock-mode=NO_LOCK \
             $OMIT_OPTION \
             --verbose=3
 
@@ -436,7 +436,6 @@ jobs:
             --database=${{ inputs.TARGET_DATABASE }} \
             --directory="$DUMP_DIR_DATA" \
             --threads=${{ inputs.MYDUMPER_THREADS }} \
-            --overwrite-tables \
             --verbose=3
 
           data_restore_time=$(date +%s)
