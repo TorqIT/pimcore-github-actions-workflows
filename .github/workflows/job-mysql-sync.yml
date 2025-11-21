@@ -35,6 +35,12 @@ on:
         type: string
         default: "application_logs,messenger_messages,versions"
         description: Comma-separated list of table names to ignore during dump (e.g., "application_logs,versions,cache")
+      IGNORE_TABLE_PATTERNS:
+        required: false
+        type: string
+        default: "application_logs_archive_.*"
+        description: Regex pattern for table names to ignore during dump (e.g., "cache_.*,temp_.*")
+
       SOURCE_HOST:
         required: true
         type: string
@@ -288,6 +294,7 @@ jobs:
           echo "Starting MySQL dump from ${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }}..."
           start_time=$(date +%s)
 
+          # Build omit file for specific tables to exclude
           OMIT_FILE=""
           if [ -n "${{ inputs.IGNORE_TABLES }}" ]; then
             OMIT_FILE="omit_tables.txt"
@@ -310,6 +317,29 @@ jobs:
             OMIT_OPTION="--omit-from-file=$OMIT_FILE"
           fi
 
+          # Build regex pattern for tables to exclude
+          REGEX_OPTION=""
+          if [ -n "${{ inputs.IGNORE_TABLE_PATTERNS }}" ]; then
+            IFS=',' read -ra PATTERNS <<< "${{ inputs.IGNORE_TABLE_PATTERNS }}"
+            regex_parts=()
+            for pattern in "${PATTERNS[@]}"; do
+              # Trim whitespace
+              pattern=$(echo "$pattern" | xargs)
+              if [ -n "$pattern" ]; then
+                regex_parts+=("$pattern")
+                echo "Will exclude tables matching pattern: $pattern"
+              fi
+            done
+            
+            # Join with pipe (|) for regex OR operation
+            if [ ${#regex_parts[@]} -gt 0 ]; then
+              IFS='|'
+              REGEX_OPTION="--regex '^(?!(${{ inputs.SOURCE_DATABASE }}\\.(${regex_parts[*]})))'"
+              unset IFS
+              echo "Using regex pattern: $REGEX_OPTION"
+            fi
+          fi
+
           # Perform the dump using mydumper
           MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
             mydumper \
@@ -328,6 +358,7 @@ jobs:
             --trx-tables \
             --sync-thread-lock-mode=NO_LOCK \
             $OMIT_OPTION \
+            $REGEX_OPTION \
             --verbose=3
 
           dump_time=$(date +%s)
