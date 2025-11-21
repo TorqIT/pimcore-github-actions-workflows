@@ -1,5 +1,9 @@
 # Performs Storage Account and MySQL sync operations from a source Azure Container Apps environment to a target environment.
 #
+# Requires a Service Principal with sufficient permissions to access Container Apps, Storage Accounts, and MySQL servers in both source and target subscriptions.
+# See https://github.com/TorqIT/pimcore-azure-provisioning/blob/main/provisioning-scripts/provision-syncer-service-principal.sh for a script that will create
+# a suitable Service Principal.
+#
 # Invoke this workflow in your project's workflow as follows:
 # jobs:
 #   sync-with-shutdown:
