@@ -122,7 +122,7 @@ on:
       MYDUMPER_THREADS:
         required: false
         type: number
-        default: 2
+        default: 8
         description: Number of threads to use for mydumper/myloader operations
 
     secrets:
@@ -391,7 +391,7 @@ jobs:
 
           OMIT_OPTION=""
           if [ -s "$OMIT_FILE" ]; then
-            echo "Tables to exclude data (schema only):"
+            echo "Tables to exclude data:"
             cat "$OMIT_FILE"
             OMIT_OPTION="--omit-from-file=$OMIT_FILE"
           fi

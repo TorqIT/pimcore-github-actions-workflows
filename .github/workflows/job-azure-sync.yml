@@ -160,7 +160,7 @@ on:
       MYDUMPER_THREADS:
         required: false
         type: number
-        default: 2
+        default: 8
         description: Number of threads to use for mydumper/myloader
       IGNORE_TABLE_PATTERNS:
         required: false
