@@ -24,13 +24,16 @@ runs:
       if: inputs.CONTAINER_REGISTRY != ''
       shell: bash
       run: |
-        if ! docker system info | grep -q "Username:"; then
-          echo "${{ inputs.CONTAINER_REGISTRY_PASSWORD }}" \
-            | docker login ${{ inputs.CONTAINER_REGISTRY }} \
-              -u ${{ inputs.CONTAINER_REGISTRY_USERNAME }} --password-stdin
-        else
-          echo "Already logged in, skipping"
-        fi
+        # if ! docker system info | grep -q "Username:"; then
+        #   echo "${{ inputs.CONTAINER_REGISTRY_PASSWORD }}" \
+        #     | docker login ${{ inputs.CONTAINER_REGISTRY }} \
+        #       -u ${{ inputs.CONTAINER_REGISTRY_USERNAME }} --password-stdin
+        # else
+        #   echo "Already logged in, skipping"
+        # fi
+        docker login ${{ inputs.CONTAINER_REGISTRY }} \
+          -u ${{ inputs.CONTAINER_REGISTRY_USERNAME }} \
+          -p ${{ inputs.CONTAINER_REGISTRY_PASSWORD }}
 
     - name: Push Docker image
       shell: bash
