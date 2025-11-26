@@ -98,6 +98,11 @@ on:
         type: boolean
         default: false
         description: "Whether linting should be skipped"
+      SKIP_AZURE_INFRA_CHANGES:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether applying Azure infrastructure changes should be skipped"
       BUILD_TIME_ARGS:
         required: false
         type: string
@@ -324,6 +329,7 @@ jobs:
 
       - name: Apply Azure infrastructure changes
         uses: ./reusable-workflow/.github/actions/azure-apply-infra-changes
+        if: ${{ inputs.SKIP_AZURE_INFRA_CHANGES != true }}
         with:
           SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
