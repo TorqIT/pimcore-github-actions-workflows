@@ -265,6 +265,10 @@ jobs:
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
+      - name: debug
+        run: |
+          cat ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
+
       - name: Lint files
         if: ${{ inputs.SKIP_LINTING == false }}
         uses: ./reusable-workflow/.github/actions/lint
