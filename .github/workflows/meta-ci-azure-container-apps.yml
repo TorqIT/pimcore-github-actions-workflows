@@ -42,7 +42,8 @@ jobs:
               && ./provision.sh
             '
 
-  deploy-to-container-apps:
+  test-deploy-to-azure-container-apps-workflow:
+    name: "Test deploy to Azure Container Apps workflow"
     needs: provision-azure-resources
     uses: ./.github/workflows/deploy-to-azure-container-apps.yml
     with:
