@@ -27,17 +27,19 @@ jobs:
       - name: Provision Azure resources
         shell: bash
         run: |
-          AZURE_TENANT_ID=${{ vars.AZURE_TENANT_ID }} \
+          # AZURE_TENANT_ID=${{ vars.AZURE_TENANT_ID }} \
+          AZURE_TENANT_ID="6f8ae12a-9b31-4877-b46f-c0590040b1fb" \
           SERVICE_PRINCIPAL_ID=${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
           SERVICE_PRINCIPAL_PASSWORD=${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }} \
           docker run \
             -v "${{ github.workspace }}/.ci/azure/parameters.json:/azure/parameters.json:ro" \
             ghcr.io/torqit/pimcore-azure-provisioning:2 \
             bash -c " \
-              az login --tenant $AZURE_TENANT_ID \
-              --service-principal \
-              --username $SERVICE_PRINCIPAL_ID \
-              --password $SERVICE_PRINCIPAL_PASSWORD \
+              az login \
+                --tenant $AZURE_TENANT_ID \
+                --service-principal \
+                  --username $SERVICE_PRINCIPAL_ID \
+                  --password $SERVICE_PRINCIPAL_PASSWORD \
               && ./provision.sh
             "
 
@@ -77,10 +79,11 @@ jobs:
             -v "${{ github.workspace }}/.ci/azure/parameters.json:/azure/parameters.json:ro" \
             ghcr.io/torqit/pimcore-azure-provisioning:2 \
             bash -c " \
-              az login --tenant $AZURE_TENANT_ID \
-              --service-principal \
-              --username $SERVICE_PRINCIPAL_ID \
-              --password $SERVICE_PRINCIPAL_PASSWORD \
+              az login \
+                --tenant $AZURE_TENANT_ID \
+                --service-principal \
+                  --username $SERVICE_PRINCIPAL_ID \
+                  --password $SERVICE_PRINCIPAL_PASSWORD \
               && az group delete --name $(jq -r '.resourceGroupName.value' /azure/parameters.json) --yes --no-wait \
               && az keyvault purge --name $(jq -r '.keyVaultName.value' /azure/parameters.json)
             "
