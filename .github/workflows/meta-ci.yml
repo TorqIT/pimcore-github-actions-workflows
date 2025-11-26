@@ -5,6 +5,19 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
+  lint:
+    name: "Lint codebase"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up tools
+        uses: ./.github/actions/setup-tools
+
+      - name: Lint files
+        uses: ./.github/actions/lint
+
   build-pimcore-skeleton-images:
     name: "Build Pimcore Skeleton Docker images"
     runs-on: ubuntu-latest
@@ -12,18 +25,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Checkout TorqIT/pimcore-skeleton
+      - name: Set up tools
+        uses: ./.github/actions/setup-tools
+
+      - name: Checkout TorqIT/pimcore-skeleton:2024.x
         uses: actions/checkout@v4
         with:
           repository: TorqIT/pimcore-skeleton
           ref: 2024.x
           path: pimcore-skeleton
-
-      - name: Set up tools
-        uses: ./.github/actions/setup-tools
-
-      - name: Lint files
-        uses: ./.github/actions/lint
 
       - name: Build init image
         uses: ./.github/actions/build-docker-image
@@ -57,7 +67,7 @@ jobs:
       - name: Push init image
         uses: ./.github/actions/push-docker-image
         with:
-          BUILD_TAGS: "init:ci"
+          BUILD_TAG: "init:ci"
           CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-skeleton/init
           CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
           CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
@@ -66,7 +76,7 @@ jobs:
       - name: Push PHP image
         uses: ./.github/actions/push-docker-image
         with:
-          BUILD_TAGS: "php:ci"
+          BUILD_TAG: "php:ci"
           CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-skeleton/php
           CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
           CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
@@ -75,7 +85,7 @@ jobs:
       - name: Push supervisord image
         uses: ./.github/actions/push-docker-image
         with:
-          BUILD_TAGS: "supervisord:ci"
+          BUILD_TAG: "supervisord:ci"
           CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-skeleton/supervisord
           CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
           CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
