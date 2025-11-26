@@ -73,7 +73,6 @@ jobs:
 
       - name: Destroy Azure resources
         shell: bash
-        continue-on-error: true
         run: |
           docker run \
             -e AZURE_TENANT_ID="${{ vars.AZURE_TENANT_ID }}" \
