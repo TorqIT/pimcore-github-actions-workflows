@@ -25,7 +25,7 @@ runs:
       run: |
         docker login ${{ inputs.CONTAINER_REGISTRY }} \
           -u ${{ inputs.CONTAINER_REGISTRY_USERNAME }} \
-          -p ${{ inputs.CONTAINER_REGISTRY_PASSWORD }}
+          --password-stdin <<< ${{ inputs.CONTAINER_REGISTRY_PASSWORD }}
 
     - name: Push Docker image
       shell: bash
