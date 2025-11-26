@@ -22,7 +22,7 @@ jobs:
         uses: ./.github/actions/lint
 
   build-pimcore-skeleton-images:
-    name: "Build Pimcore Skeleton Docker images"
+    name: "Build and push Pimcore skeleton Docker images"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

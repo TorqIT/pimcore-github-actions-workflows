@@ -2,13 +2,13 @@ name: "Push Docker Image"
 description: "Pushes a Docker image to a Container Registry"
 inputs:
   CONTAINER_REGISTRY:
-    required: false
+    required: true
     description: "The Docker registry to log in to"
   CONTAINER_REGISTRY_USERNAME:
-    required: false
+    required: true
     description: "The registry username"
   CONTAINER_REGISTRY_PASSWORD:
-    required: false
+    required: true
     description: "The registry password"
   BUILD_TAG:
     required: true
@@ -21,16 +21,8 @@ runs:
   using: "composite"
   steps:
     - name: Log in to Container Registry ${{ inputs.CONTAINER_REGISTRY }}
-      if: inputs.CONTAINER_REGISTRY != ''
       shell: bash
       run: |
-        # if ! docker system info | grep -q "Username:"; then
-        #   echo "${{ inputs.CONTAINER_REGISTRY_PASSWORD }}" \
-        #     | docker login ${{ inputs.CONTAINER_REGISTRY }} \
-        #       -u ${{ inputs.CONTAINER_REGISTRY_USERNAME }} --password-stdin
-        # else
-        #   echo "Already logged in, skipping"
-        # fi
         docker login ${{ inputs.CONTAINER_REGISTRY }} \
           -u ${{ inputs.CONTAINER_REGISTRY_USERNAME }} \
           -p ${{ inputs.CONTAINER_REGISTRY_PASSWORD }}
@@ -47,3 +39,7 @@ runs:
           docker push "$push_tag"
         done
 
+    - name: Log out from Container Registry ${{ inputs.CONTAINER_REGISTRY }}
+      shell: bash
+      run: |
+        docker logout ${{ inputs.CONTAINER_REGISTRY }}
