@@ -1,0 +1,47 @@
+name: "CI"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-pimcore-skeleton-images:
+    name: "Build Pimcore Skeleton Docker images"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout TorqIT/pimcore-skeleton
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-skeleton
+          ref: 2024.x
+          path: pimcore-skeleton
+
+      - name: Set up tools
+        uses: ./.github/actions/setup-tools
+
+      - name: Lint files
+        uses: ./.github/actions/lint
+
+      - name: Build init image
+        uses: ./.github/actions/build-docker-image
+        with:
+          DOCKERFILE_PATH: "./pimcore-skeleton/.docker/Dockerfile"
+          DOCKERFILE_TARGET: "init"
+          PIMCORE_ROOT: "./pimcore-skeleton"
+
+      - name: Build PHP image
+        uses: ./.github/actions/build-docker-image
+        with:
+          DOCKERFILE_PATH: "./pimcore-skeleton/.docker/Dockerfile"
+          DOCKERFILE_TARGET: "php"
+          PIMCORE_ROOT: "./pimcore-skeleton"
+
+      - name: Build supervisord image
+        uses: ./.github/actions/build-docker-image
+        with:
+          DOCKERFILE_PATH: "./pimcore-skeleton/.docker/Dockerfile"
+          DOCKERFILE_TARGET: "supervisord"
+          PIMCORE_ROOT: "./pimcore-skeleton"
