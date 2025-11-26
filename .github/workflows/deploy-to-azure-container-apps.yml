@@ -253,6 +253,24 @@ jobs:
           composer config extra.symfony.endpoint "https://api.github.com/repos/TorqIT/recipes/contents/index.json?ref=flex/main"
           composer config extra.symfony.allow-contrib true
 
+          # TODO necessary until skeleton contains this Kernel fix
+          # Add configureContainer method to Kernel if it doesn't exist
+          if ! grep -q "configureContainer" ${{ inputs.PIMCORE_ROOT }}/src/Kernel.php; then
+            sed -i '/^class Kernel/,/^{/ {
+              /^{/a\
+              \    public function configureContainer(ContainerConfigurator $container, LoaderInterface $loader, ContainerBuilder $builder): void\
+              \    {\
+              \        parent::configureContainer($container, $loader, $builder);\
+              \        $container->import('\''../config/config.yaml'\'');\
+              \    }
+            }' ${{ inputs.PIMCORE_ROOT }}/src/Kernel.php
+            
+            # Add necessary use statements if not present
+            if ! grep -q "use Symfony\\\\Component\\\\Config\\\\Loader\\\\LoaderInterface" ${{ inputs.PIMCORE_ROOT }}/src/Kernel.php; then
+              sed -i '/^namespace/a\use Symfony\\Component\\Config\\Loader\\LoaderInterface;\nuse Symfony\\Component\\DependencyInjection\\ContainerBuilder;\nuse Symfony\\Component\\DependencyInjection\\Loader\\Configurator\\ContainerConfigurator;' ${{ inputs.PIMCORE_ROOT }}/src/Kernel.php
+            fi
+          fi
+
           composer require torq/pimcore-azure-container-apps:^${{ inputs.AZURE_IMAGE_TAG }}
 
       - name: Copy config files required for running with Azure Flysystem
