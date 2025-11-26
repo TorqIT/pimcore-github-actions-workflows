@@ -1,0 +1,21 @@
+name: Send Slack Message
+description: Sends a message to a Slack channel via incoming webhook
+
+inputs:
+  SLACK_WEBHOOK_URL:
+    description: "The Slack Incoming Webhook URL to send the message to"
+    required: true
+  PAYLOAD:
+    description: "The message to send to Slack"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Send message 
+      if: ${{ inputs.SLACK_WEBHOOK_URL != '' }}
+      uses: slackapi/slack-github-action@v2
+      with:
+        webhook: ${{ inputs.SLACK_WEBHOOK_URL }}
+        webhook-type: incoming-webhook
+        payload: ${{ inputs.PAYLOAD }}

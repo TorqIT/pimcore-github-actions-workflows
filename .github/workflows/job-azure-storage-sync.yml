@@ -31,16 +31,6 @@ on:
         required: false
         type: string
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
-      TIMEOUT_MINUTES:
-        required: false
-        type: number
-        default: 360
-        description: Time in minutes for how long to run the job before GitHub will automatically cancel it. Default 360 (6 hours)
-      AZCOPY_OPTIONS:
-        required: false
-        type: string
-        default: "--recursive --overwrite=true"
-        description: Additional options to pass to azcopy sync command
       SOURCE_STORAGE_ACCOUNT:
         required: true
         type: string
@@ -70,13 +60,8 @@ on:
       DELETE_DESTINATION:
         required: false
         type: boolean
-        default: false
+        default: true
         description: Whether to delete files in destination that don't exist in source (--delete-destination=true)
-      DRY_RUN:
-        required: false
-        type: boolean
-        default: false
-        description: Whether to perform a dry run without actually copying files
       AZURE_TENANT_ID:
         required: true
         type: string
@@ -103,14 +88,10 @@ on:
 
 jobs:
   storage-sync:
-    name: Perform Azure Storage container sync
+    name: Azure Storage Sync
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: ${{ inputs.TIMEOUT_MINUTES }}
 
     steps:
-      - name: Add pipx binaries to PATH
-        run: echo "/root/.local/bin" >> $GITHUB_PATH
-
       - name: Get workflow version
         id: workflow-version
         uses: canonical/get-workflow-version-action@v1
@@ -146,12 +127,15 @@ jobs:
           echo "✓ Target storage account and container validation passed"
 
       - name: Log in to Azure via Service Principal
-        uses: ./reusable-workflow/.github/actions/azure-login
+        uses: azure/cli@v2
         with:
-          SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ inputs.AZURE_TENANT_ID }}
-          SUBSCRIPTION: ${{ inputs.SOURCE_SUBSCRIPTION_ID }}
+          azcliversion: latest
+          inlineScript: |
+            az login --service-principal \
+              -u ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
+              -p ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }} \
+              --tenant ${{ inputs.AZURE_TENANT_ID }}
+            echo "Azure login successful"
 
       - name: Add temporary network rule for this runner to Storage Account firewalls
         uses: azure/cli@v2
@@ -220,21 +204,11 @@ jobs:
           source_url="https://${{ inputs.SOURCE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ inputs.SOURCE_CONTAINER }}"
           target_url="https://${{ inputs.TARGET_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ inputs.TARGET_CONTAINER }}"
 
-          echo "Source URL: $source_url"
-          echo "Target URL: $target_url"
-
-          azcopy_cmd="azcopy sync \"$source_url\" \"$target_url\" ${{ inputs.AZCOPY_OPTIONS }}"
+          azcopy_cmd="azcopy sync \"$source_url\" \"$target_url\""
 
           if [ "${{ inputs.DELETE_DESTINATION }}" = "true" ]; then
             azcopy_cmd="$azcopy_cmd --delete-destination=true"
           fi
-
-          if [ "${{ inputs.DRY_RUN }}" = "true" ]; then
-            azcopy_cmd="$azcopy_cmd --dry-run"
-            echo "Performing DRY RUN - no files will be actually copied"
-          fi
-
-          echo "Executing AzCopy sync with service principal authentication..."
 
           sync_output=$(eval $azcopy_cmd 2>&1)
           sync_exit_code=$?
@@ -247,7 +221,7 @@ jobs:
           files_copied=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Completed: \K\d+" || echo "0")
           files_skipped=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Skipped: \K\d+" || echo "0")
           files_failed=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Failed: \K\d+" || echo "0")
-          bytes_transferred=$(echo "$sync_output" | grep -oP "Total Bytes Transferred: \K\d+" || echo "0")
+          bytes_transferred=$(echo "$sync_output" | grep -oP "Total Number of Bytes Transferred: \K\d+" || echo "0")
 
           if [ "$bytes_transferred" -gt 0 ]; then
             bytes_transferred_mb=$((bytes_transferred / 1024 / 1024))
@@ -315,29 +289,15 @@ jobs:
               --account-name ${{ inputs.TARGET_STORAGE_ACCOUNT }} \
               --ip-address $runnerIp
 
-      - name: Check Slack webhook URL
-        id: check-webhook-url
-        if: always()
-        # Hacky workaround to get around the fact that we cannot reference secrets in a conditional
-        run: |
-          if [ "${{ secrets.SLACK_WEBHOOK_URL }}" != '' ]; then
-            echo "Slack webhook URL is defined"
-            echo "slackWebhookDefined=true" >> $GITHUB_OUTPUT;
-          else
-            echo "Slack webhook URL is not defined"
-            echo "slackWebhookDefined=false" >> $GITHUB_OUTPUT;
-          fi
-
       - name: Send job status to Slack
-        if: ${{ always() && steps.check-webhook-url.outputs.slackWebhookDefined == 'true' }}
-        uses: slackapi/slack-github-action@v2
+        if: ${{ !cancelled() }}
+        uses: ./reusable-workflow/.github/actions/send-slack-message
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "*Azure Storage Sync Job*"
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PAYLOAD: |
+            text: "*Storage Sync Job*"
             blocks:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Storage sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source:* `${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }}`\n*Target:* `${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}`\n*Files Copied:* ${{ steps.sync-operation.outputs.files_copied || 'N/A' }}\n*Data Transferred:* ${{ steps.sync-operation.outputs.bytes_transferred_mb || 'N/A' }}MB\n*Duration:* ${{ steps.sync-operation.outputs.duration || 'N/A' }}s\n*Dry Run:* ${{ inputs.DRY_RUN && 'Yes' || 'No' }}\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  text: "*Azure Storage Account sync job for ${{ github.repository }}*: ${{ job.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n*Source:* `${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }}`\n*Target:* `${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}`\n*Files Copied:* ${{ steps.sync-operation.outputs.files_copied || 'N/A' }}\n*Data Transferred:* ${{ steps.sync-operation.outputs.bytes_transferred_mb || 'N/A' }}MB\n*Duration:* ${{ steps.sync-operation.outputs.duration || 'N/A' }}s\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

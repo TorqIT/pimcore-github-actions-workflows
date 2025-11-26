@@ -1,0 +1,432 @@
+# Performs Storage Account and MySQL sync operations from a source Azure Container Apps environment to a target environment.
+#
+# Requires a Service Principal with sufficient permissions to access Container Apps, Storage Accounts, and MySQL servers in both source and target subscriptions.
+# See https://github.com/TorqIT/pimcore-azure-provisioning/blob/main/provisioning-scripts/provision-syncer-service-principal.sh for a script that will create
+# a suitable Service Principal.
+#
+# Invoke this workflow in your project's workflow as follows:
+# jobs:
+#   sync-with-shutdown:
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-azure-sync-with-container-shutdown.yml@v7
+#     permissions:
+#       contents: read
+#       actions: read
+#     with:
+#       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+#       SOURCE_SUBSCRIPTION_ID: 12345678-90ab-cdef-1234-567890abcdef
+#       TARGET_SUBSCRIPTION_ID: 98765432-10fe-dcba-4321-fedcba098765
+#       TARGET_RESOURCE_GROUP: staging-rg
+#       TARGET_PHP_CONTAINER_APP: staging-php-app
+#       TARGET_SUPERVISORD_CONTAINER_APP: staging-supervisord-app
+#       TARGET_STORAGE_ACCOUNT: stagingstorage
+#       TARGET_MYSQL_HOST: staging.mysql.example.com
+#       TARGET_MYSQL_USERNAME: adminuser
+#       TARGET_MYSQL_DATABASE: staging_db
+#       SOURCE_RESOURCE_GROUP: production-rg
+#       SOURCE_STORAGE_ACCOUNT: prodstorage
+#       SOURCE_MYSQL_HOST: prod.mysql.example.com
+#       SOURCE_MYSQL_USERNAME: adminuser
+#       SOURCE_MYSQL_DATABASE: production_db
+#     secrets:
+#       SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }}
+#       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
+#       SOURCE_MYSQL_PASSWORD: ${{ secrets.PROD_MYSQL_PASSWORD }}
+#       TARGET_MYSQL_PASSWORD: ${{ secrets.STAGING_MYSQL_PASSWORD }}
+#       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+#
+
+name: Azure Sync
+
+on:
+  workflow_call:
+    inputs:
+      RUNNER:
+        required: false
+        type: string
+        default: ubuntu-latest
+        description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
+
+      # Azure Configuration
+      AZURE_TENANT_ID:
+        required: true
+        type: string
+        description: Azure tenant ID
+      SOURCE_SUBSCRIPTION_ID:
+        required: true
+        type: string
+        description: Source subscription ID
+      TARGET_SUBSCRIPTION_ID:
+        required: true
+        type: string
+        description: Target subscription ID
+      TARGET_RESOURCE_GROUP:
+        required: true
+        type: string
+        description: Target resource group where Container Apps are located
+      TARGET_PHP_CONTAINER_APP:
+        required: true
+        type: string
+        description: Name of PHP Container App to shutdown
+      TARGET_SUPERVISORD_CONTAINER_APP:
+        required: true
+        type: string
+        description: Name of supervisord Container App to shutdown
+      SOURCE_RESOURCE_GROUP:
+        required: false
+        type: string
+        description: Azure Resource Group containing the source Storage Account and MySQL server
+      RESTART_APPS_AFTER_SYNC:
+        required: false
+        type: boolean
+        default: true
+        description: Whether to restart apps after sync
+
+      # Storage Sync Inputs
+      SOURCE_STORAGE_ACCOUNT:
+        required: true
+        type: string
+        description: Name of the source Azure Storage Account
+      SOURCE_CONTAINER:
+        required: false
+        type: string
+        default: pimcore-assets
+        description: Name of the source Storage Account container
+      TARGET_STORAGE_ACCOUNT:
+        required: true
+        type: string
+        description: Name of the target Azure Storage Account
+      TARGET_CONTAINER:
+        required: false
+        type: string
+        default: pimcore-assets
+        description: Name of the target Storage Account container
+      DELETE_DESTINATION:
+        required: false
+        type: boolean
+        default: true
+        description: Whether to delete files in destination that don't exist in source (--delete-destination=true)
+
+      # MySQL Sync Inputs
+      SOURCE_MYSQL_HOST:
+        required: true
+        type: string
+        description: Hostname or IP address of the source MySQL server
+      SOURCE_MYSQL_USERNAME:
+        required: true
+        type: string
+        description: Username for connecting to the source MySQL server
+      SOURCE_MYSQL_DATABASE:
+        required: true
+        type: string
+        description: Name of the database/schema to dump from the source server
+      SOURCE_MYSQL_PORT:
+        required: false
+        type: string
+        default: "3306"
+        description: Port number for the source MySQL server
+      SOURCE_MYSQL_SSL_MODE:
+        required: false
+        type: string
+        default: "PREFERRED"
+        description: SSL mode for source connection (DISABLED, PREFERRED, REQUIRED, VERIFY_CA, VERIFY_IDENTITY)
+      TARGET_MYSQL_HOST:
+        required: true
+        type: string
+        description: Hostname or IP address of the target MySQL server
+      TARGET_MYSQL_USERNAME:
+        required: true
+        type: string
+        description: Username for connecting to the target MySQL server
+      TARGET_MYSQL_DATABASE:
+        required: true
+        type: string
+        description: Name of the database/schema to restore to on the target server
+      TARGET_MYSQL_PORT:
+        required: false
+        type: string
+        default: "3306"
+        description: Port number for the target MySQL server
+      TARGET_MYSQL_SSL_MODE:
+        required: false
+        type: string
+        default: "PREFERRED"
+        description: SSL mode for target connection (DISABLED, PREFERRED, REQUIRED, VERIFY_CA, VERIFY_IDENTITY)
+      IGNORE_TABLES:
+        required: false
+        type: string
+        default: "application_logs,messenger_messages,recyclebin,search_backend_data,versions"
+        description: Comma-separated list of tables to ignore during sync (e.g. "table1,table2")
+      DROP_TARGET_BEFORE_RESTORE:
+        required: false
+        type: boolean
+        default: false
+        description: Whether to drop the target database before restoring
+      MYDUMPER_THREADS:
+        required: false
+        type: number
+        default: 8
+        description: Number of threads to use for mydumper/myloader
+      IGNORE_TABLE_PATTERNS:
+        required: false
+        type: string
+        default: "application_logs_archive_.*,messenger_messages_.*"
+        description: Comma-separated list of table name patterns (regex) to ignore during sync (e.g. "cache_.*,temp_.*")
+
+    secrets:
+      SERVICE_PRINCIPAL_ID:
+        required: true
+        description: Azure service principal ID used for authenticating with Azure
+      SERVICE_PRINCIPAL_PASSWORD:
+        required: true
+        description: Azure service principal password used for authenticating with Azure
+      SOURCE_MYSQL_PASSWORD:
+        required: true
+        description: Password for connecting to the source MySQL server
+      TARGET_MYSQL_PASSWORD:
+        required: true
+        description: Password for connecting to the target MySQL server
+      SLACK_WEBHOOK_URL:
+        required: false
+        description: Webhook URL to send job status messages to Slack
+
+jobs:
+  shutdown-target-container-apps:
+    name: Shutdown target Container Apps
+    runs-on: ${{ inputs.RUNNER }}
+
+    steps:
+      - name: Deactivate Container App revisions
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            set -e
+
+            echo "Logging into Azure..."
+            az login \
+              --service-principal \
+              -u "${{ secrets.SERVICE_PRINCIPAL_ID }}" \
+              -p "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}" \
+              --tenant "${{ inputs.AZURE_TENANT_ID }}"
+            az account set --subscription "${{ inputs.TARGET_SUBSCRIPTION_ID }}"
+
+            echo "Fetching active revisions for PHP Container App: ${{ inputs.TARGET_PHP_CONTAINER_APP }}..."
+            activeRevisions=$(az containerapp revision list \
+              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+              --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
+              --query "[?properties.active==\`true\`].name" \
+              --output tsv)
+
+            if [ -z "$activeRevisions" ]; then
+              echo "No active revisions found for PHP Container App"
+            else
+              echo "Deactivating active revisions..."
+              for revision in $activeRevisions
+              do
+                echo "Deactivating revision: $revision"
+                az containerapp revision deactivate \
+                  --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+                  --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
+                  --revision $revision
+              done
+              echo "Successfully deactivated all PHP Container App revisions"
+            fi
+
+            echo "Fetching active revisions for supervisord Container App: ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}..."
+            activeRevisions=$(az containerapp revision list \
+              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+              --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
+              --query "[?properties.active==\`true\`].name" \
+              --output tsv)
+
+            if [ -z "$activeRevisions" ]; then
+              echo "No active revisions found for supervisord Container App"
+            else
+              echo "Deactivating active revisions..."
+              for revision in $activeRevisions
+              do
+                echo "Deactivating revision: $revision"
+                az containerapp revision deactivate \
+                  --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+                  --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
+                  --revision $revision
+              done
+              echo "Successfully deactivated all supervisord Container App revisions"
+            fi
+
+  storage-sync:
+    name: Storage sync
+    needs: shutdown-target-container-apps
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/job-azure-storage-sync.yml
+    with:
+      RUNNER: ${{ inputs.RUNNER }}
+      SOURCE_STORAGE_ACCOUNT: ${{ inputs.SOURCE_STORAGE_ACCOUNT }}
+      SOURCE_CONTAINER: ${{ inputs.SOURCE_CONTAINER }}
+      SOURCE_RESOURCE_GROUP: ${{ inputs.SOURCE_RESOURCE_GROUP }}
+      TARGET_STORAGE_ACCOUNT: ${{ inputs.TARGET_STORAGE_ACCOUNT }}
+      TARGET_CONTAINER: ${{ inputs.TARGET_CONTAINER }}
+      TARGET_RESOURCE_GROUP: ${{ inputs.TARGET_RESOURCE_GROUP }}
+      DELETE_DESTINATION: ${{ inputs.DELETE_DESTINATION }}
+      AZURE_TENANT_ID: ${{ inputs.AZURE_TENANT_ID }}
+      SOURCE_SUBSCRIPTION_ID: ${{ inputs.SOURCE_SUBSCRIPTION_ID }}
+      TARGET_SUBSCRIPTION_ID: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
+    secrets:
+      AZURE_SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+      AZURE_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  mysql-sync:
+    name: MySQL sync
+    needs: shutdown-target-container-apps
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/job-mysql-sync.yml
+    with:
+      RUNNER: ${{ inputs.RUNNER }}
+      SOURCE_HOST: ${{ inputs.SOURCE_MYSQL_HOST }}
+      SOURCE_USERNAME: ${{ inputs.SOURCE_MYSQL_USERNAME }}
+      SOURCE_DATABASE: ${{ inputs.SOURCE_MYSQL_DATABASE }}
+      SOURCE_PORT: ${{ inputs.SOURCE_MYSQL_PORT }}
+      SOURCE_SSL_MODE: ${{ inputs.SOURCE_MYSQL_SSL_MODE }}
+      SOURCE_IS_IN_AZURE: true
+      SOURCE_AZURE_RESOURCE_GROUP: ${{ inputs.SOURCE_RESOURCE_GROUP }}
+      TARGET_HOST: ${{ inputs.TARGET_MYSQL_HOST }}
+      TARGET_USERNAME: ${{ inputs.TARGET_MYSQL_USERNAME }}
+      TARGET_DATABASE: ${{ inputs.TARGET_MYSQL_DATABASE }}
+      TARGET_PORT: ${{ inputs.TARGET_MYSQL_PORT }}
+      TARGET_SSL_MODE: ${{ inputs.TARGET_MYSQL_SSL_MODE }}
+      TARGET_IS_IN_AZURE: true
+      TARGET_AZURE_RESOURCE_GROUP: ${{ inputs.TARGET_RESOURCE_GROUP }}
+      AZURE_TENANT_ID: ${{ inputs.AZURE_TENANT_ID }}
+      AZURE_SOURCE_SUBSCRIPTION_ID: ${{ inputs.SOURCE_SUBSCRIPTION_ID }}
+      AZURE_TARGET_SUBSCRIPTION_ID: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
+      DROP_TARGET_BEFORE_RESTORE: ${{ inputs.DROP_TARGET_BEFORE_RESTORE }}
+      IGNORE_TABLES: ${{ inputs.IGNORE_TABLES }}
+      IGNORE_TABLE_PATTERNS: ${{ inputs.IGNORE_TABLE_PATTERNS }}
+      MYDUMPER_THREADS: ${{ inputs.MYDUMPER_THREADS }}
+    secrets:
+      AZURE_SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+      AZURE_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+      SOURCE_PASSWORD: ${{ secrets.SOURCE_MYSQL_PASSWORD }}
+      TARGET_PASSWORD: ${{ secrets.TARGET_MYSQL_PASSWORD }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  restart-target-container-apps:
+    name: Restart target Container Apps
+    needs: [storage-sync, mysql-sync]
+    if: ${{ always() && inputs.RESTART_APPS_AFTER_SYNC }}
+    runs-on: ${{ inputs.RUNNER }}
+
+    steps:
+      - name: Restart PHP Container App latest deactivated revision
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            set -e
+
+            echo "Logging into Azure..."
+            az login \
+              --service-principal \
+              -u "${{ secrets.SERVICE_PRINCIPAL_ID }}" \
+              -p "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}" \
+              --tenant "${{ inputs.AZURE_TENANT_ID }}"
+            az account set --subscription "${{ inputs.TARGET_SUBSCRIPTION_ID }}"
+
+            # Get the most recent inactive PHP revision (sorted by creation time, newest first)
+            latestInactiveRevision=$(az containerapp revision list \
+              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+              --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
+              --query "[?properties.active==\`false\`] | sort_by(@, &properties.createdTime) | [-1].name" \
+              --all \
+              --output tsv)
+
+            if [ -z "$latestInactiveRevision" ]; then
+              echo "No inactive revisions found for PHP Container App"
+              exit 1
+            fi
+
+            echo "Activating most recent inactive revision: $latestInactiveRevision"
+            az containerapp revision activate \
+              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+              --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
+              --revision $latestInactiveRevision
+
+            echo "PHP Container App restarted revision: $latestInactiveRevision"
+
+            # Get the most recent inactive supervisord revision (sorted by creation time, newest first)
+            latestInactiveRevision=$(az containerapp revision list \
+              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+              --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
+              --query "[?properties.active==\`false\`] | sort_by(@, &properties.createdTime) | [-1].name" \
+              --all \
+              --output tsv)
+
+            if [ -z "$latestInactiveRevision" ]; then
+              echo "No inactive revisions found for supervisord Container App"
+              exit 1
+            fi
+
+            echo "Activating most recent inactive revision: $latestInactiveRevision"
+            az containerapp revision activate \
+              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
+              --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
+              --revision $latestInactiveRevision
+
+            echo "supervisord Container App restarted revision: $latestInactiveRevision"
+
+  send-workflow-status-message:
+    name: Send workflow status message to Slack
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    needs:
+      [
+        shutdown-target-container-apps,
+        storage-sync,
+        mysql-sync,
+        restart-target-container-apps,
+      ]
+    if: ${{ !cancelled() }}
+    steps:
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: job-azure-sync.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Determine overall workflow status
+        id: status
+        run: |
+          set -e
+          if [[  "${{ needs.shutdown-target-container-apps.result }}" != "success" && "${{ needs.shutdown-target-container-apps.result}}" != "cancelled" ]] \
+              || [[ "${{ needs.mysql-sync.result }}" != "success" && "${{ needs.mysql-sync.result}}" != "cancelled" ]] \
+              || [[ "${{ needs.storage-sync.result }}" != "success" && "${{ needs.storage-sync.result}}" != "cancelled" ]] \
+              || [[ "${{ needs.restart-target-container-apps.result }}" != "success" && "${{ needs.restart-target-container-apps.result}}" != "cancelled" ]]; then
+            echo "status=failure" >> $GITHUB_OUTPUT
+          else
+            echo "status=success" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send status to Slack
+        uses: ./reusable-workflow/.github/actions/send-slack-message
+        if: always()
+        with:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PAYLOAD: |
+            text: "*Azure Sync Job"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Azure sync job for ${{ github.repository }}*: ${{ steps.status.outputs.status == 'success' && 'Success! :white_check_mark:' || 'Failed :x:' }}\n\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
