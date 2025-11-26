@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
 
+concurrency:
+  group: "meta-ci-azure-container-apps-pr-${{ github.event.pull_request.number }}"
+  cancel-in-progress: true
+
 env:
   CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-github-actions-workflows
 
