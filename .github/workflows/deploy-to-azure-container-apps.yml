@@ -243,6 +243,7 @@ jobs:
         run: |
           # TODO eventually recipes repo will already be configured in skeleton, at which point this setup can be removed
           composer require symfony/flex --no-install
+          composer config --no-plugins allow-plugins.symfony/flex true
           composer config extra.symfony.endpoint "https://api.github.com/repos/TorqIT/recipes/contents/index.json?ref=flex/main"
           composer require torq/pimcore-azure-container-apps:^${{ inputs.AZURE_IMAGE_TAG }}
 
