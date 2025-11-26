@@ -175,6 +175,11 @@ on:
         type: string
         default: "2"
         description: "Tag to use when pulling the TORQ Azure provisioning image (https://github.com/TorqIT/pimcore-azure-provisioning)"
+      INSTALL_RECIPE:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to install the Azure Container Apps recipe"
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -230,6 +235,17 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
+      - name: Install tools for workflows/actions
+        uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Install Azure recipe
+        if: ${{ inputs.INSTALL_RECIPE }}
+        run: |
+          # TODO eventually recipes repo will already be configured in skeleton, at which point this setup can be removed
+          composer require symfony/flex --no-install
+          composer config extra.symfony.endpoint "https://api.github.com/repos/TorqIT/recipes/contents/index.json?ref=flex/main"
+          composer require torq/pimcore-azure-container-apps:^${{ inputs.AZURE_IMAGE_TAG }}
+
       - name: Copy config files required for running with Azure Flysystem
         uses: ./reusable-workflow/.github/actions/azure-flysystem-copy-config
         with:
@@ -239,9 +255,6 @@ jobs:
         uses: ./reusable-workflow/.github/actions/azure-mysql-copy-config
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-
-      - name: Install tools for workflows/actions
-        uses: ./reusable-workflow/.github/actions/setup-tools
 
       - name: Lint files
         if: ${{ inputs.SKIP_LINTING == false }}

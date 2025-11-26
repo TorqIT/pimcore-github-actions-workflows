@@ -52,6 +52,7 @@ jobs:
       ENVIRONMENT: ci
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: 2024.x
+      INSTALL_RECIPE: true
     secrets:
       SERVICE_PRINCIPAL_ID: ${{ secrets.CI_SERVICE_PRINCIPAL_ID }}
       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
