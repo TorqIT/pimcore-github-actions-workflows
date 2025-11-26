@@ -140,9 +140,6 @@ jobs:
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
 
-      - name: Set up Docker
-        uses: ./reusable-workflow/.github/actions/setup-docker
-
       - name: Build init image
         uses: ./reusable-workflow/.github/actions/build-docker-image
         with:

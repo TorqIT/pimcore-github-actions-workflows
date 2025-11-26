@@ -4,6 +4,13 @@ description: "Installs tools required by workflows and actions"
 runs: 
   using: "composite"
   steps:
+    - name: Set up Docker QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v3
+
     - name: Install jq
       uses: dcarbone/install-jq-action@b7ef57d46ece78760b4019dbc4080a1ba2a40b45
       with:

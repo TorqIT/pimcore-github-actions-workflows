@@ -247,13 +247,6 @@ jobs:
         if: ${{ inputs.SKIP_LINTING == false }}
         uses: ./reusable-workflow/.github/actions/lint
 
-      - name: Set up Docker
-        uses: ./reusable-workflow/.github/actions/setup-docker
-        with:
-          CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
-          CONTAINER_REGISTRY_USERNAME: ${{ inputs.CONTAINER_REGISTRY_USERNAME }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CONTAINER_REGISTRY_PASSWORD || secrets.CALLER_GITHUB_TOKEN }}
-
       - name: Build init image
         uses: ./reusable-workflow/.github/actions/build-pimcore-image
         if: ${{ inputs.INIT }}

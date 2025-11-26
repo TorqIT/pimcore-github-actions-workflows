@@ -277,9 +277,6 @@ jobs:
           TENANT: ${{ vars.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Set up Docker
-        uses: ./reusable-workflow/.github/actions/setup-docker
-
       - name: Build init image
         uses: ./reusable-workflow/.github/actions/build-docker-image
         with:
