@@ -39,7 +39,7 @@ jobs:
                 --service-principal \
                   --username "$SERVICE_PRINCIPAL_ID" \
                   --password "$SERVICE_PRINCIPAL_PASSWORD" \
-              && ./provision.sh
+              && ./provision.sh parameters.json
             '
 
   test-deploy-to-azure-container-apps-workflow:
