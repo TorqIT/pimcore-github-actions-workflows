@@ -279,10 +279,6 @@ jobs:
 
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
-        with:
-          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
 
       - name: Build init image
         uses: ./reusable-workflow/.github/actions/build-docker-image
@@ -349,6 +345,8 @@ jobs:
         uses: ./reusable-workflow/.github/actions/push-docker-image
         with:
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           BUILD_TAG: init:latest
           PUSH_TAGS: >
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:latest
@@ -358,6 +356,8 @@ jobs:
         uses: ./reusable-workflow/.github/actions/push-docker-image
         with:
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           BUILD_TAG: php:latest
           PUSH_TAGS: >
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:latest
@@ -367,6 +367,8 @@ jobs:
         uses: ./reusable-workflow/.github/actions/push-docker-image
         with:
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           BUILD_TAG: supervisord:latest
           PUSH_TAGS: >
             supervisord:latest
