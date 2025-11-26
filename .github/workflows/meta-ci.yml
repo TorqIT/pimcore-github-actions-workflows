@@ -31,6 +31,7 @@ jobs:
           DOCKERFILE_PATH: "./pimcore-skeleton/.docker/Dockerfile"
           DOCKERFILE_TARGET: "init"
           PIMCORE_ROOT: "./pimcore-skeleton"
+          DOCKER_CONTEXT: "./pimcore-skeleton"
 
       - name: Build PHP image
         uses: ./.github/actions/build-docker-image
@@ -38,6 +39,7 @@ jobs:
           DOCKERFILE_PATH: "./pimcore-skeleton/.docker/Dockerfile"
           DOCKERFILE_TARGET: "php"
           PIMCORE_ROOT: "./pimcore-skeleton"
+          DOCKER_CONTEXT: "./pimcore-skeleton"
 
       - name: Build supervisord image
         uses: ./.github/actions/build-docker-image
@@ -45,3 +47,4 @@ jobs:
           DOCKERFILE_PATH: "./pimcore-skeleton/.docker/Dockerfile"
           DOCKERFILE_TARGET: "supervisord"
           PIMCORE_ROOT: "./pimcore-skeleton"
+          DOCKER_CONTEXT: "./pimcore-skeleton"
