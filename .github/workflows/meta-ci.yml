@@ -48,3 +48,29 @@ jobs:
           DOCKERFILE_TARGET: "supervisord"
           PIMCORE_ROOT: "./pimcore-skeleton"
           DOCKER_CONTEXT: "./pimcore-skeleton"
+
+      # TODO run tests...
+
+      - name: Push init image
+        uses: ./.github/actions/push-docker-image
+        with:
+          TAGS: "{{ github.pull_request.number }}"
+          CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-skeleton/init
+          CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
+
+      - name: Push PHP image
+        uses: ./.github/actions/push-docker-image
+        with:
+          TAGS: "{{ github.pull_request.number }}"
+          CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-skeleton/php
+          CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
+
+      - name: Push supervisord image
+        uses: ./.github/actions/push-docker-image
+        with:
+          TAGS: "{{ github.pull_request.number }}"
+          CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-skeleton/supervisord
+          CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
