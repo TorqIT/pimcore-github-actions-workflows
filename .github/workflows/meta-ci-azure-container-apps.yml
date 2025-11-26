@@ -50,7 +50,7 @@ jobs:
     uses: ./.github/workflows/deploy-to-azure-container-apps.yml
     with:
       ENVIRONMENT: ci
-      PROJECT_REPOSITORY: github.com/TorqIT/pimcore-skeleton
+      PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: 2024.x
     secrets:
       SERVICE_PRINCIPAL_ID: ${{ secrets.CI_SERVICE_PRINCIPAL_ID }}
