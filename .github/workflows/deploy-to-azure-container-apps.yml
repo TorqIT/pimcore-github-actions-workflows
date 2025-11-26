@@ -83,6 +83,16 @@ on:
         required: false
         type: string
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
+      PROJECT_REPOSITORY:
+        required: false
+        type: string
+        default: "${{ github.repository }}"
+        description: "The repository containing the Pimcore project to deploy"
+      PROJECT_REPOSITORY_REF:
+        required: false
+        type: string
+        default: "${{ github.ref }}"
+        description: "The branch, tag or commit SHA to checkout from the Pimcore project repository"
       SKIP_LINTING:
         required: false
         type: boolean
@@ -200,6 +210,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: ${{ inputs.SUBMODULES }}
+          repository: ${{ inputs.PROJECT_REPOSITORY }}
+          ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           fetch-depth: 0
 
       - name: Get workflow version

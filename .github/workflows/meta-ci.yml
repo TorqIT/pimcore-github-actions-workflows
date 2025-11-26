@@ -2,7 +2,7 @@ name: "CI"
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, closed]
 
 env:
   CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-github-actions-workflows
@@ -21,9 +21,11 @@ jobs:
       - name: Lint files
         uses: ./.github/actions/lint
 
-  build-pimcore-skeleton-images:
-    name: "Build and push Pimcore skeleton Docker images"
+  provision-azure-resources:
+    name: "Provision Azure resources"
     runs-on: ubuntu-latest
+    environment: ci
+    if: github.event.action != 'closed'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,65 +33,61 @@ jobs:
       - name: Set up tools
         uses: ./.github/actions/setup-tools
 
-      - name: Checkout TorqIT/pimcore-skeleton:2024.x
+      - name: Prepare Azure parameters
+        run: |
+          sed -i "s/{placeholder}/${{ github.event.pull_request.number }}/g" .ci/azure/parameters.json
+
+      - name: Provision Azure resources
+        shell: bash
+        run: |
+          docker run \
+            -v "${{ github.workspace }}/.ci/azure/parameters.json:/azure/parameters.json:ro" \
+            ghcr.io/torqit/pimcore-azure-provisioning:2 \
+            bash -c " \
+              az login --tenant ${{ vars.AZURE_TENANT_ID }} \
+              --service-principal \
+              --username ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
+              --password ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }} \
+              && ./provision.sh
+            "
+
+  deploy-to-container-apps:
+    needs: provision-azure-resources
+    uses: ./.github/workflows/deploy-to-azure-container-apps.yml
+    with:
+      ENVIRONMENT: ci
+      PROJECT_REPOSITORY: github.com/TorqIT/pimcore-skeleton
+      PROJECT_REPOSITORY_REF: 2024.x
+    secrets: inherit
+
+  destroy-azure-resources:
+    name: "Destroy Azure resources"
+    runs-on: ubuntu-latest
+    environment: ci
+    if: github.event.action == 'closed'
+    steps:
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          repository: TorqIT/pimcore-skeleton
-          ref: 2024.x
-          path: pimcore-skeleton
 
-      - name: Build init image
-        uses: ./.github/actions/build-docker-image
-        with:
-          DOCKERFILE_PATH: "./pimcore-skeleton/.docker/Dockerfile"
-          DOCKERFILE_TARGET: "init"
-          PIMCORE_ROOT: "./pimcore-skeleton"
-          DOCKER_CONTEXT: "./pimcore-skeleton"
-          TAGS: "init:ci"
+      - name: Set up tools
+        uses: ./.github/actions/setup-tools
 
-      - name: Build PHP image
-        uses: ./.github/actions/build-docker-image
-        with:
-          DOCKERFILE_PATH: "./pimcore-skeleton/.docker/Dockerfile"
-          DOCKERFILE_TARGET: "php"
-          PIMCORE_ROOT: "./pimcore-skeleton"
-          DOCKER_CONTEXT: "./pimcore-skeleton"
-          TAGS: "php:ci"
+      - name: Prepare Azure parameters
+        run: |
+          sed -i "s/{placeholder}/${{ github.event.pull_request.number }}/g" .ci/azure/parameters.json
 
-      - name: Build supervisord image
-        uses: ./.github/actions/build-docker-image
-        with:
-          DOCKERFILE_PATH: "./pimcore-skeleton/.docker/Dockerfile"
-          DOCKERFILE_TARGET: "supervisord"
-          PIMCORE_ROOT: "./pimcore-skeleton"
-          DOCKER_CONTEXT: "./pimcore-skeleton"
-          TAGS: "supervisord:ci"
-
-      # TODO run tests...
-
-      - name: Push init image
-        uses: ./.github/actions/push-docker-image
-        with:
-          BUILD_TAG: "init:ci"
-          CONTAINER_REGISTRY: ${{ env.CONTAINER_REGISTRY }}/init
-          CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
-          PUSH_TAGS: "${{ env.CONTAINER_REGISTRY }}/init:${{ github.event.pull_request.number }}"
-
-      - name: Push PHP image
-        uses: ./.github/actions/push-docker-image
-        with:
-          BUILD_TAG: "php:ci"
-          CONTAINER_REGISTRY: ${{ env.CONTAINER_REGISTRY }}/php
-          CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
-          PUSH_TAGS: "${{ env.CONTAINER_REGISTRY }}/php:${{ github.event.pull_request.number }}"
-
-      - name: Push supervisord image
-        uses: ./.github/actions/push-docker-image
-        with:
-          BUILD_TAG: "supervisord:ci"
-          CONTAINER_REGISTRY: ${{ env.CONTAINER_REGISTRY }}/supervisord
-          CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
-          PUSH_TAGS: "${{ env.CONTAINER_REGISTRY }}/supervisord:${{ github.event.pull_request.number }}"
+      - name: Destroy Azure resources
+        shell: bash
+        continue-on-error: true
+        run: |
+          docker run \
+            -v "${{ github.workspace }}/.ci/azure/parameters.json:/azure/parameters.json:ro" \
+            ghcr.io/torqit/pimcore-azure-provisioning:2 \
+            bash -c " \
+              az login --tenant ${{ vars.AZURE_TENANT_ID }} \
+              --service-principal \
+              --username ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
+              --password ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }} \
+              && az group delete --name $(jq -r '.resourceGroupName.value' /azure/parameters.json) --yes --no-wait \
+              && az keyvault purge --name $(jq -r '.keyVaultName.value' /azure/parameters.json)
+            "

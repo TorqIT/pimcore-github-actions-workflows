@@ -1,0 +1,111 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "subscriptionId": {
+      "value": "27cab9a2-4a98-4eab-86ca-296494dbbcf2"
+    },
+    "tenantId": {
+      "value": "6f8ae12a-9b31-4877-b46f-c0590040b1fb"
+    },
+    "resourceGroupName": {
+      "value": "pimcore-github-{placeholder}-rg-ci"
+    },
+    "provisionServicePrincipal": {
+      "value": false
+    },
+    "location": {
+      "value": "canadacentral"
+    },
+    "keyVaultName": {
+      "value": "pimcore-github-{placeholder}-rg-ci"
+    },
+    "keyVaultEnablePurgeProtection": {
+      "value": false
+    },
+    "keyVaultGenerateRandomSecrets": {
+      "value": true
+    },
+    "containerRegistryName": {
+      "value": "pimcoregithub{placeholder}cr"
+    },
+    "containerRegistrySku": {
+      "value": "Basic"
+    },
+    "virtualNetworkName": {
+      "value": "pimcore-github-{placeholder}-vnet-ci"
+    },
+    "virtualNetworkPrivateEndpointsSubnetName": {
+      "value": "private-endpoints"
+    },
+    "storageAccountName": {
+      "value": "pimcoregithub{placeholder}sa"
+    },
+    "storageAccountFileShares": {
+      "value": [
+        {
+          "name": "uploads"
+        }
+      ]
+    },
+    "storageAccountLongTermBackups": {
+      "value": false
+    },
+    "databaseServerName": {
+      "value": "pimcore-github-{placeholder}-db-ci"
+    },
+    "containerAppsEnvironmentName": {
+      "value": "pimcore-github-{placeholder}-cae-ci"
+    },
+    "provisionInit": {
+      "value": true
+    },
+    "initContainerAppJobName": {
+      "value": "pimcore-github-{placeholder}-init-ci"
+    },
+    "initContainerAppJobRunPimcoreInstall": {
+      "value": true
+    },
+    "phpContainerAppExternal": {
+      "value": true
+    },
+    "phpContainerAppName": {
+      "value": "pimcore-github-{placeholder}-php-ci"
+    },
+    "phpContainerAppMinReplicas": {
+      "value": 0
+    },
+    "supervisordContainerAppName": {
+      "value": "pimcore-github-{placeholder}-supervisord-ci"
+    },
+    "redisContainerAppName": {
+      "value": "pimcore-github-{placeholder}-redis-ci"
+    },
+    "appDebug": {
+      "value": "1"
+    },
+    "appEnv": {
+      "value": "test_env"
+    },
+    "pimcoreDev": {
+      "value": "1"
+    },
+    "pimcoreEnvironment": {
+      "value": "dev"
+    },
+    "redisDb": {
+      "value": "12"
+    },
+    "redisSessionDb": {
+      "value": "14"
+    },
+    "additionalEnvVars": {
+      "value": []
+    },
+    "additionalSecrets": {
+      "value": {
+        "array": []
+      }
+    }
+  }
+}
