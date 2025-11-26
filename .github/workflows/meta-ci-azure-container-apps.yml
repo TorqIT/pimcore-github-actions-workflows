@@ -8,11 +8,26 @@ env:
   CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-github-actions-workflows
 
 jobs:
+  check-provisioning-status:
+    name: "Check if Azure resources are already provisioned"
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
+    outputs:
+      cache-hit: ${{ steps.cache-check.outputs.cache-hit }}
+    steps:
+      - name: Check for provisioning completion flag
+        id: cache-check
+        uses: actions/cache/restore@v4
+        with:
+          path: .provisioned
+          key: azure-provisioned-pr-${{ github.event.pull_request.number }}
+
   provision-azure-resources:
     name: "Provision Azure resources"
     runs-on: ubuntu-latest
     environment: ci
-    if: github.event.action != 'closed'
+    needs: check-provisioning-status
+    if: github.event.action != 'closed' && needs.check-provisioning-status.outputs.cache-hit != 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -43,16 +58,27 @@ jobs:
               && ./provision.sh parameters.json
             '
 
+      - name: Create provisioning completion flag
+        run: |
+          mkdir -p .provisioned
+          echo "Provisioned on $(date -u +"%Y-%m-%d %H:%M:%S UTC")" > .provisioned/timestamp
+
+      - name: Save provisioning completion flag
+        uses: actions/cache/save@v4
+        with:
+          path: .provisioned
+          key: azure-provisioned-pr-${{ github.event.pull_request.number }}
+
   # TODO requires manual creation of GitHub Environment and variables. In future would be good to automate this - or perhaps move the workflow to use "inputs"
   test-deploy-to-azure-container-apps-workflow:
-    name: "Test deploy to Azure"
-    needs: provision-azure-resources
+    name: "Test deploy to Azure Container Apps workflow"
+    needs: [check-provisioning-status, provision-azure-resources]
+    if: always() && github.event.action != 'closed' && (needs.provision-azure-resources.result == 'success' || needs.provision-azure-resources.result == 'skipped')
     uses: ./.github/workflows/deploy-to-azure-container-apps.yml
     with:
       ENVIRONMENT: ci
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: 2024.x
-      INSTALL_RECIPE: true
     secrets:
       SERVICE_PRINCIPAL_ID: ${{ secrets.CI_SERVICE_PRINCIPAL_ID }}
       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
