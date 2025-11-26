@@ -253,7 +253,7 @@ jobs:
           composer config extra.symfony.endpoint "https://api.github.com/repos/TorqIT/recipes/contents/index.json?ref=flex/main"
           composer config extra.symfony.allow-contrib true
 
-          composer require torq/pimcore-azure-container-apps:^${{ inputs.AZURE_IMAGE_TAG }} --no-install
+          composer require torq/pimcore-azure-container-apps:^${{ inputs.AZURE_IMAGE_TAG }}
 
       - name: Copy config files required for running with Azure Flysystem
         uses: ./reusable-workflow/.github/actions/azure-flysystem-copy-config
