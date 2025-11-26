@@ -61,7 +61,7 @@ jobs:
           CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-skeleton/init
           CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
           CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
-          PUSH_TAGS: "ghcr.io/torqit/pimcore-skeleton/init:{{ github.pull_request.number }}"
+          PUSH_TAGS: "ghcr.io/torqit/pimcore-skeleton/init:${{ github.event.pull_request.number }}"
 
       - name: Push PHP image
         uses: ./.github/actions/push-docker-image
@@ -70,7 +70,7 @@ jobs:
           CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-skeleton/php
           CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
           CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
-          PUSH_TAGS: "ghcr.io/torqit/pimcore-skeleton/php:{{ github.pull_request.number }}"
+          PUSH_TAGS: "ghcr.io/torqit/pimcore-skeleton/php:${{ github.event.pull_request.number }}"
 
       - name: Push supervisord image
         uses: ./.github/actions/push-docker-image
@@ -79,4 +79,4 @@ jobs:
           CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-skeleton/supervisord
           CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
           CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
-          PUSH_TAGS: "ghcr.io/torqit/pimcore-skeleton/supervisord:{{ github.pull_request.number }}"
+          PUSH_TAGS: "ghcr.io/torqit/pimcore-skeleton/supervisord:${{ github.event.pull_request.number }}"
