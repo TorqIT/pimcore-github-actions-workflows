@@ -32,6 +32,7 @@ jobs:
             -e SERVICE_PRINCIPAL_ID="${{ secrets.CI_SERVICE_PRINCIPAL_ID }}" \
             -e SERVICE_PRINCIPAL_PASSWORD="${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}" \
             -v "${{ github.workspace }}/.ci/azure/parameters.json:/azure/parameters.json:ro" \
+            -v /var/run/docker.sock:/var/run/docker.sock:ro \
             ghcr.io/torqit/pimcore-azure-provisioning:2 \
             bash -c ' \
               az login \
@@ -79,6 +80,7 @@ jobs:
             -e SERVICE_PRINCIPAL_ID="${{ secrets.CI_SERVICE_PRINCIPAL_ID }}" \
             -e SERVICE_PRINCIPAL_PASSWORD="${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}" \
             -v "${{ github.workspace }}/.ci/azure/parameters.json:/azure/parameters.json:ro" \
+            -v /var/run/docker.sock:/var/run/docker.sock:ro \
             ghcr.io/torqit/pimcore-azure-provisioning:2 \
             bash -c ' \
               az login \
