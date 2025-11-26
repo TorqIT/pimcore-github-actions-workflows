@@ -32,6 +32,7 @@ jobs:
           DOCKERFILE_TARGET: "init"
           PIMCORE_ROOT: "./pimcore-skeleton"
           DOCKER_CONTEXT: "./pimcore-skeleton"
+          TAGS: "init:ci"
 
       - name: Build PHP image
         uses: ./.github/actions/build-docker-image
@@ -40,6 +41,7 @@ jobs:
           DOCKERFILE_TARGET: "php"
           PIMCORE_ROOT: "./pimcore-skeleton"
           DOCKER_CONTEXT: "./pimcore-skeleton"
+          TAGS: "php:ci"
 
       - name: Build supervisord image
         uses: ./.github/actions/build-docker-image
@@ -48,29 +50,33 @@ jobs:
           DOCKERFILE_TARGET: "supervisord"
           PIMCORE_ROOT: "./pimcore-skeleton"
           DOCKER_CONTEXT: "./pimcore-skeleton"
+          TAGS: "supervisord:ci"
 
       # TODO run tests...
 
       - name: Push init image
         uses: ./.github/actions/push-docker-image
         with:
-          TAGS: "{{ github.pull_request.number }}"
+          BUILD_TAGS: "init:ci"
           CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-skeleton/init
           CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
           CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
+          PUSH_TAGS: "ghcr.io/torqit/pimcore-skeleton/init:{{ github.pull_request.number }}"
 
       - name: Push PHP image
         uses: ./.github/actions/push-docker-image
         with:
-          TAGS: "{{ github.pull_request.number }}"
+          BUILD_TAGS: "php:ci"
           CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-skeleton/php
           CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
           CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
+          PUSH_TAGS: "ghcr.io/torqit/pimcore-skeleton/php:{{ github.pull_request.number }}"
 
       - name: Push supervisord image
         uses: ./.github/actions/push-docker-image
         with:
-          TAGS: "{{ github.pull_request.number }}"
+          BUILD_TAGS: "supervisord:ci"
           CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-skeleton/supervisord
           CONTAINER_REGISTRY_USERNAME: ${{ github.actor }}
           CONTAINER_REGISTRY_PASSWORD: ${{ github.token }}
+          PUSH_TAGS: "ghcr.io/torqit/pimcore-skeleton/supervisord:{{ github.pull_request.number }}"
