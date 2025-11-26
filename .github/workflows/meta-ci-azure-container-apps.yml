@@ -27,21 +27,20 @@ jobs:
       - name: Provision Azure resources
         shell: bash
         run: |
-          # AZURE_TENANT_ID=${{ vars.AZURE_TENANT_ID }} \
-          AZURE_TENANT_ID="6f8ae12a-9b31-4877-b46f-c0590040b1fb" \
-          SERVICE_PRINCIPAL_ID=${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
-          SERVICE_PRINCIPAL_PASSWORD=${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }} \
           docker run \
+            -e AZURE_TENANT_ID="${{ vars.AZURE_TENANT_ID }}" \
+            -e SERVICE_PRINCIPAL_ID="${{ secrets.CI_SERVICE_PRINCIPAL_ID }}" \
+            -e SERVICE_PRINCIPAL_PASSWORD="${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}" \
             -v "${{ github.workspace }}/.ci/azure/parameters.json:/azure/parameters.json:ro" \
             ghcr.io/torqit/pimcore-azure-provisioning:2 \
-            bash -c " \
+            bash -c ' \
               az login \
-                --tenant $AZURE_TENANT_ID \
+                --tenant "$AZURE_TENANT_ID" \
                 --service-principal \
-                  --username $SERVICE_PRINCIPAL_ID \
-                  --password $SERVICE_PRINCIPAL_PASSWORD \
+                  --username "$SERVICE_PRINCIPAL_ID" \
+                  --password "$SERVICE_PRINCIPAL_PASSWORD" \
               && ./provision.sh
-            "
+            '
 
   deploy-to-container-apps:
     needs: provision-azure-resources
@@ -50,7 +49,9 @@ jobs:
       ENVIRONMENT: ci
       PROJECT_REPOSITORY: github.com/TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: 2024.x
-    secrets: inherit
+    secrets:
+      SERVICE_PRINCIPAL_ID: ${{ secrets.CI_SERVICE_PRINCIPAL_ID }}
+      SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
 
   destroy-azure-resources:
     name: "Destroy Azure resources"
@@ -72,18 +73,18 @@ jobs:
         shell: bash
         continue-on-error: true
         run: |
-          AZURE_TENANT_ID=${{ vars.AZURE_TENANT_ID }} \
-          SERVICE_PRINCIPAL_ID=${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
-          SERVICE_PRINCIPAL_PASSWORD=${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }} \
           docker run \
+            -e AZURE_TENANT_ID="${{ vars.AZURE_TENANT_ID }}" \
+            -e SERVICE_PRINCIPAL_ID="${{ secrets.CI_SERVICE_PRINCIPAL_ID }}" \
+            -e SERVICE_PRINCIPAL_PASSWORD="${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}" \
             -v "${{ github.workspace }}/.ci/azure/parameters.json:/azure/parameters.json:ro" \
             ghcr.io/torqit/pimcore-azure-provisioning:2 \
-            bash -c " \
+            bash -c ' \
               az login \
-                --tenant $AZURE_TENANT_ID \
+                --tenant "$AZURE_TENANT_ID" \
                 --service-principal \
-                  --username $SERVICE_PRINCIPAL_ID \
-                  --password $SERVICE_PRINCIPAL_PASSWORD \
-              && az group delete --name $(jq -r '.resourceGroupName.value' /azure/parameters.json) --yes --no-wait \
-              && az keyvault purge --name $(jq -r '.keyVaultName.value' /azure/parameters.json)
-            "
+                  --username "$SERVICE_PRINCIPAL_ID" \
+                  --password "$SERVICE_PRINCIPAL_PASSWORD" \
+              && az group delete --name $(jq -r ".resourceGroupName.value" /azure/parameters.json) --yes --no-wait \
+              && az keyvault purge --name $(jq -r ".keyVaultName.value" /azure/parameters.json)
+            '
