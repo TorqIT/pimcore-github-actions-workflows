@@ -42,6 +42,7 @@ jobs:
               && ./provision.sh parameters.json
             '
 
+  # TODO requires manual creation of GitHub Environment and variables. In future would be good to automate this - or perhaps move the workflow to use "inputs"
   test-deploy-to-azure-container-apps-workflow:
     name: "Test deploy to Azure Container Apps workflow"
     needs: provision-azure-resources
