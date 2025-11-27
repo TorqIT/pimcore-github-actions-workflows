@@ -37,6 +37,8 @@ runs:
           echo "Tagging and pushing: $push_tag"
           docker tag "${{ inputs.BUILD_TAG }}" "$push_tag"
           docker push "$push_tag"
+          docker rmi "${{ inputs.BUILD_TAG }}"
+          docker rmi "$push_tag"
         done
 
     - name: Log out from Container Registry ${{ inputs.CONTAINER_REGISTRY }}
