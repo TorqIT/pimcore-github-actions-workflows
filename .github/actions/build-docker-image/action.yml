@@ -1,12 +1,6 @@
 name: "Build Docker Image"
 description: "Builds a Docker image"
 inputs:
-  CACHE_FROM:
-    required: false
-    description: "Defines where to pull cached Docker layers from"
-  CACHE_TO:
-    required: false
-    description: "Defines where to push cached Docker layers to"
   TAGS:
     required: false
     description: "A space-separated list of tags to build the Docker image with"
@@ -122,22 +116,20 @@ runs:
       shell: bash
 
     - name: Build image
-      uses: docker/build-push-action@v6
-      with:
-        context: ${{ inputs.DOCKER_CONTEXT }}
-        file: ${{ inputs.DOCKERFILE_PATH }}
-        target: ${{ inputs.DOCKERFILE_TARGET }}
-        build-args: |
-          ${{ steps.build-args.outputs.args }}
-        # During the build, several secret values don't actually matter but still need to be present (e.g. kernel-secret, pimcore-encryption-secret),
-        # so we simply add dummy values here
-        secrets: |
-          kernel-secret=secret
-          pimcore-encryption-secret=secret
-          pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
-          torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
-          ${{ steps.build-secrets.outputs.secrets }}
-        cache-from: ${{ inputs.CACHE_FROM }}
-        cache-to: ${{ inputs.CACHE_TO }}
-        tags: ${{ inputs.TAGS }}
-        load: true
+      shell: bash
+      run: |
+        docker buildx build \
+          --file ${{ inputs.DOCKERFILE_PATH }} \
+          --target ${{ inputs.DOCKERFILE_TARGET }} \
+          --build-arg ${{ steps.build-args.outputs.args }} \
+          --secret id=kernel-secret,env=KERNEL_SECRET \
+          --secret id=pimcore-encryption-secret,env=PIMCORE_ENCRYPTION_SECRET \
+          --secret id=pimcore-enterprise-token,env=PIMCORE_ENTERPRISE_TOKEN \
+          --secret id=torq-github-token,env=TORQ_GITHUB_TOKEN \
+          ${{ inputs.TAGS && format('--tag {0}', inputs.TAGS) || '' }} \
+          ${{ inputs.DOCKER_CONTEXT }}
+      env:
+        KERNEL_SECRET: secret
+        PIMCORE_ENCRYPTION_SECRET: secret
+        PIMCORE_ENTERPRISE_TOKEN: ${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
+        TORQ_GITHUB_TOKEN: ${{ inputs.TORQ_GITHUB_TOKEN }}

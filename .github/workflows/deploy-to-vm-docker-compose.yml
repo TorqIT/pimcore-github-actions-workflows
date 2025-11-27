@@ -274,8 +274,6 @@ jobs:
           NPM_SPA: ${{ inputs.NPM_SPA }}
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
           TAGS: php:latest
 
       - name: Build supervisord image
