@@ -1,0 +1,17 @@
+name: "CI for Docker-based projects"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: "meta-ci-docker-pr-${{ github.event.pull_request.number }}"
+  cancel-in-progress: true
+
+jobs:
+  test-ci:
+    name: "Test reusable CI workflow"
+    uses: ./.github/workflows/ci-docker.yml
+    with:
+      PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
+      PROJECT_REPOSITORY_REF: 2024.x
