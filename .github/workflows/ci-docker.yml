@@ -155,7 +155,7 @@ jobs:
         uses: ./reusable-workflow/.github/actions/lint
 
   build-init:
-    name: Build image
+    name: Build init image
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Checkout repository
