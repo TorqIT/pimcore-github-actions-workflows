@@ -41,5 +41,6 @@ runs:
 
     - name: Log out from Container Registry ${{ inputs.CONTAINER_REGISTRY }}
       shell: bash
+      if: always()
       run: |
         docker logout ${{ inputs.CONTAINER_REGISTRY }}
