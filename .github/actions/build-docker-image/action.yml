@@ -132,3 +132,4 @@ runs:
           torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
           ${{ steps.build-secrets.outputs.secrets }}
         tags: ${{ inputs.TAGS }}
+        load: true
