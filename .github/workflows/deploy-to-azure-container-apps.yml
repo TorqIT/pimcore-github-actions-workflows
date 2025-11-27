@@ -83,11 +83,26 @@ on:
         required: false
         type: string
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
+      PROJECT_REPOSITORY:
+        required: false
+        type: string
+        default: "${{ github.repository }}"
+        description: "The repository containing the Pimcore project to deploy"
+      PROJECT_REPOSITORY_REF:
+        required: false
+        type: string
+        default: "${{ github.ref }}"
+        description: "The branch, tag or commit SHA to checkout from the Pimcore project repository"
       SKIP_LINTING:
         required: false
         type: boolean
         default: false
         description: "Whether linting should be skipped"
+      SKIP_AZURE_INFRA_CHANGES:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether applying Azure infrastructure changes should be skipped"
       BUILD_TIME_ARGS:
         required: false
         type: string
@@ -165,6 +180,11 @@ on:
         type: string
         default: "2"
         description: "Tag to use when pulling the TORQ Azure provisioning image (https://github.com/TorqIT/pimcore-azure-provisioning)"
+      INSTALL_RECIPE:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to install the Azure Container Apps recipe"
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -200,6 +220,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: ${{ inputs.SUBMODULES }}
+          repository: ${{ inputs.PROJECT_REPOSITORY }}
+          ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           fetch-depth: 0
 
       - name: Get workflow version
@@ -218,6 +240,39 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
+      - name: Install tools for workflows/actions
+        uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Install Azure recipe
+        if: ${{ inputs.INSTALL_RECIPE }}
+        run: |
+          # TODO eventually recipes repo will already be configured in skeleton, at which point this setup can be removed
+          composer require "symfony/property-info:^6.4" --no-install
+          composer require symfony/flex --no-install
+          composer config --no-plugins allow-plugins.symfony/flex true
+          composer config extra.symfony.endpoint "https://api.github.com/repos/TorqIT/recipes/contents/index.json?ref=flex/main"
+          composer config extra.symfony.allow-contrib true
+
+          # TODO necessary until skeleton contains this Kernel fix
+          # Add configureContainer method to Kernel if it doesn't exist
+          if ! grep -q "configureContainer" ${{ inputs.PIMCORE_ROOT }}/src/Kernel.php; then
+            sed -i '/^class Kernel/,/^{/ {
+              /^{/a\
+              \    public function configureContainer(ContainerConfigurator $container, LoaderInterface $loader, ContainerBuilder $builder): void\
+              \    {\
+              \        parent::configureContainer($container, $loader, $builder);\
+              \        $container->import('\''../config/config.yaml'\'');\
+              \    }
+            }' ${{ inputs.PIMCORE_ROOT }}/src/Kernel.php
+            
+            # Add necessary use statements if not present
+            if ! grep -q "use Symfony\\\\Component\\\\Config\\\\Loader\\\\LoaderInterface" ${{ inputs.PIMCORE_ROOT }}/src/Kernel.php; then
+              sed -i '/^namespace/a\use Symfony\\Component\\Config\\Loader\\LoaderInterface;\nuse Symfony\\Component\\DependencyInjection\\ContainerBuilder;\nuse Symfony\\Component\\DependencyInjection\\Loader\\Configurator\\ContainerConfigurator;' ${{ inputs.PIMCORE_ROOT }}/src/Kernel.php
+            fi
+          fi
+
+          composer require torq/pimcore-azure-container-apps:^${{ inputs.AZURE_IMAGE_TAG }}
+
       - name: Copy config files required for running with Azure Flysystem
         uses: ./reusable-workflow/.github/actions/azure-flysystem-copy-config
         with:
@@ -227,9 +282,6 @@ jobs:
         uses: ./reusable-workflow/.github/actions/azure-mysql-copy-config
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-
-      - name: Install tools for workflows/actions
-        uses: ./reusable-workflow/.github/actions/setup-tools
 
       - name: Lint files
         if: ${{ inputs.SKIP_LINTING == false }}
@@ -243,32 +295,8 @@ jobs:
           TENANT: ${{ vars.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Add exception to Azure Container Registry firewall, if one is in place
-        if: ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }}
-        run: |
-          az acr network-rule add -n ${{ vars.CONTAINER_REGISTRY }} --ip-address $(curl ipinfo.io/ip)
-          # Sleep for a few seconds to allow network rules to propagate
-          sleep 60
-
-      - name: Set up Docker
-        uses: ./reusable-workflow/.github/actions/setup-docker
-        with:
-          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-
-      - name: Apply Azure infrastructure changes
-        uses: ./reusable-workflow/.github/actions/azure-apply-infra-changes
-        with:
-          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ vars.AZURE_TENANT_ID }}
-          AZURE_DIRECTORY: ${{ inputs.AZURE_DIRECTORY }}
-          AZURE_IMAGE_TAG: ${{ inputs.AZURE_IMAGE_TAG }}
-          AZURE_PARAMETERS_FILE: ${{ vars.AZURE_PARAMETERS_FILE }}
-
-      - name: Build and push init image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+      - name: Build init image
+        uses: ./reusable-workflow/.github/actions/build-docker-image
         with:
           DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
@@ -276,14 +304,10 @@ jobs:
           BUILD_TIME_SECRETS: ${{secrets.BUILD_TIME_SECRETS }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
-          TAGS: |
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:latest,
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:${{ github.run_id }}
+          TAGS: init:latest
 
-      - name: Build and push PHP image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+      - name: Build PHP image
+        uses: ./reusable-workflow/.github/actions/build-docker-image
         with:
           DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
@@ -297,12 +321,10 @@ jobs:
           NPM_SPA: ${{ inputs.NPM_SPA }}
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
-          TAGS: |
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:latest,
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:${{ github.run_id }}
+          TAGS: php:latest
 
-      - name: Build and push supervisord image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+      - name: Build supervisord image
+        uses: ./reusable-workflow/.github/actions/build-docker-image
         with:
           DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
@@ -310,8 +332,59 @@ jobs:
           BUILD_TIME_SECRETS: ${{secrets.BUILD_TIME_SECRETS }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          TAGS: |
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:latest,
+          TAGS: supervisord:latest
+
+      # TODO image scanning, tests, etc
+
+      - name: Apply Azure infrastructure changes
+        uses: ./reusable-workflow/.github/actions/azure-apply-infra-changes
+        if: ${{ inputs.SKIP_AZURE_INFRA_CHANGES != true }}
+        with:
+          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          TENANT: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_DIRECTORY: ${{ inputs.AZURE_DIRECTORY }}
+          AZURE_IMAGE_TAG: ${{ inputs.AZURE_IMAGE_TAG }}
+          AZURE_PARAMETERS_FILE: ${{ vars.AZURE_PARAMETERS_FILE }}
+
+      - name: Add exception to Azure Container Registry firewall, if one is in place
+        if: ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }}
+        run: |
+          az acr network-rule add -n ${{ vars.CONTAINER_REGISTRY }} --ip-address $(curl ipinfo.io/ip)
+          # Sleep for a few seconds to allow network rules to propagate
+          sleep 60
+
+      - name: Push init image
+        uses: ./reusable-workflow/.github/actions/push-docker-image
+        with:
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          BUILD_TAG: init:latest
+          PUSH_TAGS: >
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:latest
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:${{ github.run_id }}
+
+      - name: Push PHP image
+        uses: ./reusable-workflow/.github/actions/push-docker-image
+        with:
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          BUILD_TAG: php:latest
+          PUSH_TAGS: >
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:latest
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:${{ github.run_id }}
+
+      - name: Push supervisord image
+        uses: ./reusable-workflow/.github/actions/push-docker-image
+        with:
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          BUILD_TAG: supervisord:latest
+          PUSH_TAGS: >
+            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:latest
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
 
       - name: Remove exception from Azure Container Registry firewall, if one is in place

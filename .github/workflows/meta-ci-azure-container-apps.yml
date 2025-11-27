@@ -1,0 +1,126 @@
+name: "CI for Azure Container Apps deployment"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: "meta-ci-azure-container-apps-pr-${{ github.event.pull_request.number }}"
+  cancel-in-progress: true
+
+env:
+  CONTAINER_REGISTRY: ghcr.io/torqit/pimcore-github-actions-workflows
+
+jobs:
+  check-provisioning-status:
+    name: "Check if Azure resources are already provisioned"
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
+    outputs:
+      cache-hit: ${{ steps.cache-check.outputs.cache-hit }}
+    steps:
+      - name: Check for provisioning completion flag
+        id: cache-check
+        uses: actions/cache/restore@v4
+        with:
+          path: .provisioned
+          key: azure-provisioned-pr-${{ github.event.pull_request.number }}
+
+  provision-azure-resources:
+    name: "Provision Azure resources"
+    runs-on: ubuntu-latest
+    environment: ci
+    needs: check-provisioning-status
+    if: github.event.action != 'closed' && needs.check-provisioning-status.outputs.cache-hit != 'true'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up tools
+        uses: ./.github/actions/setup-tools
+
+      - name: Prepare Azure parameters
+        run: |
+          sed -i "s/{placeholder}/${{ github.event.pull_request.number }}/g" .ci/azure/parameters.json
+
+      - name: Provision Azure resources
+        shell: bash
+        run: |
+          docker run \
+            -e AZURE_TENANT_ID="${{ vars.AZURE_TENANT_ID }}" \
+            -e SERVICE_PRINCIPAL_ID="${{ secrets.CI_SERVICE_PRINCIPAL_ID }}" \
+            -e SERVICE_PRINCIPAL_PASSWORD="${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}" \
+            -v "${{ github.workspace }}/.ci/azure/parameters.json:/azure/parameters.json:ro" \
+            -v /var/run/docker.sock:/var/run/docker.sock:ro \
+            ghcr.io/torqit/pimcore-azure-provisioning:2 \
+            bash -c ' \
+              az login \
+                --tenant "$AZURE_TENANT_ID" \
+                --service-principal \
+                  --username "$SERVICE_PRINCIPAL_ID" \
+                  --password "$SERVICE_PRINCIPAL_PASSWORD" \
+              && ./provision.sh parameters.json
+            '
+
+      - name: Create provisioning completion flag
+        run: |
+          mkdir -p .provisioned
+          echo "Provisioned on $(date -u +"%Y-%m-%d %H:%M:%S UTC")" > .provisioned/timestamp
+
+      - name: Save provisioning completion flag
+        uses: actions/cache/save@v4
+        with:
+          path: .provisioned
+          key: azure-provisioned-pr-${{ github.event.pull_request.number }}
+
+  # TODO requires manual creation of GitHub Environment and variables. In future would be good to automate this - or perhaps move the workflow to use "inputs"
+  test-deploy-to-azure-container-apps-workflow:
+    name: "Test deploy to Azure Container Apps workflow"
+    needs: [check-provisioning-status, provision-azure-resources]
+    if: always() && github.event.action != 'closed' && (needs.provision-azure-resources.result == 'success' || needs.provision-azure-resources.result == 'skipped')
+    uses: ./.github/workflows/deploy-to-azure-container-apps.yml
+    with:
+      ENVIRONMENT: ci
+      PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
+      PROJECT_REPOSITORY_REF: 2024.x
+      INSTALL_RECIPE: true
+      SKIP_AZURE_INFRA_CHANGES: true
+    secrets:
+      SERVICE_PRINCIPAL_ID: ${{ secrets.CI_SERVICE_PRINCIPAL_ID }}
+      SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
+
+  destroy-azure-resources:
+    name: "Destroy Azure resources"
+    runs-on: ubuntu-latest
+    environment: ci
+    if: github.event.action == 'closed'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up tools
+        uses: ./.github/actions/setup-tools
+
+      - name: Prepare Azure parameters
+        run: |
+          sed -i "s/{placeholder}/${{ github.event.pull_request.number }}/g" .ci/azure/parameters.json
+
+      - name: Destroy Azure resources
+        shell: bash
+        run: |
+          docker run \
+            -e AZURE_TENANT_ID="${{ vars.AZURE_TENANT_ID }}" \
+            -e SERVICE_PRINCIPAL_ID="${{ secrets.CI_SERVICE_PRINCIPAL_ID }}" \
+            -e SERVICE_PRINCIPAL_PASSWORD="${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}" \
+            -v "${{ github.workspace }}/.ci/azure/parameters.json:/azure/parameters.json:ro" \
+            -v /var/run/docker.sock:/var/run/docker.sock:ro \
+            ghcr.io/torqit/pimcore-azure-provisioning:2 \
+            bash -c ' \
+              az login \
+                --tenant "$AZURE_TENANT_ID" \
+                --service-principal \
+                  --username "$SERVICE_PRINCIPAL_ID" \
+                  --password "$SERVICE_PRINCIPAL_PASSWORD" \
+              && az group delete --name $(jq -r ".resourceGroupName.value" /azure/parameters.json) --yes --no-wait \
+              && az keyvault purge --name $(jq -r ".keyVaultName.value" /azure/parameters.json)
+            '

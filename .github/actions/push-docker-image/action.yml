@@ -1,0 +1,48 @@
+name: "Push Docker Image"
+description: "Pushes a Docker image to a Container Registry"
+inputs:
+  CONTAINER_REGISTRY:
+    required: true
+    description: "The Docker registry to log in to"
+  CONTAINER_REGISTRY_USERNAME:
+    required: true
+    description: "The registry username"
+  CONTAINER_REGISTRY_PASSWORD:
+    required: true
+    description: "The registry password"
+  BUILD_TAG:
+    required: true
+    description: "Tag that was used to build the Docker image, simply for reference purposes"
+  PUSH_TAGS:
+    required: true
+    description: "A space-separated list of tags to push the Docker image with"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Log in to Container Registry ${{ inputs.CONTAINER_REGISTRY }}
+      shell: bash
+      run: |
+        docker login ${{ inputs.CONTAINER_REGISTRY }} \
+          -u ${{ inputs.CONTAINER_REGISTRY_USERNAME }} \
+          --password-stdin <<< ${{ inputs.CONTAINER_REGISTRY_PASSWORD }}
+
+    - name: Push Docker image
+      shell: bash
+      run: |
+        TAGS="${{ inputs.PUSH_TAGS }}"
+        # Get rid of potential newlines
+        TAGS=$(echo "$TAGS" | tr '\n' ' ')
+        for push_tag in $TAGS; do
+          echo "Tagging and pushing: $push_tag"
+          docker tag "${{ inputs.BUILD_TAG }}" "$push_tag"
+          docker push "$push_tag"
+          docker rmi "${{ inputs.BUILD_TAG }}"
+          docker rmi "$push_tag"
+        done
+
+    - name: Log out from Container Registry ${{ inputs.CONTAINER_REGISTRY }}
+      shell: bash
+      if: always()
+      run: |
+        docker logout ${{ inputs.CONTAINER_REGISTRY }}
