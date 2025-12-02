@@ -74,6 +74,11 @@ on:
         type: string
         default: "."
         description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, etc)"
+      INIT:
+        required: false
+        type: boolean
+        default: true
+        description: "Whether the project uses an init container"
       INIT_DOCKERFILE:
         required: false
         type: string
@@ -156,6 +161,7 @@ jobs:
 
   build-init:
     name: Build init image
+    if: ${{ inputs.INIT }}
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Checkout repository
