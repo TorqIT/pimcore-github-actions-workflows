@@ -527,7 +527,7 @@ jobs:
             ${{ inputs.ENV_FILE }}
           sparse-checkout-cone-mode: false
 
-      - name: Run sed on running containers
+      - name: Run post-deployment commands
         run: |
           set -e
           # Read newline-delimited commands
@@ -541,7 +541,7 @@ jobs:
               -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
               --env-file ${{ inputs.ENV_FILE }} \
               exec -T ${{ inputs.PHP_SERVICE }} \
-                bash -c "$command"
+                bash -c "$(printf '%s' "$command")"
           done <<< "${{ inputs.POST_DEPLOYMENT_COMMANDS }}"
 
   workflow-failure-notification:
