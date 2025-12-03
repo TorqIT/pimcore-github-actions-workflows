@@ -189,6 +189,11 @@ on:
         required: false
         default: false
         description: "For legacy systems - set to true if you want the values in RUN_TIME_SECRETS to be stored as run-time env vars"
+      POST_DEPLOYMENT_COMMANDS:
+        required: false
+        type: string
+        default: ""
+        description: "Newline-delimited bash commands to run in the PHP container after deployment"
 
     secrets:
       CALLER_GITHUB_TOKEN:
@@ -320,6 +325,8 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT }}
     needs:
       - build-and-push-images
+    outputs:
+      new_deployment_name: ${{ steps.blue-green-deployment.outputs.new_deployment_name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -434,6 +441,7 @@ jobs:
               run --rm ${{ inputs.INIT_SERVICE }}
 
       - name: Perform blue/green deployment of PHP and supervisord containers
+        id: blue-green-deployment
         run: |
           if [ "$(docker ps -f name=blue -q)" ]; then
               NEW_DEPLOYMENT="green"
@@ -442,6 +450,7 @@ jobs:
               NEW_DEPLOYMENT="blue"
               OLD_DEPLOYMENT="green"
           fi
+          echo "new_deployment_name=$NEW_DEPLOYMENT" >> $GITHUB_OUTPUT
 
           echo "Starting "$NEW_DEPLOYMENT" containers..."
           docker compose \
@@ -500,6 +509,40 @@ jobs:
                   rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
               exit 1
           fi
+
+  run-post-deployment-commands:
+    name: Run any defined post-deployment commands in PHP container
+    runs-on: "${{ inputs.RUNNER }}"
+    if: ${{ inputs.POST_DEPLOYMENT_COMMANDS != '' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+    needs:
+      - deploy-containers
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            docker-compose.yaml
+            ${{ inputs.DOCKER_COMPOSE_FILE }}
+            ${{ inputs.ENV_FILE }}
+          sparse-checkout-cone-mode: false
+
+      - name: Run sed on running containers
+        run: |
+          set -e
+          # Read newline-delimited commands
+          while IFS= read -r command; do
+            # Skip empty lines
+            [[ -z "$command" ]] && continue
+            
+            echo "Running command: $command"
+            docker compose \
+              --project-name=${{ needs.deploy-containers.outputs.new_deployment_name }} \
+              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+              --env-file ${{ inputs.ENV_FILE }} \
+              exec -T ${{ inputs.PHP_SERVICE }} \
+                bash -c "$command"
+          done <<< "${{ inputs.POST_DEPLOYMENT_COMMANDS }}"
 
   workflow-failure-notification:
     name: Send workflow failure notification to Slack channel
