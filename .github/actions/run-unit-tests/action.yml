@@ -44,7 +44,7 @@ runs:
             --lower-case-table-names=1
 
     - name: Build PHP image
-      uses: ./../build-and-push-pimcore-image
+      uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
       with:
         DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
         DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKERFILE_TARGET }}
