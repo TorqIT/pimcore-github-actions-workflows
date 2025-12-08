@@ -1,11 +1,11 @@
 name: "Run Unit Tests"
 description: "Runs unit tests with PHP and MariaDB containers"
 inputs:
-  PHP_DOCKERFILE:
-    description: "Path to PHP Dockerfile"
+  INIT_DOCKERFILE:
+    description: "Path to init Dockerfile"
     required: true
-  PHP_DOCKERFILE_TARGET:
-    description: "Build target in PHP Dockerfile"
+  INIT_DOCKER_TARGET:
+    description: "Build target in init Dockerfile"
     required: true
   BUILD_TIME_ARGS:
     required: true
@@ -55,8 +55,8 @@ runs:
     - name: Build PHP image
       uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
       with:
-        DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
-        DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKERFILE_TARGET }}
+        DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
+        DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
         PUSH: "false"
         PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
         BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
@@ -64,7 +64,7 @@ runs:
         PIMCORE_ENTERPRISE_TOKEN: ${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
         TORQ_GITHUB_TOKEN: ${{ inputs.TORQ_GITHUB_TOKEN }}
         LOAD: "true"
-        TAGS: 'php:test'
+        TAGS: "test:test"
 
     - name: Run unit tests
       shell: bash
@@ -73,12 +73,13 @@ runs:
         
         docker run --rm \
           --network test-network \
+          -e APP_ENV=test \
           -e DATABASE_HOST=test-db \
           -e DATABASE_PORT=3306 \
           -e DATABASE_NAME=test \
           -e DATABASE_USER=test \
           -e DATABASE_PASSWORD=test \
-          php:test \
+          test:test \
           /bin/bash -c '
             set -e
             
@@ -86,10 +87,10 @@ runs:
             runuser -u www-data -- /var/www/html/vendor/bin/pimcore-install \
               --admin-username=test \
               --admin-password=test \
-              --mysql-host-socket=test-db \
-              --mysql-database=test \
-              --mysql-username=test \
-              --mysql-password=test
+              --mysql-host-socket=$DATABASE_HOST \
+              --mysql-database=$DATABASE_NAME \
+              --mysql-username=$DATABASE_USER \
+              --mysql-password=$DATABASE_PASSWORD
             
             echo "Rebuilding classes..."
             runuser -u www-data -- /var/www/html/bin/console pimcore:deployment:classes-rebuild -c -d -n --force
