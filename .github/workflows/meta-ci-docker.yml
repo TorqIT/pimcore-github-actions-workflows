@@ -15,4 +15,3 @@ jobs:
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: 2024.x
-      RUN_UNIT_TESTS: true
