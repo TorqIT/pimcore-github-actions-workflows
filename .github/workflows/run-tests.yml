@@ -1,3 +1,5 @@
+# DEPRECATED - will be removed in v8, use ci-docker.yml instead
+#
 # Runs Pimcore tests. Typically these are run as part of Continuous Integration workflows.
 #
 # Invoke this workflow in your project's workflow as follows:

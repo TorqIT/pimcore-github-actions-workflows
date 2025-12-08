@@ -1,0 +1,95 @@
+name: "Run Unit Tests"
+description: "Runs unit tests with PHP and MariaDB containers"
+inputs:
+  PHP_DOCKERFILE:
+    description: "Path to PHP Dockerfile"
+    required: true
+  PHP_DOCKERFILE_TARGET:
+    description: "Build target in PHP Dockerfile"
+    required: true
+  BUILD_TIME_ARGS:
+    required: true
+    description: "A JSON object containing a list of args and their values in key: value format"
+  BUILD_TIME_SECRETS:
+    required: true
+    description: "JSON object containing a list of secrets and their values in key: value format"
+  PIMCORE_ROOT:
+    required: true
+    description: "The path (relative to the project's root) in which the Pimcore files exist"
+
+runs: 
+  using: "composite"
+  steps:
+    - name: Create Docker network
+      shell: bash
+      run: |
+        docker network create test-network 2>/dev/null || true
+
+    - name: Start MariaDB container
+      shell: bash
+      run: |
+        docker run -d \
+          --name test-db \
+          --network test-network \
+          -e MYSQL_DATABASE=test \
+          -e MYSQL_USER=test \
+          -e MYSQL_PASSWORD=test \
+          -e MYSQL_ROOT_PASSWORD=test \
+          mariadb:11.4 \
+            --character-set-server=utf8mb4 \
+            --collation-server=utf8mb4_unicode_ci \
+            --innodb-file-format=Barracuda \
+            --innodb-large-prefix=1 \
+            --innodb-file-per-table=1 \
+            --lower-case-table-names=1
+
+    - name: Build PHP image
+      uses: ./../build-and-push-pimcore-image
+      with:
+        DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
+        DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKERFILE_TARGET }}
+        PUSH: false
+        PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+        BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
+        BUILD_TIME_SECRETS: ${{ inputs.BUILD_TIME_SECRETS }} 
+        TAGS: 'php:test'
+
+    - name: Run unit tests
+      shell: bash
+      run: |
+        set -e
+        
+        docker run --rm \
+          --network github-actions-network \
+          -e DATABASE_HOST=test-db \
+          -e DATABASE_PORT=3306 \
+          -e DATABASE_NAME=test \
+          -e DATABASE_USER=test \
+          -e DATABASE_PASSWORD=test \
+          php:test \
+          /bin/bash -c '
+            set -e
+            
+            echo "Installing Pimcore..."
+            runuser -u www-data -- /var/www/html/vendor/bin/pimcore-install \
+              --admin-username=test \
+              --admin-password=test \
+              --mysql-host-socket=test-db \
+              --mysql-database=test \
+              --mysql-username=test \
+              --mysql-password=test
+            
+            echo "Rebuilding classes..."
+            runuser -u www-data -- /var/www/html/bin/console pimcore:deployment:classes-rebuild -c -d -n --force
+            
+            echo "Running tests..."
+            runuser -u www-data -- /var/www/html/vendor/bin/phpunit --testdox test
+          '
+
+    - name: Cleanup containers
+      if: always()
+      shell: bash
+      run: |
+        docker stop test-db 2>/dev/null || true
+        docker rm test-db 2>/dev/null || true
+        docker network rm test-network 2>/dev/null || true
