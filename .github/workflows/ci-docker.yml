@@ -114,6 +114,11 @@ on:
         type: boolean
         default: false
         description: "Whether to run unit tests. Default: false, but will be true in future versions"
+      UNIT_TESTS_DIRECTORY:
+        required: false
+        type: string
+        default: "test"
+        description: "The directory (relative to the project's root) where the unit tests are located"
 
     secrets:
       BUILD_TIME_SECRETS:
@@ -350,3 +355,4 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          UNIT_TESTS_DIRECTORY: ${{ inputs.UNIT_TESTS_DIRECTORY }}

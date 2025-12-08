@@ -22,6 +22,9 @@ inputs:
   TORQ_GITHUB_TOKEN:
     required: false
     description: "A GitHub access token used to access private GitHub repositories"
+  UNIT_TESTS_DIRECTORY:
+    required: true
+    description: "The directory where the unit tests are located" 
 
 runs: 
   using: "composite"
@@ -92,7 +95,7 @@ runs:
             runuser -u www-data -- /var/www/html/bin/console pimcore:deployment:classes-rebuild -c -d -n --force
             
             echo "Running tests..."
-            runuser -u www-data -- /var/www/html/vendor/bin/phpunit --testdox test
+            runuser -u www-data -- /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
           '
 
     - name: Cleanup containers
