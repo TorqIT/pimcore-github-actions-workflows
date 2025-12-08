@@ -147,7 +147,7 @@ runs:
           pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
           torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
           ${{ steps.build-secrets.outputs.secrets }}
-        push: ${{ fromJSON(inputs.PUSH) }}
+        push: ${{ inputs.PUSH == 'true' }}
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
         tags: ${{ inputs.TAGS }}
