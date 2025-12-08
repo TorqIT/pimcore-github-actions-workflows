@@ -83,8 +83,6 @@ runs:
           init:test \
           /bin/bash -c '
             set -e
-
-            echo "APP_ENV is $APP_ENV"
             
             echo "Installing Pimcore..."
             runuser -u www-data -- /var/www/html/vendor/bin/pimcore-install \
