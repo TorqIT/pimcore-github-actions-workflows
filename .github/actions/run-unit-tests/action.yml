@@ -60,6 +60,7 @@ runs:
         BUILD_TIME_SECRETS: ${{ inputs.BUILD_TIME_SECRETS }} 
         PIMCORE_ENTERPRISE_TOKEN: ${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
         TORQ_GITHUB_TOKEN: ${{ inputs.TORQ_GITHUB_TOKEN }}
+        LOAD: true
         TAGS: 'php:test'
 
     - name: Run unit tests
