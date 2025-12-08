@@ -117,7 +117,7 @@ on:
       UNIT_TESTS_DIRECTORY:
         required: false
         type: string
-        default: "test"
+        default: "tests"
         description: "The directory (relative to the project's root) where the unit tests are located"
 
     secrets:
