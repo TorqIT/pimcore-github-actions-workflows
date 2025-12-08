@@ -52,7 +52,7 @@ runs:
             --innodb-file-per-table=1 \
             --lower-case-table-names=1
 
-    - name: Build PHP image
+    - name: Build image
       uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
       with:
         DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
@@ -64,7 +64,7 @@ runs:
         PIMCORE_ENTERPRISE_TOKEN: ${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
         TORQ_GITHUB_TOKEN: ${{ inputs.TORQ_GITHUB_TOKEN }}
         LOAD: "true"
-        TAGS: "test:test"
+        TAGS: "init:test"
 
     - name: Run unit tests
       shell: bash
@@ -79,7 +79,7 @@ runs:
           -e DATABASE_NAME=test \
           -e DATABASE_USER=test \
           -e DATABASE_PASSWORD=test \
-          test:test \
+          init:test \
           /bin/bash -c '
             set -e
             
@@ -87,10 +87,10 @@ runs:
             runuser -u www-data -- /var/www/html/vendor/bin/pimcore-install \
               --admin-username=test \
               --admin-password=test \
-              --mysql-host-socket=$DATABASE_HOST \
-              --mysql-database=$DATABASE_NAME \
-              --mysql-username=$DATABASE_USER \
-              --mysql-password=$DATABASE_PASSWORD
+              --mysql-host-socket=test-db \
+              --mysql-database=test \
+              --mysql-username=test \
+              --mysql-password=test
             
             echo "Rebuilding classes..."
             runuser -u www-data -- /var/www/html/bin/console pimcore:deployment:classes-rebuild -c -d -n --force
