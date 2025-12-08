@@ -151,4 +151,4 @@ runs:
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
         tags: ${{ inputs.TAGS }}
-        load: ${{ fromJSON(inputs.LOAD) }}
+        load: ${{ inputs.LOAD == 'true' }}
