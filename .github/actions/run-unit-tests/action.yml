@@ -101,7 +101,8 @@ runs:
     - name: Cleanup containers
       if: always()
       shell: bash
+      continue-on-error: false
       run: |
-        docker stop test-db 2>/dev/null || true
-        docker rm test-db 2>/dev/null || true
-        docker network rm test-network 2>/dev/null || true
+        docker stop test-db
+        docker rm test-db
+        docker network rm test-network
