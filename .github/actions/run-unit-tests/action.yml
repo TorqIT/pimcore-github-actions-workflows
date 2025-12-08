@@ -69,7 +69,7 @@ runs:
         set -e
         
         docker run --rm \
-          --network github-actions-network \
+          --network test-network \
           -e DATABASE_HOST=test-db \
           -e DATABASE_PORT=3306 \
           -e DATABASE_NAME=test \
