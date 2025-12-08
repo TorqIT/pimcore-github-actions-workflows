@@ -101,7 +101,7 @@ runs:
     - name: Cleanup containers
       if: always()
       shell: bash
-      continue-on-error: false
+      continue-on-error: true
       run: |
         docker stop test-db
         docker rm test-db
