@@ -16,6 +16,12 @@ inputs:
   PIMCORE_ROOT:
     required: true
     description: "The path (relative to the project's root) in which the Pimcore files exist"
+  PIMCORE_ENTERPRISE_TOKEN:
+    required: false
+    description: "The value of your project's Pimcore Enterprise Token"
+  TORQ_GITHUB_TOKEN:
+    required: false
+    description: "A GitHub access token used to access private GitHub repositories"
 
 runs: 
   using: "composite"
@@ -52,6 +58,8 @@ runs:
         PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
         BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
         BUILD_TIME_SECRETS: ${{ inputs.BUILD_TIME_SECRETS }} 
+        PIMCORE_ENTERPRISE_TOKEN: ${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
+        TORQ_GITHUB_TOKEN: ${{ inputs.TORQ_GITHUB_TOKEN }}
         TAGS: 'php:test'
 
     - name: Run unit tests
