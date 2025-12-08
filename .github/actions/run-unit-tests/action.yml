@@ -93,9 +93,6 @@ runs:
               --mysql-username=test \
               --mysql-password=test
             
-            echo "Rebuilding classes..."
-            runuser -u www-data -- /var/www/html/bin/console pimcore:deployment:classes-rebuild -c -d -n
-            
             echo "Running tests..."
             runuser -u www-data -- /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
           '
