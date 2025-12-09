@@ -82,7 +82,7 @@ runs:
           -e PIMCORE_TEST_DB_DSN='mysql://test:test@test-db:3306/test' \
           --entrypoint /bin/bash \
           init:test \
-          --command '
+          -c '
             set -e
             
             echo "Installing Pimcore..."
