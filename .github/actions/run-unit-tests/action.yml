@@ -1,11 +1,11 @@
 name: "Run Unit Tests"
 description: "Runs unit tests with PHP and MariaDB containers"
 inputs:
-  INIT_DOCKERFILE:
-    description: "Path to init Dockerfile"
+  DOCKERFILE:
+    description: "Path to Dockerfile"
     required: true
-  INIT_DOCKER_TARGET:
-    description: "Build target in init Dockerfile"
+  DOCKER_TARGET:
+    description: "Build target in Dockerfile"
     required: true
   BUILD_TIME_ARGS:
     required: true
@@ -55,8 +55,8 @@ runs:
     - name: Build image
       uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
       with:
-        DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
-        DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
+        DOCKERFILE_PATH: ${{ inputs.DOCKERFILE }}
+        DOCKERFILE_TARGET: ${{ inputs.DOCKER_TARGET }}
         PUSH: "false"
         PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
         BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
@@ -64,7 +64,7 @@ runs:
         PIMCORE_ENTERPRISE_TOKEN: ${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
         TORQ_GITHUB_TOKEN: ${{ inputs.TORQ_GITHUB_TOKEN }}
         LOAD: "true"
-        TAGS: "init:test"
+        TAGS: "test:test"
 
     - name: Run unit tests
       shell: bash
@@ -80,7 +80,7 @@ runs:
           -e DATABASE_USER=test \
           -e DATABASE_PASSWORD=test \
           -e PIMCORE_TEST_DB_DSN='mysql://test:test@test-db:3306/test' \
-          init:test \
+          test:test \
           /bin/bash -c '
             set -e
             
