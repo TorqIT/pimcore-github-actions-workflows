@@ -118,7 +118,7 @@ on:
         required: false
         type: string
         default: "tests"
-        description: "The directory (relative to the project's root) where the unit tests are located"
+        description: "The directory where unit tests are located - note this should be relative to the Pimcore root, as once inside the container the working directory is set to the Pimcore root"
 
     secrets:
       BUILD_TIME_SECRETS:
