@@ -94,7 +94,7 @@ runs:
               --mysql-username=test \
               --mysql-password=test
 
-            if [ ! -d /var/www/html/var/classes/DataObject ]; then
+            if [ $(ls -A "/var/www/html/var/classes/DataObject" | wc -l) -ne 0 ]; then
               echo "Building Data Object classes..."
               runuser -u www-data -- /var/www/html/bin/console pimcore:build:classes
             fi
