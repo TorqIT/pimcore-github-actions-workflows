@@ -80,6 +80,7 @@ runs:
           -e DATABASE_USER=test \
           -e DATABASE_PASSWORD=test \
           -e PIMCORE_TEST_DB_DSN='mysql://test:test@test-db:3306/test' \
+          --entrypoint="/bin/bash" \
           init:test \
           /bin/bash -c '
             set -e
