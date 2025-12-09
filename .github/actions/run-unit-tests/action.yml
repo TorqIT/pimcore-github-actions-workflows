@@ -93,6 +93,11 @@ runs:
               --mysql-database=test \
               --mysql-username=test \
               --mysql-password=test
+
+            if [ ! -d /var/www/html/var/classes/DataObject ]; then
+              echo "Building Data Object classes..."
+              runuser -u www-data -- /var/www/html/bin/console pimcore:build:classes
+            fi
             
             echo "Running tests..."
             runuser -u www-data -- /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
