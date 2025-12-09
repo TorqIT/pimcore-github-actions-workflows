@@ -348,8 +348,8 @@ jobs:
       - name: Run unit tests
         uses: ./reusable-workflow/.github/actions/run-unit-tests
         with:
-          INIT_DOCKERFILE: ${{ inputs.INIT_DOCKERFILE }}
-          INIT_DOCKER_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
+          DOCKERFILE: ${{ inputs.INIT && inputs.INIT_DOCKERFILE || inputs.PHP_DOCKERFILE }}
+          DOCKERFILE_TARGET: ${{ inputs.INIT && inputs.INIT_DOCKER_TARGET || inputs.PHP_DOCKER_TARGET }}
           BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
