@@ -110,23 +110,26 @@ runs:
       id: build-args
       run: |
         set -e
-        echo "args<<EOF" >> $GITHUB_OUTPUT
-        echo '${{ inputs.BUILD_TIME_ARGS }}' | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-          echo "$key=$value" >> $GITHUB_OUTPUT
-        done
-        echo "EOF" >> $GITHUB_OUTPUT
+        {
+          echo "args<<EOF"
+          echo '${{ inputs.BUILD_TIME_ARGS }}' | jq -r 'to_entries[] | "\(.key)=\(.value)"'
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
       shell: bash
 
     - name: Prepare Docker build secrets
       id: build-secrets
       run: |
         set -e
-        echo "secrets<<EOF" >> $GITHUB_OUTPUT
-        echo '${{ inputs.BUILD_TIME_SECRETS }}' | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-          echo "::add-mask::$value"   # Mask the value from logs
-          echo "$key=$value" >> $GITHUB_OUTPUT
+        {
+          echo "secrets<<EOF"
+          echo '${{ inputs.BUILD_TIME_SECRETS }}' | jq -r 'to_entries[] | "id=\(.key),src=\(.value)"'
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
+        # Mask secret values
+        echo '${{ inputs.BUILD_TIME_SECRETS }}' | jq -r 'to_entries[] | .value' | while read -r value; do
+          echo "::add-mask::$value"
         done
-        echo "EOF" >> $GITHUB_OUTPUT
       shell: bash
 
     - name: Build and push image
