@@ -500,7 +500,7 @@ jobs:
                       if [ -f /var/www/html/var/log/$APP_ENV-error.log ]; then
                         tail -n 3 /var/www/html/var/log/$APP_ENV-error.log
                       else
-                        echo "No error log file found at /var/www/html/var/log/$APP_ENV-error.log";
+                        echo "No error log file found at /var/www/html/var/log/$APP_ENV-error.log"
                       fi
                     '
               echo "Stopping "$NEW_DEPLOYMENT" containers..."
