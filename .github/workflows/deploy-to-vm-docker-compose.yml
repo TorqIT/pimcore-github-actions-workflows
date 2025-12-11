@@ -496,7 +496,12 @@ jobs:
                   --env-file ${{ inputs.ENV_FILE }} \
                   exec -it \
                     ${{ inputs.PHP_SERVICE }} \
-                    bash -c 'tail -n 3 /var/www/html/var/log/$APP_ENV-error.log'
+                    bash -c '
+                      if [ -f /var/www/html/var/log/$APP_ENV-error.log ]; then
+                        tail -n 3 /var/www/html/var/log/$APP_ENV-error.log'
+                      else
+                        echo "No error log file found at /var/www/html/var/log/$APP_ENV-error.log";
+                      fi
               echo "Stopping "$NEW_DEPLOYMENT" containers..."
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
