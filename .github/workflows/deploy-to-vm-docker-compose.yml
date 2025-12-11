@@ -497,9 +497,8 @@ jobs:
                   exec -it \
                     ${{ inputs.PHP_SERVICE }} \
                     bash -c '
-                      set +e
+                      set +e # in case log file does not exist, do not fail the script
                       tail -n 3 /var/www/html/var/log/$APP_ENV-error.log
-                      set -e
                     ' 
               echo "Stopping "$NEW_DEPLOYMENT" containers..."
               docker compose \
