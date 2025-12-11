@@ -502,6 +502,7 @@ jobs:
                       else
                         echo "No error log file found at /var/www/html/var/log/$APP_ENV-error.log";
                       fi
+                    '
               echo "Stopping "$NEW_DEPLOYMENT" containers..."
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
