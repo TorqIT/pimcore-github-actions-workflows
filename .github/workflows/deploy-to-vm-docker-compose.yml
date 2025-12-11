@@ -496,7 +496,11 @@ jobs:
                   --env-file ${{ inputs.ENV_FILE }} \
                   exec -it \
                     ${{ inputs.PHP_SERVICE }} \
-                    bash -c 'tail -n 3 /var/www/html/var/log/$APP_ENV-error.log'
+                    bash -c '
+                      set +e
+                      tail -n 3 /var/www/html/var/log/$APP_ENV-error.log
+                      set -e
+                    ' 
               echo "Stopping "$NEW_DEPLOYMENT" containers..."
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
