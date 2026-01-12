@@ -165,6 +165,11 @@ on:
         type: string
         default: "2"
         description: "Tag to use when pulling the TORQ Azure provisioning image (https://github.com/TorqIT/pimcore-azure-provisioning)"
+      AZURE_SKIP_DB_DEPLOY:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether database deployment steps should be skipped when applying Azure infrastructure changes"
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -266,6 +271,7 @@ jobs:
           AZURE_DIRECTORY: ${{ inputs.AZURE_DIRECTORY }}
           AZURE_IMAGE_TAG: ${{ inputs.AZURE_IMAGE_TAG }}
           AZURE_PARAMETERS_FILE: ${{ vars.AZURE_PARAMETERS_FILE }}
+          AZURE_SKIP_DB_DEPLOY: ${{ inputs.AZURE_SKIP_DB_DEPLOY }}
 
       - name: Build and push init image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
