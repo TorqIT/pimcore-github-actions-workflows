@@ -151,21 +151,12 @@ jobs:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
     steps:
-      - name: Create token from GitHub App
-        uses: actions/create-github-app-token@v2
-        if: ${{ inputs.CHECKOUT_WITH_GITHUB_APP }}
-        id: create_token
-        with:
-          app-id: ${{ secrets.GITHUB_APP_ID }}
-          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           submodules: ${{ inputs.SUBMODULES }}
-          token: ${{ inputs.CHECKOUT_WITH_GITHUB_APP && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Get workflow version
         id: workflow-version
@@ -194,12 +185,21 @@ jobs:
     if: ${{ inputs.INIT }}
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
+      - name: Create token from GitHub App
+        uses: actions/create-github-app-token@v2
+        if: ${{ inputs.CHECKOUT_WITH_GITHUB_APP }}
+        id: create_token
+        with:
+          app-id: ${{ secrets.GITHUB_APP_ID }}
+          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           submodules: ${{ inputs.SUBMODULES }}
+          token: ${{ inputs.CHECKOUT_WITH_GITHUB_APP && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Get workflow version
         id: workflow-version
@@ -239,12 +239,21 @@ jobs:
     name: Build PHP image
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
+      - name: Create token from GitHub App
+        uses: actions/create-github-app-token@v2
+        if: ${{ inputs.CHECKOUT_WITH_GITHUB_APP }}
+        id: create_token
+        with:
+          app-id: ${{ secrets.GITHUB_APP_ID }}
+          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           submodules: ${{ inputs.SUBMODULES }}
+          token: ${{ inputs.CHECKOUT_WITH_GITHUB_APP && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Get workflow version
         id: workflow-version
@@ -290,12 +299,21 @@ jobs:
     name: Build supervisord image
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
+      - name: Create token from GitHub App
+        uses: actions/create-github-app-token@v2
+        if: ${{ inputs.CHECKOUT_WITH_GITHUB_APP }}
+        id: create_token
+        with:
+          app-id: ${{ secrets.GITHUB_APP_ID }}
+          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           submodules: ${{ inputs.SUBMODULES }}
+          token: ${{ inputs.CHECKOUT_WITH_GITHUB_APP && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Get workflow version
         id: workflow-version
@@ -336,12 +354,21 @@ jobs:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     if: ${{ inputs.RUN_UNIT_TESTS }}
     steps:
+      - name: Create token from GitHub App
+        uses: actions/create-github-app-token@v2
+        if: ${{ inputs.CHECKOUT_WITH_GITHUB_APP }}
+        id: create_token
+        with:
+          app-id: ${{ secrets.GITHUB_APP_ID }}
+          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           submodules: ${{ inputs.SUBMODULES }}
+          token: ${{ inputs.CHECKOUT_WITH_GITHUB_APP && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Get workflow version
         id: workflow-version
