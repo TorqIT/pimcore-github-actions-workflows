@@ -119,7 +119,7 @@ on:
         type: string
         default: "tests"
         description: "The directory where unit tests are located - note this should be relative to the Pimcore root, as once inside the container the working directory is set to the Pimcore root"
-      CHECKOUT_WITH_GITHUB_APP:
+      GITHUB_APP_CHECKOUT:
         required: false
         type: boolean
         default: false
@@ -187,7 +187,7 @@ jobs:
     steps:
       - name: Create token from GitHub App
         uses: actions/create-github-app-token@v2
-        if: ${{ inputs.CHECKOUT_WITH_GITHUB_APP }}
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
         id: create_token
         with:
           app-id: ${{ secrets.GITHUB_APP_ID }}
@@ -199,7 +199,7 @@ jobs:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           submodules: ${{ inputs.SUBMODULES }}
-          token: ${{ inputs.CHECKOUT_WITH_GITHUB_APP && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
+          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Get workflow version
         id: workflow-version
@@ -241,7 +241,7 @@ jobs:
     steps:
       - name: Create token from GitHub App
         uses: actions/create-github-app-token@v2
-        if: ${{ inputs.CHECKOUT_WITH_GITHUB_APP }}
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
         id: create_token
         with:
           app-id: ${{ secrets.GITHUB_APP_ID }}
@@ -253,7 +253,7 @@ jobs:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           submodules: ${{ inputs.SUBMODULES }}
-          token: ${{ inputs.CHECKOUT_WITH_GITHUB_APP && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
+          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Get workflow version
         id: workflow-version
@@ -301,7 +301,7 @@ jobs:
     steps:
       - name: Create token from GitHub App
         uses: actions/create-github-app-token@v2
-        if: ${{ inputs.CHECKOUT_WITH_GITHUB_APP }}
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
         id: create_token
         with:
           app-id: ${{ secrets.GITHUB_APP_ID }}
@@ -313,7 +313,7 @@ jobs:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           submodules: ${{ inputs.SUBMODULES }}
-          token: ${{ inputs.CHECKOUT_WITH_GITHUB_APP && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
+          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Get workflow version
         id: workflow-version
@@ -356,7 +356,7 @@ jobs:
     steps:
       - name: Create token from GitHub App
         uses: actions/create-github-app-token@v2
-        if: ${{ inputs.CHECKOUT_WITH_GITHUB_APP }}
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
         id: create_token
         with:
           app-id: ${{ secrets.GITHUB_APP_ID }}
@@ -368,7 +368,7 @@ jobs:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           submodules: ${{ inputs.SUBMODULES }}
-          token: ${{ inputs.CHECKOUT_WITH_GITHUB_APP && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
+          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Get workflow version
         id: workflow-version
