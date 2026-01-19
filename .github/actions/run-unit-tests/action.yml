@@ -12,13 +12,22 @@ inputs:
     description: "A JSON object containing a list of args and their values in key: value format"
   BUILD_TIME_SECRETS:
     required: true
-    description: "JSON object containing a list of secrets and their values in key: value format"
+    description: "JSON object containing a list of build-time secrets and their values in key: value format"
   PIMCORE_ROOT:
     required: true
     description: "The path (relative to the project's root) in which the Pimcore files exist"
   PIMCORE_ENTERPRISE_TOKEN:
     required: false
     description: "The value of your project's Pimcore Enterprise Token"
+  PIMCORE_PRODUCT_KEY:
+    required: false
+    description: (Optional) The Pimcore product key for the project
+  PIMCORE_INSTANCE_IDENTIFIER:
+    required: false
+    description: (Optional) The Pimcore instance identifier for the project
+  PIMCORE_ENCRYPTION_SECRET:
+    required: false
+    description: (Optional) The Pimcore encryption secret for the project
   TORQ_GITHUB_TOKEN:
     required: false
     description: "A GitHub access token used to access private GitHub repositories"
@@ -61,6 +70,9 @@ runs:
         BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
         BUILD_TIME_SECRETS: ${{ inputs.BUILD_TIME_SECRETS }} 
         PIMCORE_ENTERPRISE_TOKEN: ${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
+        PIMCORE_PRODUCT_KEY: ${{ inputs.PIMCORE_PRODUCT_KEY }}
+        PIMCORE_INSTANCE_IDENTIFIER: ${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}
+        PIMCORE_ENCRYPTION_SECRET: ${{ inputs.PIMCORE_ENCRYPTION_SECRET }}
         TORQ_GITHUB_TOKEN: ${{ inputs.TORQ_GITHUB_TOKEN }}
         PUSH: "false"
         LOAD: "true"
@@ -80,6 +92,10 @@ runs:
           -e DATABASE_USER=test \
           -e DATABASE_PASSWORD=test \
           -e PIMCORE_TEST_DB_DSN='mysql://test:test@test-db:3306/test' \
+          -e PIMCORE_PRODUCT_KEY='${{ inputs.PIMCORE_PRODUCT_KEY }}' \
+          -e PIMCORE_INSTANCE_IDENTIFIER='${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}' \
+          -e PIMCORE_ENCRYPTION_SECRET='${{ inputs.PIMCORE_ENCRYPTION_SECRET }}' \
+          -e PIMCORE_ENTERPRISE_TOKEN='${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}' \
           --entrypoint /bin/bash \
           init:test \
           -c '
