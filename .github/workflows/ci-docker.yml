@@ -136,10 +136,19 @@ on:
         description: A JSON object of secrets required at build-time (see above for example format)
       PIMCORE_ENTERPRISE_TOKEN:
         required: false
-        description: (Deprecated - use BUILD_TIME_SECRETS instead) The value of your project's Pimcore Enterprise Token
+        description: (Optional) The value of your project's Pimcore Enterprise Token
+      PIMCORE_PRODUCT_KEY:
+        required: false
+        description: (Optional) The Pimcore product key for the project
+      PIMCORE_INSTANCE_IDENTIFIER:
+        required: false
+        description: (Optional) The Pimcore instance identifier for the project
+      PIMCORE_ENCRYPTION_SECRET:
+        required: false
+        description: (Optional) The Pimcore encryption secret for the project
       TORQ_GITHUB_TOKEN:
         required: false
-        description: (Deprecated - use BUILD_TIME_SECRETS instead) A GitHub access token used to access private GitHub repositories
+        description: (Optional) A GitHub access token used to access private GitHub repositories
       RECAPTCHA_CLIENT_KEY:
         required: false
         description: (Optional) A client key used when building NPM frontends that require ReCAPTCHA
@@ -248,6 +257,9 @@ jobs:
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
+          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           PUSH: false
 
@@ -304,6 +316,9 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
+          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           FRONTEND_ROOT: ${{ inputs.FRONTEND_ROOT }}
           NPM_BUILD: ${{ inputs.NPM_BUILD }}
           RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
@@ -364,6 +379,9 @@ jobs:
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
+          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           PUSH: false
 
@@ -420,5 +438,8 @@ jobs:
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
+          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           UNIT_TESTS_DIRECTORY: ${{ inputs.UNIT_TESTS_DIRECTORY }}
