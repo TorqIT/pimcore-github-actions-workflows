@@ -114,7 +114,7 @@ runs:
             echo "Installing Pimcore..."
             runuser -u www-data -- /var/www/html/vendor/bin/pimcore-install --skip-database-config --no-interaction
 
-            if [ $(ls -A "/var/www/html/var/classes/DataObject" | wc -l) -ne 0 ]; then
+            if [ ! -d "/var/www/html/var/classes/DataObject" ] || [ -z "$(ls -A /var/www/html/var/classes/DataObject 2>/dev/null)" ]; then
               echo "Building Data Object classes..."
               runuser -u www-data -- /var/www/html/bin/console pimcore:build:classes
             fi
