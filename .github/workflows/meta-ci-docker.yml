@@ -9,9 +9,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test-ci:
-    name: "Test reusable CI workflow"
+  skeleton-2024-x:
+    name: "CI against Pimcore skeleton (2024.x)"
     uses: ./.github/workflows/ci-docker.yml
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: 2024.x
+
+  skeleton-2025-x:
+    name: "CI against Pimcore skeleton (2025.x)"
+    uses: ./.github/workflows/ci-docker.yml
+    with:
+      PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
+      PROJECT_REPOSITORY_REF: 2025.x
