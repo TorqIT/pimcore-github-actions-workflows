@@ -119,6 +119,11 @@ on:
         type: string
         default: "tests"
         description: "The directory where unit tests are located - note this should be relative to the Pimcore root, as once inside the container the working directory is set to the Pimcore root"
+      CHECKOUT_WITH_GITHUB_APP:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to use a GitHub App token for checking out the project repository and submodules"
 
     secrets:
       BUILD_TIME_SECRETS:
@@ -133,6 +138,12 @@ on:
       RECAPTCHA_CLIENT_KEY:
         required: false
         description: (Optional) A client key used when building NPM frontends that require ReCAPTCHA
+      GITHUB_APP_ID:
+        required: false
+        description: The ID of the GitHub App used to generate a token for checking out the project repository and submodules
+      GITHUB_APP_PRIVATE_KEY:
+        required: false
+        description: The private key of the GitHub App used to generate a token for checking out the project repository and submodules
 
 jobs:
   lint:
@@ -140,12 +151,21 @@ jobs:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
     steps:
+      - name: Create token from GitHub App
+        uses: actions/create-github-app-token@v2
+        if: ${{ inputs.CHECKOUT_WITH_GITHUB_APP }}
+        id: create_token
+        with:
+          app-id: ${{ secrets.GITHUB_APP_ID }}
+          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           submodules: ${{ inputs.SUBMODULES }}
+          token: ${{ inputs.CHECKOUT_WITH_GITHUB_APP && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Get workflow version
         id: workflow-version
