@@ -96,19 +96,23 @@ runs:
           -e PIMCORE_INSTANCE_IDENTIFIER='${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}' \
           -e PIMCORE_ENCRYPTION_SECRET='${{ inputs.PIMCORE_ENCRYPTION_SECRET }}' \
           -e PIMCORE_ENTERPRISE_TOKEN='${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}' \
+          -e PIMCORE_INSTALL_MYSQL_HOST_SOCKET='test-db' \
+          -e PIMCORE_INSTALL_MYSQL_PORT='3306' \
+          -e PIMCORE_INSTALL_MYSQL_USERNAME='test' \
+          -e PIMCORE_INSTALL_MYSQL_PASSWORD='test' \
+          -e PIMCORE_INSTALL_MYSQL_DATABASE='test' \
+          -e PIMCORE_INSTALL_ADMIN_USERNAME='admin' \
+          -e PIMCORE_INSTALL_ADMIN_PASSWORD='pimcore' \
+          -e PIMCORE_INSTALL_ENCRYPTION_SECRET='${{ inputs.PIMCORE_ENCRYPTION_SECRET }}' \
+          -e PIMCORE_INSTALL_INSTANCE_IDENTIFIER='${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}' \
+          -e PIMCORE_INSTALL_PRODUCT_KEY='${{ inputs.PIMCORE_PRODUCT_KEY }}' \
           --entrypoint /bin/bash \
           init:test \
           -c '
             set -e
             
             echo "Installing Pimcore..."
-            runuser -u www-data -- /var/www/html/vendor/bin/pimcore-install \
-              --admin-username=test \
-              --admin-password=test \
-              --mysql-host-socket=test-db \
-              --mysql-database=test \
-              --mysql-username=test \
-              --mysql-password=test
+            runuser -u www-data -- /var/www/html/vendor/bin/pimcore-install --skip-database-config --no-interaction
 
             if [ $(ls -A "/var/www/html/var/classes/DataObject" | wc -l) -ne 0 ]; then
               echo "Building Data Object classes..."
