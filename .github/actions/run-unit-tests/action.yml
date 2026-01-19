@@ -120,7 +120,14 @@ runs:
             fi
             
             echo "Running tests..."
-            runuser -u www-data -- /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
+            if [ -f "/var/www/html/vendor/bin/codecept" ]; then
+              runuser -u www-data -- /var/www/html/vendor/bin/codecept run
+            elif [ -f "/var/www/html/vendor/bin/phpunit" ]; then
+              runuser -u www-data -- /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
+            else
+              echo "Error: Neither codecept nor phpunit found in vendor/bin"
+              exit 1
+            fi
           '
 
     - name: Cleanup containers
