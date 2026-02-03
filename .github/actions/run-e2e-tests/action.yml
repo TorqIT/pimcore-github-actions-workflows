@@ -117,7 +117,9 @@ runs:
             exit 0
           fi
           attempt=$((attempt + 1))
-          echo "Attempt $attempt/$max_attempts - PHP container not ready yet, waiting..."
+          echo "Attempt $attempt/$max_attempts failed - container logs:"
+          docker compose logs ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
+          echo "Attempting again..."
           sleep 2
         done
         echo "PHP container failed to become ready after $max_attempts attempts"
