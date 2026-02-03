@@ -109,10 +109,10 @@ runs:
         set -e
         echo "Waiting for PHP container to be ready..."
         phpPort=${{ steps.get-port.outputs.phpPort }}
-        max_attempts=30
+        max_attempts=5
         attempt=0
         while [ $attempt -lt $max_attempts ]; do
-          if wget --spider --quiet http://127.0.0.1:$phpPort; then
+          if wget http://127.0.0.1:$phpPort; then
             echo "PHP container is ready!"
             exit 0
           fi
