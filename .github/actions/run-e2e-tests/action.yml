@@ -87,7 +87,7 @@ runs:
         set -e
         docker compose build --build-arg UID=$(id -u $USER) --build-arg GID=$(id -g $USER) init ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
         docker compose up init
-        docker compose up --env .docker/php/nginx.conf ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
+        NGINX_FILE=".docker/php/nginx.conf" $docker compose up {{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
 
     - name: Get PHP port from .env
       id: get-port
