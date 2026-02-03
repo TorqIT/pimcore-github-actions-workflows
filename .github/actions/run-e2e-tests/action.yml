@@ -58,6 +58,7 @@ runs:
     - name: Create necessary secret files
       shell: bash
       run: |
+        echo -n "$(openssl rand -hex 16)" > .secrets/kernel-secret
         echo "::add-mask::${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}"
         echo -n "${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}" > .secrets/pimcore-enterprise-token
         echo "::add-mask::${{ inputs.PIMCORE_PRODUCT_KEY }}"
