@@ -4,12 +4,10 @@ description: Runs end-to-end tests
 inputs:
   TESTS_DIRECTORY:
     description: 'Path to e2e test files'
-    required: false
-    default: 'e2e/*'
+    required: true
   NODE_VERSION:
     description: 'Node.js version to use'
-    required: false
-    default: '25'
+    required: true
   PIMCORE_ENTERPRISE_TOKEN:
     required: false
     description: (Optional) The value of your project's Pimcore Enterprise Token

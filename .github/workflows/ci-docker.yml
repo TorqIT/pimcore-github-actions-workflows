@@ -127,8 +127,18 @@ on:
       E2E_TESTS_DIRECTORY:
         required: false
         type: string
-        default: "tests"
+        default: "e2e"
         description: "The directory where end-to-end tests are located - note this should be relative to the Pimcore root, as once inside the container the working directory is set to the Pimcore root"
+      PHP_DOCKER_COMPOSE_SERVICE:
+        required: false
+        type: string
+        default: "php"
+        description: "The name of the PHP service in your Docker Compose setup used for end-to-end tests"
+      NODE_VERSION:
+        required: false
+        type: string
+        default: "25"
+        description: "The Node.js version to use when running end-to-end tests"
       GITHUB_APP_CHECKOUT:
         required: false
         type: boolean
