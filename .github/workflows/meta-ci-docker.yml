@@ -21,8 +21,9 @@ jobs:
     uses: ./.github/workflows/ci-docker.yml
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
-      PROJECT_REPOSITORY_REF: 2025.x
+      PROJECT_REPOSITORY_REF: e2e-standard
       RUN_UNIT_TESTS: true
+      RUN_E2E_TESTS: true
     secrets:
       PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
