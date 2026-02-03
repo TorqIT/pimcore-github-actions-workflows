@@ -106,23 +106,24 @@ runs:
     - name: Wait for services to be ready
       shell: bash
       run: |
-        set +e
-        echo "Waiting for PHP container to be ready..."
-        docker compose exec -T ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} \
-          wget \
-            --verbose \
-            --content-on-error \
-            --retry-on-http-error=429,503,502,504 \
-            -T 3 -t 100 \
-            --retry-connrefused \
-            -O /dev/null \
-            localhost
-        phpReady=$?
         set -e
-        if [ $phpReady -ne 0 ]; then
-          echo "::error::PHP container did not become ready in time"
-          exit 1
-        fi
+        echo "Waiting for PHP container to be ready..."
+        phpPort=${{ steps.get-port.outputs.phpPort }}
+        max_attempts=5
+        attempt=0
+        while [ $attempt -lt $max_attempts ]; do
+          if wget --quiet --spider http://127.0.0.1:$phpPort; then
+            echo "PHP container is ready!"
+            exit 0
+          fi
+          attempt=$((attempt + 1))
+          echo "Attempt $attempt/$max_attempts failed - container logs:"
+          docker compose logs ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
+          echo "Attempting again..."
+          sleep 2
+        done
+        echo "PHP container failed to become ready after $max_attempts attempts"
+        exit 1
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
