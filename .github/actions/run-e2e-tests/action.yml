@@ -1,0 +1,170 @@
+name: Run e2e Tests
+description: Runs end-to-end tests
+
+inputs:
+  TESTS_DIRECTORY:
+    description: 'Path to e2e test files'
+    required: false
+    default: 'e2e/*'
+  NODE_VERSION:
+    description: 'Node.js version to use'
+    required: false
+    default: '25'
+  PIMCORE_ENTERPRISE_TOKEN:
+    required: false
+    description: (Optional) The value of your project's Pimcore Enterprise Token
+  PIMCORE_PRODUCT_KEY:
+    required: false
+    description: (Optional) The Pimcore product key for the project
+  PIMCORE_INSTANCE_IDENTIFIER:
+    required: false
+    description: (Optional) The Pimcore instance identifier for the project
+  PIMCORE_ENCRYPTION_SECRET:
+    required: false
+    description: (Optional) The Pimcore encryption secret for the project
+  BUILD_TIME_SECRETS:
+    required: false
+    description: 'A JSON object containing a list of build-time secrets in key: value format'
+    default: '{}'
+  RUN_TIME_SECRETS:
+    required: false
+    description: 'A JSON object containing a list of run-time secrets in key: value format'
+    default: '{}'
+  HOSTNAME:
+    description: 'Hostname to add to /etc/hosts'
+    required: true
+  PHP_DOCKER_COMPOSE_SERVICE:
+    description: 'Name of the PHP service in Docker Compose'
+    required: true
+  GITHUB_TOKEN:
+    description: 'GitHub token used for adding results to PRs'
+    required: false
+    default: ''
+  PR_NUMBER:
+    description: 'Pull Request number to post results to'
+    required: false
+    default: ''
+
+runs:
+  using: "composite"
+  steps:
+    - name: Add host entry
+      shell: bash
+      if: inputs.HOSTNAME != ''
+      run: echo "127.0.0.1 ${{ inputs.HOSTNAME }}" | sudo tee -a /etc/hosts
+
+    - name: Prepare secrets directory
+      shell: bash
+      run: mkdir -p .secrets
+
+    - name: Create necessary secret files
+      shell: bash
+      run: |
+        echo "::add-mask::${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}"
+        echo -n "${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}" > .secrets/pimcore-enterprise-token
+        echo "::add-mask::${{ inputs.PIMCORE_PRODUCT_KEY }}"
+        echo -n "${{ inputs.PIMCORE_PRODUCT_KEY }}" > .secrets/pimcore-product-key
+        echo "::add-mask::${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}"
+        echo -n "${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}" > .secrets/pimcore-instance-identifier
+        echo "::add-mask::${{ inputs.PIMCORE_ENCRYPTION_SECRET }}"
+        echo -n "${{ inputs.PIMCORE_ENCRYPTION_SECRET }}" > .secrets/pimcore-encryption-secret
+
+    # TODO build-time and run-time secret handling
+
+    - name: Write run-time secrets to files
+      id: runtime-secrets
+      run: |
+        set -e
+        JSON_INPUT='${{ inputs.RUN_TIME_SECRETS }}'
+        echo "$JSON_INPUT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
+          echo "::add-mask::$value"
+          echo "$value" >> .secrets/$key
+        done
+      shell: bash
+
+    - name: Start Docker containers
+      shell: bash
+      run: |
+        set -e
+        docker compose build --build-arg UID=$(id -u $USER) --build-arg GID=$(id -g $USER) init ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
+        docker compose up init
+        docker compose up ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
+
+    - name: Get PHP port from .env
+      id: get-port
+      shell: bash
+      run: |
+        set -e
+        if [ -f .env ]; then
+          phpPort=$(grep "^WEB_PORT_EXTERNAL=" .env | cut -d'=' -f2)
+          echo "phpPort=$phpPort" >> $GITHUB_OUTPUT
+          echo "Using PHP port: $phpPort"
+        else
+          echo "::error::.env file not found"
+          exit 1
+        fi
+
+    - name: Wait for services to be ready
+      shell: bash
+      run: |
+        set -e
+        echo "Waiting for PHP container to be ready..."
+        phpPort=${{ steps.get-port.outputs.phpPort }}
+        max_attempts=30
+        attempt=0
+        while [ $attempt -lt $max_attempts ]; do
+          if wget --spider --quiet http://127.0.0.1:$phpPort; then
+            echo "PHP container is ready!"
+            exit 0
+          fi
+          attempt=$((attempt + 1))
+          echo "Attempt $attempt/$max_attempts - PHP container not ready yet, waiting..."
+          sleep 2
+        done
+        echo "PHP container failed to become ready after $max_attempts attempts"
+        exit 1
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: ${{ inputs.TESTS_DIRECTORY }}/package-lock.json
+
+    - name: Cache Playwright browsers
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('${{ inputs.TESTS_DIRECTORY }}/package-lock.json') }}
+
+    - name: Install Node dependencies
+      shell: bash
+      run: |
+        set -e
+        npm --prefix ${{ inputs.TESTS_DIRECTORY }} ci
+
+    - name: Install Playwright browsers
+      shell: bash
+      run: |
+        set -e
+        npm exec --prefix ${{ inputs.TESTS_DIRECTORY }} playwright install chromium
+
+    - name: Run Playwright tests
+      shell: bash
+      run: |
+        set -e
+        cd ${{ inputs.TESTS_DIRECTORY }}
+        npx playwright test
+        cd ..
+
+    # TODO publish test results to PR
+
+    - name: Stop Docker containers
+      if: always()
+      shell: bash
+      run: docker compose down -v
+
+    - name: Clean up secrets
+      if: always()
+      shell: bash
+      run: rm -rf .secrets

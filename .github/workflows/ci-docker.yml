@@ -114,11 +114,21 @@ on:
         type: boolean
         default: false
         description: "Whether to run unit tests. Default: false, but will be true in future versions"
+      RUN_E2E_TESTS:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to run end-to-end tests. Default: false, but will be true in future versions"
       UNIT_TESTS_DIRECTORY:
         required: false
         type: string
         default: "tests"
         description: "The directory where unit tests are located - note this should be relative to the Pimcore root, as once inside the container the working directory is set to the Pimcore root"
+      E2E_TESTS_DIRECTORY:
+        required: false
+        type: string
+        default: "tests"
+        description: "The directory where end-to-end tests are located - note this should be relative to the Pimcore root, as once inside the container the working directory is set to the Pimcore root"
       GITHUB_APP_CHECKOUT:
         required: false
         type: boolean
@@ -443,3 +453,52 @@ jobs:
           PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           UNIT_TESTS_DIRECTORY: ${{ inputs.UNIT_TESTS_DIRECTORY }}
+
+  run-e2e-tests:
+    name: Run e2e tests
+    if: ${{ inputs.RUN_E2E_TESTS != '' }}
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    steps:
+      - name: Checkout Pimcore project repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.PROJECT_REPOSITORY }}
+          ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          submodules: ${{ inputs.SUBMODULES }}
+
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: ci-docker.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Install tools for workflows/actions
+        uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Setup Docker
+        uses: ./reusable-workflow/.github/actions/setup-docker
+
+      - name: Run e2e tests
+        uses: ./reusable-workflow/.github/actions/run-e2e-tests
+        with:
+          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
+          RUN_TIME_SECRETS: ${{ secrets.RUN_TIME_SECRETS }}
+          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
+          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
+          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          NODE_VERSION: ${{ inputs.NODE_VERSION }}
+          TESTS_DIRECTORY: "${{ inputs.E2E_TESTS_DIRECTORY }}"
+          PHP_DOCKER_COMPOSE_SERVICE: ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number || '' }}
