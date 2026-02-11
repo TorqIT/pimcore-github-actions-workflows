@@ -72,7 +72,7 @@ runs:
         echo -n "${{ inputs.PIMCORE_ENCRYPTION_SECRET }}" > .secrets/pimcore-encryption-secret
 
     - name: Write run-time secrets to files
-      id: runtime-secrets
+      shell: bash
       run: |
         set -e
         JSON_INPUT='${{ inputs.RUN_TIME_SECRETS }}'
@@ -80,7 +80,6 @@ runs:
           echo "::add-mask::$value"
           echo "$value" >> .secrets/$key
         done
-      shell: bash
 
     - name: Overwrite run-tests.sh
       shell: bash
@@ -93,32 +92,46 @@ runs:
         echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
         echo "COMPOSE_DOCKER_CLI_BUILD=1" >> $GITHUB_ENV
 
-    - name: Restore Docker build cache
+    - name: Restore cached Docker images
       uses: actions/cache@v3
       with:
-        path: /tmp/.docker-cache
-        key: docker-compose-cache-${{ runner.os }}-v1
-        restore-keys: |
-          docker-compose-cache-${{ runner.os }}-
+        path: /tmp/docker-images
+        key: docker-images-${{ runner.os }}-v1
 
-    - name: Build Docker Compose
+    - name: Load Docker images if cache exists
       shell: bash
       run: |
-        mkdir -p /tmp/.docker-cache
+        if [ -d /tmp/docker-images ]; then
+          for f in /tmp/docker-images/*.tar; do
+            docker load -i "$f"
+          done
+        fi
+
+    - name: Build Docker images 
+      shell: bash
+      run: |
+        PHP_SERVICE="${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}"
+        E2E_SERVICE="${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}"
+
         docker compose build \
           --progress=plain \
-          --build-arg BUILDKIT_INLINE_CACHE=1 \
-          --cache-from=type=local,src=/tmp/.docker-cache \
-          --cache-to=type=local,dest=/tmp/.docker-cache-new
-          init ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
-        rm -rf /tmp/.docker-cache
-        mv /tmp/.docker-cache-new /tmp/.docker-cache
+          --build-arg UID=$(id -u $USER) \
+          --build-arg GID=$(id -g $USER) \
+          init $PHP_SERVICE $E2E_SERVICE
 
-    - name: Save Docker build cache
+    - name: Save Docker images to cache
+      shell: bash
+      run: |
+        mkdir -p /tmp/docker-images
+        docker save ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}:latest -o /tmp/docker-images/php.tar
+        docker save init:latest -o /tmp/docker-images/init.tar
+        docker save ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:latest -o /tmp/docker-images/e2e.tar
+
+    - name: Persist Docker image cache
       uses: actions/cache@v3
       with:
-        path: /tmp/.docker-cache
-        key: docker-compose-cache-${{ runner.os }}-v1
+        path: /tmp/docker-images
+        key: docker-images-${{ runner.os }}-v1
 
     - name: Start Docker containers
       shell: bash
@@ -126,11 +139,9 @@ runs:
         set -e
         userId=$(id -u $USER)
         groupId=$(id -g $USER)
-        UID=$userId GID=$groupId docker compose up --no-build init
-        UID=$userId GID=$groupId NGINX_FILE=".docker/php/nginx.conf" docker compose up --no-build ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
-        UID=$userId GID=$groupId docker compose up --no-build ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} --no-deps
-
-    # TODO publish test results to PR
+        docker compose up --no-build init
+        NGINX_FILE=".docker/php/nginx.conf" docker compose up --no-build ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
+        docker compose up --no-build ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} --no-deps
 
     - name: Stop Docker containers
       if: always()
