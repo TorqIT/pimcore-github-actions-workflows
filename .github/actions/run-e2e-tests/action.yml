@@ -118,13 +118,11 @@ runs:
           --build-arg GID=$(id -g $USER) \
           init $PHP_SERVICE $E2E_SERVICE
 
-    - name: Save Docker images to cache
-      shell: bash
-      run: |
+        echo "Saving Docker images to cache directory..."
         mkdir -p /tmp/docker-images
-        docker save ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}:latest -o /tmp/docker-images/php.tar
-        docker save init:latest -o /tmp/docker-images/init.tar
-        docker save ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:latest -o /tmp/docker-images/e2e.tar
+        docker save init -o /tmp/docker-images/init.tar
+        docker save ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -o /tmp/docker-images/php.tar
+        docker save ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} -o /tmp/docker-images/e2e.tar
 
     - name: Persist Docker image cache
       uses: actions/cache@v3
@@ -151,3 +149,8 @@ runs:
       if: always()
       shell: bash
       run: rm -rf .secrets
+
+    - name: Remove Docker image cache
+      if: always()
+      shell: bash
+      run: rm -rf /tmp/docker-images
