@@ -129,11 +129,16 @@ on:
         type: string
         default: "e2e"
         description: "The directory where end-to-end tests are located - note this should be relative to the Pimcore root, as once inside the container the working directory is set to the Pimcore root"
+      E2E_DOCKER_COMPOSE_SERVICE:
+        required: false
+        type: string
+        default: "e2e"
+        description: "The name of the e2e service in your Docker Compose setup used for end-to-end tests"
       PHP_DOCKER_COMPOSE_SERVICE:
         required: false
         type: string
         default: "php"
-        description: "The name of the PHP service in your Docker Compose setup used for end-to-end tests"
+        description: "The name of the PHP service in your Docker Compose setup"
       NODE_VERSION:
         required: false
         type: string
@@ -510,5 +515,6 @@ jobs:
           NODE_VERSION: ${{ inputs.NODE_VERSION }}
           TESTS_DIRECTORY: "${{ inputs.E2E_TESTS_DIRECTORY }}"
           PHP_DOCKER_COMPOSE_SERVICE: ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
+          E2E_DOCKER_COMPOSE_SERVICE: ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number || '' }}

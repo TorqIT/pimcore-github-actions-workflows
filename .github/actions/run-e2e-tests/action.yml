@@ -34,6 +34,9 @@ inputs:
   PHP_DOCKER_COMPOSE_SERVICE:
     description: 'Name of the PHP service in Docker Compose'
     required: true
+  E2E_DOCKER_COMPOSE_SERVICE:
+    description: 'Name of the e2e tests service in Docker Compose'
+    required: true
   GITHUB_TOKEN:
     description: 'GitHub token used for adding results to PRs'
     required: false
@@ -68,8 +71,6 @@ runs:
         echo "::add-mask::${{ inputs.PIMCORE_ENCRYPTION_SECRET }}"
         echo -n "${{ inputs.PIMCORE_ENCRYPTION_SECRET }}" > .secrets/pimcore-encryption-secret
 
-    # TODO build-time and run-time secret handling
-
     - name: Write run-time secrets to files
       id: runtime-secrets
       run: |
@@ -81,82 +82,18 @@ runs:
         done
       shell: bash
 
+    - name: Overwrite run-tests.sh
+      shell: bash
+      run: |
+        echo "npx playwright test" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
+
     - name: Start Docker containers
       shell: bash
       run: |
         set -e
-        docker compose build --build-arg UID=$(id -u $USER) --build-arg GID=$(id -g $USER) init ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
+        docker compose build --build-arg UID=$(id -u $USER) --build-arg GID=$(id -g $USER) init ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
         docker compose up init
-        NGINX_FILE=".docker/php/nginx.conf" docker compose up ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
-
-    - name: Get PHP port from .env
-      id: get-port
-      shell: bash
-      run: |
-        set -e
-        if [ -f .env ]; then
-          phpPort=$(grep "^WEB_PORT_EXTERNAL=" .env | cut -d'=' -f2)
-          echo "phpPort=$phpPort" >> $GITHUB_OUTPUT
-          echo "Using PHP port: $phpPort"
-        else
-          echo "::error::.env file not found"
-          exit 1
-        fi
-
-    - name: Wait for services to be ready
-      shell: bash
-      run: |
-        set -e
-        echo "Waiting for PHP container to be ready..."
-        phpPort=${{ steps.get-port.outputs.phpPort }}
-        max_attempts=5
-        attempt=0
-        while [ $attempt -lt $max_attempts ]; do
-          if wget --quiet --spider http://127.0.0.1:$phpPort; then
-            echo "PHP container is ready!"
-            exit 0
-          fi
-          attempt=$((attempt + 1))
-          echo "Attempt $attempt/$max_attempts failed - container logs:"
-          docker compose logs ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
-          echo "Attempting again..."
-          sleep 2
-        done
-        echo "PHP container failed to become ready after $max_attempts attempts"
-        exit 1
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ inputs.NODE_VERSION }}
-        cache: 'npm'
-        cache-dependency-path: ${{ inputs.TESTS_DIRECTORY }}/package-lock.json
-
-    - name: Cache Playwright browsers
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ hashFiles('${{ inputs.TESTS_DIRECTORY }}/package-lock.json') }}
-
-    - name: Install Node dependencies
-      shell: bash
-      run: |
-        set -e
-        npm --prefix ${{ inputs.TESTS_DIRECTORY }} ci
-
-    - name: Install Playwright browsers
-      shell: bash
-      run: |
-        set -e
-        npm exec --prefix ${{ inputs.TESTS_DIRECTORY }} playwright install chromium
-
-    - name: Run Playwright tests
-      shell: bash
-      run: |
-        set -e
-        cd ${{ inputs.TESTS_DIRECTORY }}
-        npx playwright test
-        cd ..
+        NGINX_FILE=".docker/php/nginx.conf" docker compose up ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} -d --no-deps
 
     # TODO publish test results to PR
 
