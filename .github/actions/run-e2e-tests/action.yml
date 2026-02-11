@@ -85,15 +85,17 @@ runs:
     - name: Overwrite run-tests.sh
       shell: bash
       run: |
-        echo "npx playwright test" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
+        echo "set -e; npx playwright test" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
 
     - name: Start Docker containers
       shell: bash
       run: |
         set -e
-        docker compose up init
-        NGINX_FILE=".docker/php/nginx.conf" docker compose up ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
-        docker compose up ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} --no-deps
+        userId=$(id -u $USER)
+        groupId=$(id -g $USER)
+        UID=$userId GID=$groupId docker compose up init
+        UID=$userId GID=$groupId NGINX_FILE=".docker/php/nginx.conf" docker compose up ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
+        UID=$userId GID=$groupId docker compose up ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} --no-deps
 
     # TODO publish test results to PR
 
