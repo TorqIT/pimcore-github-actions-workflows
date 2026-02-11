@@ -91,9 +91,10 @@ runs:
       shell: bash
       run: |
         set -e
-        docker compose build --build-arg UID=$(id -u $USER) --build-arg GID=$(id -g $USER) init ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
+        export UID=$(id -u $USER) GID=$(id -g $USER)
         docker compose up init
-        NGINX_FILE=".docker/php/nginx.conf" docker compose up ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} -d --no-deps
+        NGINX_FILE=".docker/php/nginx.conf" docker compose up ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
+        docker compose up ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} --no-deps
 
     # TODO publish test results to PR
 
