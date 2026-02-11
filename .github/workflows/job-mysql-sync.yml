@@ -264,8 +264,7 @@ jobs:
             -P ${{ inputs.TARGET_PORT }} \
             -u ${{ inputs.TARGET_USERNAME }} \
             --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-            -e "DROP DATABASE IF EXISTS \`${{ inputs.TARGET_DATABASE }}\`; \
-            ${{ inputs.TARGET_DATABASE }}
+            -e "DROP DATABASE IF EXISTS \`${{ inputs.TARGET_DATABASE }}\`; CREATE DATABASE \`${{ inputs.TARGET_DATABASE }}\`;"
           echo "Target database dropped"
 
       - name: Install mydumper
