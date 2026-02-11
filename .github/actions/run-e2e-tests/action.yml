@@ -86,7 +86,7 @@ runs:
       run: |
         echo "set -e; npx playwright test" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
 
-    - name: Set environment variables
+    - name: Set Docker environment variables
       shell: bash
       run: |
         echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
