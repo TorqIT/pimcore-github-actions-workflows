@@ -91,7 +91,6 @@ runs:
       shell: bash
       run: |
         set -e
-        export UID=$(id -u $USER) GID=$(id -g $USER)
         docker compose up init
         NGINX_FILE=".docker/php/nginx.conf" docker compose up ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
         docker compose up ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} --no-deps
