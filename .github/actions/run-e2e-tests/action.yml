@@ -112,7 +112,6 @@ runs:
       run: |
         PHP_SERVICE="${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}"
         E2E_SERVICE="${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}"
-
         docker compose build \
           --progress=plain \
           --build-arg UID=$(id -u $USER) \
