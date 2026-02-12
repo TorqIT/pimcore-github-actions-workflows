@@ -96,6 +96,11 @@ runs:
         LOAD: "true"
         TAGS: "php:latest"
 
+    - name: Overwrite run-tests.sh so we just run the tests, instead of watching for changes
+      shell: bash
+      run: |
+        echo "set -e; npx playwright test" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
+
     - name: Build e2e image
       uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
       with:
@@ -130,11 +135,6 @@ runs:
           echo "::add-mask::$value"
           echo "$value" >> .secrets/$key
         done
-
-    - name: Overwrite run-tests.sh
-      shell: bash
-      run: |
-        echo "set -e; npx playwright test" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
 
     - name: Start Docker containers
       shell: bash
