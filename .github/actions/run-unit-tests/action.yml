@@ -76,6 +76,8 @@ runs:
         TORQ_GITHUB_TOKEN: ${{ inputs.TORQ_GITHUB_TOKEN }}
         PUSH: "false"
         LOAD: "true"
+        CACHE_TO: type=gha,mode=max
+        CACHE_FROM: type=gha,mode=max
         TAGS: "init:test"
 
     - name: Run unit tests
