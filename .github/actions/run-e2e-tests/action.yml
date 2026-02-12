@@ -104,7 +104,6 @@ runs:
       uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
       with:
         DOCKERFILE_PATH: ${{ inputs.TESTS_DIRECTORY }}/Dockerfile
-        DOCKERFILE_TARGET: e2e
         PUSH: "false"
         LOAD: "true"
         TAGS: "e2e:latest"
