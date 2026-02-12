@@ -101,18 +101,15 @@ runs:
         CACHE_FROM: type=gha,mode=max
 
     - name: Build e2e image
-      uses: docker/build-push-action@v5
+      uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
       with:
-        context: .
-        file: ./${{ inputs.TESTS_DIRECTORY }}/Dockerfile
-        build-args: |
-          UID=$(id -u $USER)
-          GID=$(id -g $USER)
-        push: false
-        load: true
-        tags: e2e:latest
-        cache-from: type=gha,mode=max
-        cache-to: type=gha,mode=max
+        DOCKERFILE_PATH: ${{ inputs.TESTS_DIRECTORY }}/Dockerfile
+        DOCKERFILE_TARGET: e2e
+        PUSH: "false"
+        LOAD: "true"
+        TAGS: "e2e:latest"
+        CACHE_TO: type=gha,mode=max
+        CACHE_FROM: type=gha,mode=max
 
     - name: Prepare run-time secrets directory
       shell: bash
