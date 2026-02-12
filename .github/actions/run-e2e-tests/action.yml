@@ -142,11 +142,12 @@ runs:
         set -e
         docker compose up --no-build init
         NGINX_FILE=".docker/php/nginx.conf" docker compose up --no-build ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
-        docker compose up --no-build ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} --no-deps
-        if [ $? -ne 0 ]; then
-          echo "e2e tests failed!"
-          exit 1
-        fi
+        docker compose up \
+          --no-build \
+          --no-deps \
+          --abort-on-container-exit \
+          --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
+          ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
 
     - name: Stop Docker containers
       if: always()
