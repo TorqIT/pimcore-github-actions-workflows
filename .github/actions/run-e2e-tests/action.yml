@@ -100,11 +100,11 @@ runs:
       shell: bash
       run: |
         set -e
-        docker compose up init
-        NGINX_FILE=".docker/php/nginx.conf" docker compose up ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
-        echo "UID=$(id -u $USER)" >> .env
-        echo "GID=$(id -g $USER)" >> .env
-        docker compose up \
+        userId=$(id -u $USER)
+        groupId=$(id -g $USER)
+        UID=$userId GID=$groupId docker compose up init
+        UID=$userId GID=$groupId NGINX_FILE=".docker/php/nginx.conf" docker compose up ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
+        UID=$userId GID=$groupId docker compose up \
           --no-deps \
           --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
