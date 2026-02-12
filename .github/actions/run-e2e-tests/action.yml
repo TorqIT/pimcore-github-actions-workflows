@@ -142,7 +142,9 @@ runs:
         set -e
         docker compose up --no-build init
         NGINX_FILE=".docker/php/nginx.conf" docker compose up --no-build ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
-        UID=$(id -u $USER) GID=$(id -g $USER) docker compose up \
+        echo "UID=$(id -u $USER)" >> .env
+        echo "GID=$(id -g $USER)" >> .env
+        docker compose up \
           --no-build \
           --no-deps \
           --abort-on-container-exit \
