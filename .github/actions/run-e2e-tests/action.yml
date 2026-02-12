@@ -2,6 +2,21 @@ name: Run e2e Tests
 description: Runs end-to-end tests
 
 inputs:
+  INIT_DOCKERFILE:
+    description: 'Path to the Dockerfile used for building the init image'
+    required: true
+  INIT_DOCKERFILE_TARGET:
+    description: 'Target stage in the Dockerfile for the init image'
+    required: true
+  PHP_DOCKERFILE:
+    description: 'Path to the Dockerfile used for building the PHP image'
+    required: true
+  PHP_DOCKERFILE_TARGET:
+    description: 'Target stage in the Dockerfile for the PHP image'
+    required: true
+  PIMCORE_ROOT:
+    description: 'Path to the Pimcore root directory (relative to project root)'
+    required: true
   TESTS_DIRECTORY:
     description: 'Path to e2e test files'
     required: true
@@ -49,16 +64,61 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Add host entry
-      shell: bash
-      if: inputs.HOSTNAME != ''
-      run: echo "127.0.0.1 ${{ inputs.HOSTNAME }}" | sudo tee -a /etc/hosts
+    - name: Build init image
+      uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+      with:
+        DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
+        DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKERFILE_TARGET }}
+        PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+        BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
+        BUILD_TIME_SECRETS: ${{ inputs.BUILD_TIME_SECRETS }} 
+        PIMCORE_ENTERPRISE_TOKEN: ${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
+        PIMCORE_PRODUCT_KEY: ${{ inputs.PIMCORE_PRODUCT_KEY }}
+        PIMCORE_INSTANCE_IDENTIFIER: ${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}
+        PIMCORE_ENCRYPTION_SECRET: ${{ inputs.PIMCORE_ENCRYPTION_SECRET }}
+        PUSH: "false"
+        LOAD: "true"
+        TAGS: "init:latest"
+        CACHE_TO: type=gha,mode=max
+        CACHE_FROM: type=gha,mode=max
 
-    - name: Prepare secrets directory
+    - name: Build PHP image
+      uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+      with:
+        DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
+        DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKERFILE_TARGET }}
+        PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+        BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
+        BUILD_TIME_SECRETS: ${{ inputs.BUILD_TIME_SECRETS }} 
+        PIMCORE_ENTERPRISE_TOKEN: ${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
+        PIMCORE_PRODUCT_KEY: ${{ inputs.PIMCORE_PRODUCT_KEY }}
+        PIMCORE_INSTANCE_IDENTIFIER: ${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}
+        PIMCORE_ENCRYPTION_SECRET: ${{ inputs.PIMCORE_ENCRYPTION_SECRET }}
+        PUSH: "false"
+        LOAD: "true"
+        TAGS: "php:latest"
+        CACHE_TO: type=gha,mode=max
+        CACHE_FROM: type=gha,mode=max
+
+    - name: Build e2e image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./${{ inputs.TESTS_DIRECTORY }}/Dockerfile
+        build-args: |
+          UID=$(id -u $USER)
+          GID=$(id -g $USER)
+        push: false
+        load: true
+        tags: e2e:latest
+        cache-from: type=gha,mode=max
+        cache-to: type=gha,mode=max
+
+    - name: Prepare run-time secrets directory
       shell: bash
       run: mkdir -p .secrets
 
-    - name: Create necessary secret files
+    - name: Create necessary run-time secret files
       shell: bash
       run: |
         echo -n "$(openssl rand -hex 16)" > .secrets/kernel-secret
@@ -86,59 +146,17 @@ runs:
       run: |
         echo "set -e; npx playwright test" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
 
-    - name: Set Docker environment variables
-      shell: bash
-      run: |
-        echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
-        echo "COMPOSE_DOCKER_CLI_BUILD=1" >> $GITHUB_ENV
-
-    - name: Restore cached Docker images
-      uses: actions/cache@v3
-      with:
-        path: /tmp/docker-images
-        key: docker-images-${{ runner.os }}-v1
-
-    - name: Load Docker images if cache exists
-      shell: bash
-      run: |
-        if [ -d /tmp/docker-images ]; then
-          for f in /tmp/docker-images/*.tar; do
-            docker load -i "$f"
-          done
-        fi
-
-    - name: Build Docker images 
-      shell: bash
-      run: |
-        PHP_SERVICE="${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}"
-        E2E_SERVICE="${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}"
-        docker compose build \
-          --progress=plain \
-          --build-arg UID=$(id -u $USER) \
-          --build-arg GID=$(id -g $USER) \
-          init $PHP_SERVICE $E2E_SERVICE
-
-        echo "Saving Docker images to cache directory..."
-        mkdir -p /tmp/docker-images
-        docker save init:latest -o /tmp/docker-images/init.tar
-        docker save ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}:latest -o /tmp/docker-images/php.tar
-        docker save ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:latest -o /tmp/docker-images/e2e.tar
-
-    - name: Persist Docker image cache
-      uses: actions/cache@v3
-      with:
-        path: /tmp/docker-images
-        key: docker-images-${{ runner.os }}-v1
-
     - name: Start Docker containers
       shell: bash
       run: |
         set -e
-        userId=$(id -u $USER)
-        groupId=$(id -g $USER)
         docker compose up --no-build init
         NGINX_FILE=".docker/php/nginx.conf" docker compose up --no-build ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -d --no-deps
         docker compose up --no-build ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} --no-deps
+        if [ $? -ne 0 ]; then
+          echo "e2e tests failed!"
+          exit 1
+        fi
 
     - name: Stop Docker containers
       if: always()
