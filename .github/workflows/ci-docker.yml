@@ -515,7 +515,7 @@ jobs:
           INIT_DOCKERFILE: ${{ inputs.INIT_DOCKERFILE }}
           INIT_DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
           PHP_DOCKERFILE: ${{ inputs.PHP_DOCKERFILE }}
-          PHP_DOCKER_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
+          PHP_DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           RUN_TIME_SECRETS: ${{ secrets.RUN_TIME_SECRETS }}
