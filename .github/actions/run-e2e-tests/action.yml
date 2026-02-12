@@ -79,8 +79,6 @@ runs:
         PUSH: "false"
         LOAD: "true"
         TAGS: "init:latest"
-        CACHE_TO: type=gha,mode=max
-        CACHE_FROM: type=gha,mode=max
 
     - name: Build PHP image
       uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -97,8 +95,6 @@ runs:
         PUSH: "false"
         LOAD: "true"
         TAGS: "php:latest"
-        CACHE_TO: type=gha,mode=max
-        CACHE_FROM: type=gha,mode=max
 
     - name: Build e2e image
       uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -107,8 +103,6 @@ runs:
         PUSH: "false"
         LOAD: "true"
         TAGS: "e2e:latest"
-        CACHE_TO: type=gha,mode=max
-        CACHE_FROM: type=gha,mode=max
 
     - name: Prepare run-time secrets directory
       shell: bash
