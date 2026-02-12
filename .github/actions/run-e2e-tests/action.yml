@@ -80,7 +80,7 @@ runs:
         LOAD: "true"
         TAGS: "init:latest"
         CACHE_TO: type=gha
-        CACHE_FROM: type=gha,mode=min
+        CACHE_FROM: type=gha,mode=max
 
     - name: Build PHP image
       uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -98,7 +98,7 @@ runs:
         LOAD: "true"
         TAGS: "php:latest"
         CACHE_TO: type=gha
-        CACHE_FROM: type=gha,mode=min
+        CACHE_FROM: type=gha,mode=max
 
     - name: Overwrite run-tests.sh so we just run the tests, instead of watching for changes
       shell: bash
@@ -113,7 +113,7 @@ runs:
         LOAD: "true"
         TAGS: "e2e:latest"
         CACHE_TO: type=gha
-        CACHE_FROM: type=gha,mode=min
+        CACHE_FROM: type=gha,mode=max
 
     - name: Prepare run-time secrets directory
       shell: bash
@@ -153,7 +153,6 @@ runs:
         docker compose up \
           --no-build \
           --no-deps \
-          --abort-on-container-exit \
           --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
 
