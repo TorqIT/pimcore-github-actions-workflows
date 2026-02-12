@@ -134,7 +134,7 @@ runs:
     - name: Overwrite run-tests.sh
       shell: bash
       run: |
-        echo "set -e; npx playwright test" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
+        echo "set -e; ls -la /home/node/.cache; npx playwright test" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
 
     - name: Start Docker containers
       shell: bash
