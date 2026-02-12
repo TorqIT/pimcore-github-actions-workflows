@@ -105,6 +105,7 @@ runs:
         echo "UID=$(id -u $USER)" >> .env
         echo "GID=$(id -g $USER)" >> .env
         docker compose up init
+        NGINX_FILE=".docker/php/nginx.conf" docker compose up --no-deps php
         NGINX_FILE=".docker/php/nginx.conf" \
           docker compose up \
             --no-deps \
