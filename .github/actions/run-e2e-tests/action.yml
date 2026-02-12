@@ -120,9 +120,9 @@ runs:
 
         echo "Saving Docker images to cache directory..."
         mkdir -p /tmp/docker-images
-        docker save init -o /tmp/docker-images/init.tar
-        docker save ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} -o /tmp/docker-images/php.tar
-        docker save ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} -o /tmp/docker-images/e2e.tar
+        docker save init:latest -o /tmp/docker-images/init.tar
+        docker save ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}:latest -o /tmp/docker-images/php.tar
+        docker save ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:latest -o /tmp/docker-images/e2e.tar
 
     - name: Persist Docker image cache
       uses: actions/cache@v3
