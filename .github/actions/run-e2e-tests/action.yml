@@ -79,8 +79,8 @@ runs:
         PUSH: "false"
         LOAD: "true"
         TAGS: "init:latest"
-        CACHE_TO: type=gha
-        CACHE_FROM: type=gha,mode=max
+        CACHE_TO: type=gha,mode=max
+        CACHE_FROM: type=gha
 
     - name: Build PHP image
       uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -97,8 +97,8 @@ runs:
         PUSH: "false"
         LOAD: "true"
         TAGS: "php:latest"
-        CACHE_TO: type=gha
-        CACHE_FROM: type=gha,mode=max
+        CACHE_TO: type=gha,mode=max
+        CACHE_FROM: type=gha
 
     - name: Overwrite run-tests.sh so we just run the tests, instead of watching for changes
       shell: bash
@@ -112,8 +112,8 @@ runs:
         PUSH: "false"
         LOAD: "true"
         TAGS: "e2e:latest"
-        CACHE_TO: type=gha
-        CACHE_FROM: type=gha,mode=max
+        CACHE_TO: type=gha,mode=max
+        CACHE_FROM: type=gha
 
     - name: Prepare run-time secrets directory
       shell: bash
