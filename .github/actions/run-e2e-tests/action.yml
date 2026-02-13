@@ -131,11 +131,10 @@ runs:
     # TODO send test results to PR
 
     - name: Save Docker images
-      if: always()
       shell: bash
       run: |
         mkdir -p /tmp/docker-images
-        docker save $(docker images -q | grep -v "pimcore") -o /tmp/docker-images/images.tar
+        docker save $(docker images -q) -o /tmp/docker-images/images.tar
 
     - name: Stop Docker containers
       if: always()
