@@ -106,13 +106,13 @@ runs:
         echo "GID=$(id -g $USER)" >> .env
         docker compose up init
         NGINX_FILE=".docker/php/nginx.conf" docker compose up --no-deps php
-        NGINX_FILE=".docker/php/nginx.conf" \
-          docker compose up \
-            --no-deps \
-            --abort-on-container-exit \
-            --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
-            ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
-            ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
+        # NGINX_FILE=".docker/php/nginx.conf" \
+        #   docker compose up \
+        #     --no-deps \
+        #     --abort-on-container-exit \
+        #     --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
+        #     ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
+        #     ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
 
     - name: Stop Docker containers
       if: always()
