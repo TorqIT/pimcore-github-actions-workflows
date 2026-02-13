@@ -102,7 +102,7 @@ runs:
       uses: actions/cache@v3
       with:
         path: /tmp/docker-images/images.tar
-        key: ${{ runner.os }}-docker-images-${{ hashFiles('**/*/Dockerfile') }}
+        key: ${{ runner.os }}-docker-images-${{ hashFiles('**/*/Dockerfile') }}-${{ github.run_id }}
 
     - name: Load cached Docker images
       if: steps.cache-docker-images.outputs.cache-hit == 'true'
