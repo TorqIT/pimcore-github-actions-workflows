@@ -96,23 +96,6 @@ runs:
           echo "$value" >> .secrets/$key
         done
 
-    - name: Cache Docker images
-      if: always()
-      id: cache-docker-images
-      uses: actions/cache@v5
-      with:
-        path: /tmp/docker-images/images.tar
-        key: ${{ runner.os }}-docker-images-${{ hashFiles('**/*/Dockerfile') }}-${{ github.run_id }}
-        restore-keys: |
-          ${{ runner.os }}-docker-images-${{ hashFiles('**/*/Dockerfile') }}-
-
-    - name: Load cached Docker images
-      if: steps.cache-docker-images.outputs.cache-hit == 'true'
-      shell: bash
-      run: |
-        docker load -i /tmp/docker-images/images.tar
-        docker images
-
     - name: Start Docker containers
       shell: bash
       run: |
@@ -133,13 +116,22 @@ runs:
           --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
 
-    # TODO send test results to PR
-
-    - name: Save Docker images
+    - name: Copy Playwright test results from container
+      if: always()
       shell: bash
       run: |
-        mkdir -p /tmp/docker-images
-        docker save $(docker images -q) -o /tmp/docker-images/images.tar
+        mkdir -p playwright-results
+        docker cp ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/playwright-results.xml ./playwright-results/playwright-results.xml
+        ls -l ./playwright-results
+
+    - name: Publish Playwright test results to PR
+      if: always() && (inputs.GITHUB_TOKEN != '')
+      uses: dorny/test-reporter@v2
+      with:
+        name: Playwright Tests
+        path: playwright-results/playwright-results.xml
+        reporter: java-junit
+        token: ${{ inputs.GITHUB_TOKEN }}
 
     - name: Stop Docker containers
       if: always()

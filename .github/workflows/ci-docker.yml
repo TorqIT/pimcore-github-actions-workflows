@@ -183,6 +183,9 @@ on:
       GITHUB_APP_PRIVATE_KEY:
         required: false
         description: The private key of the GitHub App used to generate a token for checking out the project repository and submodules
+      CALLER_GITHUB_TOKEN:
+        required: false
+        description: "The GitHub token of the caller workflow"
 
 jobs:
   lint:
@@ -521,5 +524,5 @@ jobs:
           TESTS_DIRECTORY: "${{ inputs.E2E_TESTS_DIRECTORY }}"
           PHP_DOCKER_COMPOSE_SERVICE: ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
           E2E_DOCKER_COMPOSE_SERVICE: ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.CALLER_GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number || '' }}
