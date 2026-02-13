@@ -146,8 +146,3 @@ runs:
       if: always()
       shell: bash
       run: rm -rf .secrets
-
-    - name: Remove Docker image cache
-      if: always()
-      shell: bash
-      run: rm -rf /tmp/docker-images
