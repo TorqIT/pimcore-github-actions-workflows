@@ -112,8 +112,6 @@ runs:
             ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
         docker compose up \
           --no-deps \
-          --abort-on-container-exit \
-          --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
 
     - name: Copy Playwright test results from container
@@ -121,7 +119,7 @@ runs:
       shell: bash
       run: |
         mkdir -p playwright-results
-        docker cp ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/playwright-results.xml ./playwright-results/playwright-results.xml
+        docker compose cp ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/results.xml ./playwright-results/playwright-results.xml
         ls -l ./playwright-results
 
     - name: Publish Playwright test results to PR
