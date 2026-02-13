@@ -128,12 +128,14 @@ runs:
           --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
 
+    # TODO send test results to PR
+
     - name: Save Docker images
       if: always()
       shell: bash
       run: |
         mkdir -p /tmp/docker-images
-        docker save $(docker compose config --images) -o /tmp/docker-images/images.tar
+        docker save $(docker images -q | grep -v "pimcore") -o /tmp/docker-images/images.tar
 
     - name: Stop Docker containers
       if: always()
