@@ -98,6 +98,7 @@ runs:
 
     - name: Cache Docker images
       if: always()
+      id: cache-docker-images
       uses: actions/cache@v3
       with:
         path: /tmp/docker-images/images.tar
