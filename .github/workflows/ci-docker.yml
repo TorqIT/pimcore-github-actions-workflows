@@ -154,6 +154,11 @@ on:
         type: string
         default: ""
         description: "A comma or newline-separated list of repositories to checkout with the GitHub App token - if empty, only the main project repository will be checked out"
+      PR_NUMBER:
+        required: false
+        type: string
+        default: ""
+        description: "The Pull Request number to post results to"
 
     secrets:
       BUILD_TIME_SECRETS:
@@ -525,4 +530,4 @@ jobs:
           PHP_DOCKER_COMPOSE_SERVICE: ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
           E2E_DOCKER_COMPOSE_SERVICE: ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
           GITHUB_TOKEN: ${{ secrets.CALLER_GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          PR_NUMBER: ${{ inputs.PR_NUMBER }}
