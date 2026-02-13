@@ -96,6 +96,18 @@ runs:
           echo "$value" >> .secrets/$key
         done
 
+    - name: Cache Docker images
+      if: always()
+      uses: actions/cache@v3
+      with:
+        path: /tmp/docker-images/images.tar
+        key: ${{ runner.os }}-docker-images-${{ hashFiles('**/*/Dockerfile') }}
+
+    - name: Load cached Docker images
+      if: steps.cache-docker-images.outputs.cache-hit == 'true'
+      shell: bash
+      run: docker load -i /tmp/docker-images/images.tar
+
     - name: Start Docker containers
       shell: bash
       run: |
@@ -107,11 +119,21 @@ runs:
         docker compose up init
         NGINX_FILE=".docker/php/nginx.conf" \
           docker compose up \
+            -d \
             --no-deps \
-            --abort-on-container-exit \
-            --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
-            ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
             ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
+        docker compose up \
+          --no-deps \
+          --abort-on-container-exit \
+          --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
+          ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
+
+    - name: Save Docker images
+      if: always()
+      shell: bash
+      run: |
+        mkdir -p /tmp/docker-images
+        docker save $(docker compose config --images) -o /tmp/docker-images/images.tar
 
     - name: Stop Docker containers
       if: always()
