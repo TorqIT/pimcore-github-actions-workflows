@@ -1,0 +1,183 @@
+name: Run e2e Tests
+description: Runs end-to-end tests
+
+inputs:
+  INIT_DOCKERFILE:
+    description: 'Path to the Dockerfile used for building the init image'
+    required: true
+  INIT_DOCKERFILE_TARGET:
+    description: 'Target stage in the Dockerfile for the init image'
+    required: true
+  PHP_DOCKERFILE:
+    description: 'Path to the Dockerfile used for building the PHP image'
+    required: true
+  PHP_DOCKERFILE_TARGET:
+    description: 'Target stage in the Dockerfile for the PHP image'
+    required: true
+  PIMCORE_ROOT:
+    description: 'Path to the Pimcore root directory (relative to project root)'
+    required: true
+  TESTS_DIRECTORY:
+    description: 'Path to e2e test files'
+    required: true
+  NODE_VERSION:
+    description: 'Node.js version to use'
+    required: true
+  PIMCORE_ENTERPRISE_TOKEN:
+    required: false
+    description: (Optional) The value of your project's Pimcore Enterprise Token
+  PIMCORE_PRODUCT_KEY:
+    required: false
+    description: (Optional) The Pimcore product key for the project
+  PIMCORE_INSTANCE_IDENTIFIER:
+    required: false
+    description: (Optional) The Pimcore instance identifier for the project
+  PIMCORE_ENCRYPTION_SECRET:
+    required: false
+    description: (Optional) The Pimcore encryption secret for the project
+  BUILD_TIME_SECRETS:
+    required: false
+    description: 'A JSON object containing a list of build-time secrets in key: value format'
+    default: '{}'
+  RUN_TIME_SECRETS:
+    required: false
+    description: 'A JSON object containing a list of run-time secrets in key: value format'
+    default: '{}'
+  HOSTNAME:
+    description: 'Hostname to add to /etc/hosts'
+    required: true
+  PHP_DOCKER_COMPOSE_SERVICE:
+    description: 'Name of the PHP service in Docker Compose'
+    required: true
+  E2E_DOCKER_COMPOSE_SERVICE:
+    description: 'Name of the e2e tests service in Docker Compose'
+    required: true
+  GITHUB_TOKEN:
+    description: 'GitHub token used for adding results to PRs'
+    required: false
+    default: ''
+  PR_NUMBER:
+    description: 'Pull Request number to post results to'
+    required: false
+    default: ''
+
+runs:
+  using: "composite"
+  steps:
+    - name: Overwrite run-tests.sh so we just run the tests, instead of watching for changes
+      shell: bash
+      run: |
+        echo "set -e; npx playwright test" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
+
+    - name: Prepare run-time secrets directory
+      shell: bash
+      run: mkdir -p .secrets
+
+    - name: Create necessary Pimcore run-time secret files
+      shell: bash
+      run: |
+        echo -n "$(openssl rand -hex 16)" > .secrets/kernel-secret
+        echo "::add-mask::${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}"
+        echo -n "${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}" > .secrets/pimcore-enterprise-token
+        echo "::add-mask::${{ inputs.PIMCORE_PRODUCT_KEY }}"
+        echo -n "${{ inputs.PIMCORE_PRODUCT_KEY }}" > .secrets/pimcore-product-key
+        echo "::add-mask::${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}"
+        echo -n "${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}" > .secrets/pimcore-instance-identifier
+        echo "::add-mask::${{ inputs.PIMCORE_ENCRYPTION_SECRET }}"
+        echo -n "${{ inputs.PIMCORE_ENCRYPTION_SECRET }}" > .secrets/pimcore-encryption-secret
+
+    - name: Write other run-time secrets to files
+      shell: bash
+      run: |
+        set -e
+        JSON_INPUT='${{ inputs.RUN_TIME_SECRETS }}'
+        echo "$JSON_INPUT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
+          echo "::add-mask::$value"
+          echo "$value" >> .secrets/$key
+        done
+
+    - name: Start Docker containers
+      shell: bash
+      run: |
+        set -e
+        userId=$(id -u $USER)
+        groupId=$(id -g $USER)
+        echo "UID=$(id -u $USER)" >> .env
+        echo "GID=$(id -g $USER)" >> .env
+        docker compose up init
+        NGINX_FILE=".docker/php/nginx.conf" \
+          docker compose up \
+            -d \
+            --no-deps \
+            ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
+        docker compose up \
+          --no-deps \
+          ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
+
+    - name: Copy Playwright test results from container
+      if: always()
+      shell: bash
+      run: |
+        mkdir -p playwright-results
+        docker compose cp ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/results.xml ./playwright-results/playwright-results.xml
+        ls -l ./playwright-results
+
+    - name: Post Playwright results to PR (update existing comment)
+      if: always() && inputs.GITHUB_TOKEN != '' && inputs.PR_NUMBER != ''
+      shell: bash
+      run: |
+        RESULTS_FILE="./playwright-results/playwright-results.xml"
+        UNIQUE_MARKER="<!-- PLAYWRIGHT-RESULTS -->"
+
+        # Basic test summary
+        PASSED=$(xmllint --xpath 'count(//testcase[not(failure)])' "$RESULTS_FILE")
+        FAILED=$(xmllint --xpath 'count(//testcase[failure])' "$RESULTS_FILE")
+
+        COMMENT_BODY="$UNIQUE_MARKER
+        ### 🎭 Playwright E2E Test Results
+        **Passed:** $PASSED  
+        **Failed:** $FAILED  
+
+        <details>
+        <summary>Full test results</summary>
+
+        \`\`\`xml
+        $(cat "$RESULTS_FILE")
+        \`\`\`
+
+        </details>"
+
+        # Get existing comment ID if it exists
+        EXISTING_COMMENT_ID=$(gh api \
+          -H "Authorization: token ${{ inputs.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github+json" \
+          "repos/${{ github.repository }}/issues/${{ inputs.PR_NUMBER }}/comments" \
+          --jq ".[] | select(.body | contains(\"$UNIQUE_MARKER\")) | .id")
+
+        if [ -n "$EXISTING_COMMENT_ID" ]; then
+          echo "Updating existing Playwright comment (ID: $EXISTING_COMMENT_ID)"
+          gh api \
+            -X PATCH \
+            -H "Authorization: token ${{ inputs.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${{ github.repository }}/issues/comments/$EXISTING_COMMENT_ID" \
+            -f body="$COMMENT_BODY"
+        else
+          echo "Creating new Playwright comment"
+          gh api \
+            -X POST \
+            -H "Authorization: token ${{ inputs.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${{ github.repository }}/issues/${{ inputs.PR_NUMBER }}/comments" \
+            -f body="$COMMENT_BODY"
+        fi
+
+    - name: Stop Docker containers
+      if: always()
+      shell: bash
+      run: docker compose down -v
+
+    - name: Clean up secrets
+      if: always()
+      shell: bash
+      run: rm -rf .secrets
