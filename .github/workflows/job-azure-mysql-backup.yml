@@ -126,24 +126,32 @@ jobs:
         id: dump
         run: |
           set -e
-          fileName=$(date -u +"%Y-%m-%dT%H:%M:%SZ").sql
+          fileName=$(date -u +"%Y-%m-%dT%H:%M:%SZ").sql.gz
           dbHost=$(echo "${{ vars.AZURE_MYSQL_SERVER }}.mysql.database.azure.com")
           dbUser=$(echo "${{ vars.AZURE_MYSQL_USERNAME || 'adminuser' }}")
           echo Performing database dump...          
-          MYSQL_PWD="${{ secrets.AZURE_MYSQL_PASSWORD }}" \
-            mysqldump \
-            -h $dbHost \
-            -u $dbUser \
-            --ssl-mode=REQUIRED \
-            --ssl-mode=VERIFY_CA \
-            --ssl-ca ./reusable-workflow/.azure/config/db/DigiCertGlobalRootCA.crt.pem \
-            --single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert --no-tablespaces \
-            ${{ vars.AZURE_MYSQL_DATABASE || 'pimcore' }} \
-            > $fileName
+          fileSize=$(
+            MYSQL_PWD="${{ secrets.AZURE_MYSQL_PASSWORD }}" \
+              mysqldump \
+                -h $dbHost \
+                -u $dbUser \
+                --ssl-mode=REQUIRED \
+                --ssl-mode=VERIFY_CA \
+                --ssl-ca ./reusable-workflow/.azure/config/db/DigiCertGlobalRootCA.crt.pem \
+                --single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert --no-tablespaces \
+                ${{ vars.AZURE_MYSQL_DATABASE || 'pimcore' }} \
+              | gzip -c \
+              | tee >(az storage blob upload \
+                --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
+                --container-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT_CONTAINER || 'database' }} \
+                --name $fileName \
+                --file - \
+                --auth-mode login \
+                >/dev/null) \
+              | wc -c
 
           echo "fileName=$fileName" >> $GITHUB_OUTPUT
-          fileSize=$(stat -c%s $fileName)
-          echo "Dumped .sql file is $fileSize bytes"
+          echo "Dumped file is $fileSize bytes (compressed)"
           echo "fileSize=$fileSize" >> $GITHUB_OUTPUT
           if [ "$fileSize" -le 0 ]; then
             exit 1;
