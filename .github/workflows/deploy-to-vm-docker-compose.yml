@@ -53,6 +53,7 @@ on:
         description: "Whether an NPM build should be run prior to building the PHP image"
       NPM_RUN_CMD:
         required: false
+        default: "build"
         type: string
         description: "The NPM command that should be run prior to building the PHP image"
       NPM_SPA:

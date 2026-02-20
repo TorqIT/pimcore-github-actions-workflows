@@ -44,6 +44,7 @@ on:
       NPM_RUN_CMD:
         required: false
         type: string
+        default: "build"
         description: "The NPM command that should be run prior to building the PHP image"
       NPM_SPA:
         required: false
