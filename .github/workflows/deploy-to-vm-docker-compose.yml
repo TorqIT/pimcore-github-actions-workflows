@@ -325,8 +325,6 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT }}
     needs:
       - build-and-push-images
-    outputs:
-      new_deployment_name: ${{ steps.blue-green-deployment.outputs.new_deployment_name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -510,24 +508,8 @@ jobs:
               exit 1
           fi
 
-  run-post-deployment-commands:
-    name: Run any defined post-deployment commands in PHP container
-    runs-on: "${{ inputs.RUNNER }}"
-    if: ${{ inputs.POST_DEPLOYMENT_COMMANDS != '' }}
-    environment: ${{ inputs.ENVIRONMENT }}
-    needs:
-      - deploy-containers
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            docker-compose.yaml
-            ${{ inputs.DOCKER_COMPOSE_FILE }}
-            ${{ inputs.ENV_FILE }}
-          sparse-checkout-cone-mode: false
-
       - name: Run post-deployment commands
+        if: ${{ inputs.POST_DEPLOYMENT_COMMANDS != '' }}
         run: |
           set -e
 
@@ -535,11 +517,11 @@ jobs:
           while IFS= read -r command; do
             # Skip empty lines
             [[ -z "$command" ]] && continue
-          
+
             echo "Running command: $command"
-          
+
             docker compose \
-              --project-name=${{ needs.deploy-containers.outputs.new_deployment_name }} \
+              --project-name=${{ steps.blue-green-deployment.outputs.new_deployment_name }} \
               -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
               --env-file ${{ inputs.ENV_FILE }} \
               exec -T ${{ inputs.PHP_SERVICE }} \
