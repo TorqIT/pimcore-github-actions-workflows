@@ -171,8 +171,8 @@ jobs:
               --ip-address $runnerIp \
               --verbose
 
-            echo "Sleeping for 30 seconds to allow network rules to propagate..."
-            sleep 30
+            echo "Sleeping for 180 seconds to allow network rules to propagate..."
+            sleep 180
 
       - name: Install and configure AzCopy
         run: |
@@ -200,34 +200,32 @@ jobs:
           echo "Starting Azure Storage sync from ${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }} to ${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}..."
           start_time=$(date +%s)
 
-          # Build standard blob URLs (authentication handled by AzCopy service principal login)
           source_url="https://${{ inputs.SOURCE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ inputs.SOURCE_CONTAINER }}"
           target_url="https://${{ inputs.TARGET_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ inputs.TARGET_CONTAINER }}"
 
-          azcopy_cmd="azcopy sync \"$source_url\" \"$target_url\""
+          azcopy_cmd=(azcopy sync "$source_url" "$target_url")
 
           if [ "${{ inputs.DELETE_DESTINATION }}" = "true" ]; then
-            azcopy_cmd="$azcopy_cmd --delete-destination=true"
+            azcopy_cmd+=("--delete-destination=true")
           fi
 
-          sync_output=$(eval $azcopy_cmd 2>&1)
+          set +e
+          sync_output="$("${azcopy_cmd[@]}" 2>&1)"
           sync_exit_code=$?
+          set -e
 
           end_time=$(date +%s)
           duration=$((end_time - start_time))
 
           echo "$sync_output"
+          echo "AzCopy exit code: $sync_exit_code"
 
-          files_copied=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Completed: \K\d+" || echo "0")
-          files_skipped=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Skipped: \K\d+" || echo "0")
-          files_failed=$(echo "$sync_output" | grep -oP "Number of Copy Transfers Failed: \K\d+" || echo "0")
-          bytes_transferred=$(echo "$sync_output" | grep -oP "Total Number of Bytes Transferred: \K\d+" || echo "0")
+          files_copied=$(grep "Number of Copy Transfers Completed" <<< "$sync_output" | awk -F': ' '{print $2+0}')
+          files_skipped=$(grep "Number of Copy Transfers Skipped" <<< "$sync_output" | awk -F': ' '{print $2+0}')
+          files_failed=$(grep "Number of Copy Transfers Failed" <<< "$sync_output" | awk -F': ' '{print $2+0}')
+          bytes_transferred=$(grep "Total Number of Bytes Transferred" <<< "$sync_output" | awk -F': ' '{print $2+0}')
 
-          if [ "$bytes_transferred" -gt 0 ]; then
-            bytes_transferred_mb=$((bytes_transferred / 1024 / 1024))
-          else
-            bytes_transferred_mb=0
-          fi
+          bytes_transferred_mb=$((bytes_transferred / 1024 / 1024))
 
           echo "Sync completed in ${duration}s"
           echo "Files copied: $files_copied"
@@ -235,11 +233,13 @@ jobs:
           echo "Files failed: $files_failed"
           echo "Data transferred: ${bytes_transferred_mb}MB"
 
-          echo "duration=$duration" >> $GITHUB_OUTPUT
-          echo "files_copied=$files_copied" >> $GITHUB_OUTPUT
-          echo "files_skipped=$files_skipped" >> $GITHUB_OUTPUT
-          echo "files_failed=$files_failed" >> $GITHUB_OUTPUT
-          echo "bytes_transferred_mb=$bytes_transferred_mb" >> $GITHUB_OUTPUT
+          {
+            echo "duration=$duration"
+            echo "files_copied=$files_copied"
+            echo "files_skipped=$files_skipped"
+            echo "files_failed=$files_failed"
+            echo "bytes_transferred_mb=$bytes_transferred_mb"
+          } >> "$GITHUB_OUTPUT"
 
           if [ $sync_exit_code -ne 0 ] || [ "$files_failed" -gt 0 ]; then
             echo "ERROR: Sync operation failed or had failures"

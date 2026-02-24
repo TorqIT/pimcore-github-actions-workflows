@@ -53,6 +53,7 @@ on:
         description: "Whether an NPM build should be run prior to building the PHP image"
       NPM_RUN_CMD:
         required: false
+        default: "build"
         type: string
         description: "The NPM command that should be run prior to building the PHP image"
       NPM_SPA:
@@ -194,6 +195,11 @@ on:
         type: string
         default: ""
         description: "Newline-delimited bash commands to run in the PHP container after deployment"
+      USE_GHA_CACHE:
+        required: false
+        type: boolean
+        default: true
+        description: "Whether to use GitHub Actions cache for Docker layer caching during image builds"
 
     secrets:
       CALLER_GITHUB_TOKEN:
@@ -279,8 +285,8 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
+          CACHE_FROM: ${{ inputs.USE_GHA_CACHE && 'type=gha' || '' }}
+          CACHE_TO: ${{ inputs.USE_GHA_CACHE && 'type=gha,mode=min' || '' }}
           TAGS: |
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE || 'init' }}:${{ inputs.IMAGES_TAG }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE || 'init' }}:${{ github.run_id }}
@@ -299,8 +305,8 @@ jobs:
           NPM_SPA: ${{ inputs.NPM_SPA }}
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
+          CACHE_FROM: ${{ inputs.USE_GHA_CACHE && 'type=gha' || '' }}
+          CACHE_TO: ${{ inputs.USE_GHA_CACHE && 'type=gha,mode=min' || '' }}
           TAGS: |
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE }}:${{ inputs.IMAGES_TAG  }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE }}:${{ github.run_id }}
@@ -313,8 +319,8 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
+          CACHE_FROM: ${{ inputs.USE_GHA_CACHE && 'type=gha' || '' }}
+          CACHE_TO: ${{ inputs.USE_GHA_CACHE && 'type=gha,mode=min' || '' }}
           TAGS: |
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ inputs.IMAGES_TAG }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ github.run_id }}
@@ -498,7 +504,13 @@ jobs:
                   --env-file ${{ inputs.ENV_FILE }} \
                   exec -it \
                     ${{ inputs.PHP_SERVICE }} \
-                    bash -c 'tail -n 3 /var/www/html/var/log/$APP_ENV-error.log'
+                    bash -c '
+                      if [ -f /var/www/html/var/log/$APP_ENV-error.log ]; then
+                        tail -n 3 /var/www/html/var/log/$APP_ENV-error.log
+                      else
+                        echo "No error log file found at /var/www/html/var/log/$APP_ENV-error.log"
+                      fi
+                    '
               echo "Stopping "$NEW_DEPLOYMENT" containers..."
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \

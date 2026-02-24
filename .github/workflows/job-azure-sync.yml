@@ -259,7 +259,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    uses: ./.github/workflows/job-azure-storage-sync.yml
+    uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-azure-storage-sync.yml@v7
     with:
       RUNNER: ${{ inputs.RUNNER }}
       SOURCE_STORAGE_ACCOUNT: ${{ inputs.SOURCE_STORAGE_ACCOUNT }}
@@ -283,7 +283,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    uses: ./.github/workflows/job-mysql-sync.yml
+    uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-mysql-sync.yml@v7
     with:
       RUNNER: ${{ inputs.RUNNER }}
       SOURCE_HOST: ${{ inputs.SOURCE_MYSQL_HOST }}

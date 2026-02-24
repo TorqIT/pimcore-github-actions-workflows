@@ -1,0 +1,140 @@
+name: "Run Unit Tests"
+description: "Runs unit tests with PHP and MariaDB containers"
+inputs:
+  DOCKERFILE:
+    description: "Path to Dockerfile"
+    required: true
+  DOCKERFILE_TARGET:
+    description: "Build target in Dockerfile"
+    required: true
+  BUILD_TIME_ARGS:
+    required: true
+    description: "A JSON object containing a list of args and their values in key: value format"
+  BUILD_TIME_SECRETS:
+    required: true
+    description: "JSON object containing a list of build-time secrets and their values in key: value format"
+  PIMCORE_ROOT:
+    required: true
+    description: "The path (relative to the project's root) in which the Pimcore files exist"
+  PIMCORE_ENTERPRISE_TOKEN:
+    required: false
+    description: "The value of your project's Pimcore Enterprise Token"
+  PIMCORE_PRODUCT_KEY:
+    required: false
+    description: (Optional) The Pimcore product key for the project
+  PIMCORE_INSTANCE_IDENTIFIER:
+    required: false
+    description: (Optional) The Pimcore instance identifier for the project
+  PIMCORE_ENCRYPTION_SECRET:
+    required: false
+    description: (Optional) The Pimcore encryption secret for the project
+  TORQ_GITHUB_TOKEN:
+    required: false
+    description: "A GitHub access token used to access private GitHub repositories"
+  UNIT_TESTS_DIRECTORY:
+    required: true
+    description: "The directory where the unit tests are located" 
+
+runs: 
+  using: "composite"
+  steps:
+    - name: Create Docker network
+      shell: bash
+      run: |
+        docker network create test-network 2>/dev/null || true
+
+    - name: Start MariaDB container
+      shell: bash
+      run: |
+        docker run -d \
+          --name test-db \
+          --network test-network \
+          -e MYSQL_DATABASE=test \
+          -e MYSQL_USER=test \
+          -e MYSQL_PASSWORD=test \
+          -e MYSQL_ROOT_PASSWORD=test \
+          mariadb:11.4 \
+            --character-set-server=utf8mb4 \
+            --collation-server=utf8mb4_unicode_ci \
+            --innodb-file-format=Barracuda \
+            --innodb-large-prefix=1 \
+            --innodb-file-per-table=1 \
+            --lower-case-table-names=1
+
+    - name: Build image
+      uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+      with:
+        DOCKERFILE_PATH: ${{ inputs.DOCKERFILE }}
+        DOCKERFILE_TARGET: ${{ inputs.DOCKERFILE_TARGET }}
+        PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+        BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
+        BUILD_TIME_SECRETS: ${{ inputs.BUILD_TIME_SECRETS }} 
+        PIMCORE_ENTERPRISE_TOKEN: ${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
+        PIMCORE_PRODUCT_KEY: ${{ inputs.PIMCORE_PRODUCT_KEY }}
+        PIMCORE_INSTANCE_IDENTIFIER: ${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}
+        PIMCORE_ENCRYPTION_SECRET: ${{ inputs.PIMCORE_ENCRYPTION_SECRET }}
+        TORQ_GITHUB_TOKEN: ${{ inputs.TORQ_GITHUB_TOKEN }}
+        PUSH: "false"
+        LOAD: "true"
+        TAGS: "init:test"
+
+    - name: Run unit tests
+      shell: bash
+      run: |
+        set -e
+        
+        docker run --rm \
+          --network test-network \
+          -e APP_ENV=test \
+          -e DATABASE_HOST=test-db \
+          -e DATABASE_PORT=3306 \
+          -e DATABASE_NAME=test \
+          -e DATABASE_USER=test \
+          -e DATABASE_PASSWORD=test \
+          -e PIMCORE_TEST_DB_DSN='mysql://test:test@test-db:3306/test' \
+          -e PIMCORE_PRODUCT_KEY='${{ inputs.PIMCORE_PRODUCT_KEY }}' \
+          -e PIMCORE_INSTANCE_IDENTIFIER='${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}' \
+          -e PIMCORE_ENCRYPTION_SECRET='${{ inputs.PIMCORE_ENCRYPTION_SECRET }}' \
+          -e PIMCORE_ENTERPRISE_TOKEN='${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}' \
+          -e PIMCORE_INSTALL_MYSQL_HOST_SOCKET='test-db' \
+          -e PIMCORE_INSTALL_MYSQL_PORT='3306' \
+          -e PIMCORE_INSTALL_MYSQL_USERNAME='test' \
+          -e PIMCORE_INSTALL_MYSQL_PASSWORD='test' \
+          -e PIMCORE_INSTALL_MYSQL_DATABASE='test' \
+          -e PIMCORE_INSTALL_ADMIN_USERNAME='admin' \
+          -e PIMCORE_INSTALL_ADMIN_PASSWORD='pimcore' \
+          -e PIMCORE_INSTALL_ENCRYPTION_SECRET='${{ inputs.PIMCORE_ENCRYPTION_SECRET }}' \
+          -e PIMCORE_INSTALL_INSTANCE_IDENTIFIER='${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}' \
+          -e PIMCORE_INSTALL_PRODUCT_KEY='${{ inputs.PIMCORE_PRODUCT_KEY }}' \
+          --entrypoint /bin/bash \
+          init:test \
+          -c '
+            set -e
+            
+            echo "Installing Pimcore..."
+            runuser -u www-data -- /var/www/html/vendor/bin/pimcore-install --skip-database-config --no-interaction
+
+            if [ ! -d "/var/www/html/var/classes/DataObject" ] || [ -z "$(ls -A /var/www/html/var/classes/DataObject 2>/dev/null)" ]; then
+              echo "Building Data Object classes..."
+              runuser -u www-data -- /var/www/html/bin/console pimcore:build:classes
+            fi
+            
+            echo "Running tests..."
+            if [ -f "/var/www/html/vendor/bin/codecept" ]; then
+              runuser -u www-data -- /var/www/html/vendor/bin/codecept run
+            elif [ -f "/var/www/html/vendor/bin/phpunit" ]; then
+              runuser -u www-data -- /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
+            else
+              echo "Error: Neither codecept nor phpunit found in vendor/bin"
+              exit 1
+            fi
+          '
+
+    - name: Cleanup containers
+      if: always()
+      shell: bash
+      continue-on-error: true
+      run: |
+        docker stop test-db
+        docker rm test-db
+        docker network rm test-network

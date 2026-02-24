@@ -19,6 +19,10 @@ inputs:
   AZURE_IMAGE_TAG:
     required: true
     description: "Tag to use when pulling the TORQ Azure provisioning image"
+  AZURE_SKIP_DB_DEPLOY:
+    required: false
+    description: "Whether database deployment steps should be skipped when applying Azure infrastructure changes"
+    default: "false"
 
 runs:
   using: "composite"
@@ -58,7 +62,7 @@ runs:
         while [[ $retries < 3 ]]; do
           echo "Applying Azure infrastructure changes based on file ${{ inputs.AZURE_PARAMETERS_FILE }}..."
           set +e
-          deploymentOutput=$(docker exec azure ./provision-quick.sh ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }} 2>&1)
+          deploymentOutput=$(docker exec azure ./provision-quick.sh ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }} ${{ inputs.AZURE_SKIP_DB_DEPLOY }} 2>&1)
           deploymentStatus=$?
           set -e
           echo "$deploymentOutput"

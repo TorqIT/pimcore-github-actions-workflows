@@ -264,8 +264,7 @@ jobs:
             -P ${{ inputs.TARGET_PORT }} \
             -u ${{ inputs.TARGET_USERNAME }} \
             --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-            -e "DROP DATABASE IF EXISTS \`${{ inputs.TARGET_DATABASE }}\`; \
-            ${{ inputs.TARGET_DATABASE }}
+            -e "DROP DATABASE IF EXISTS \`${{ inputs.TARGET_DATABASE }}\`; CREATE DATABASE \`${{ inputs.TARGET_DATABASE }}\`;"
           echo "Target database dropped"
 
       - name: Install mydumper
@@ -475,6 +474,7 @@ jobs:
         with:
           inlineScript: |
             set -e
+            az account set --subscription "${{ inputs.AZURE_SOURCE_SUBSCRIPTION_ID }}"
             az mysql flexible-server firewall-rule delete \
               --resource-group ${{ inputs.SOURCE_AZURE_RESOURCE_GROUP }} \
               --name $(echo "${{ inputs.SOURCE_HOST }}" | cut -d'.' -f1) \
@@ -487,6 +487,7 @@ jobs:
         with:
           inlineScript: |
             set -e
+            az account set --subscription "${{ inputs.AZURE_TARGET_SUBSCRIPTION_ID }}"
             az mysql flexible-server firewall-rule delete \
               --resource-group ${{ inputs.TARGET_AZURE_RESOURCE_GROUP }} \
               --name $(echo "${{ inputs.TARGET_HOST }}" | cut -d'.' -f1) \

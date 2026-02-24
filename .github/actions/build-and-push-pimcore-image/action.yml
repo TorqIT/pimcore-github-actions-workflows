@@ -33,16 +33,25 @@ inputs:
     required: true
     description: "The path (relative to the project's root) in which the project's frontend files are stored"
   PIMCORE_ENTERPRISE_TOKEN:
-    required: true
+    required: false
     description: "(Optional) The value of your project's Pimcore Enterprise Token"
+  PIMCORE_PRODUCT_KEY:
+    required: false
+    description: (Optional) The Pimcore product key for the project
+  PIMCORE_INSTANCE_IDENTIFIER:
+    required: false
+    description: (Optional) The Pimcore instance identifier for the project
+  PIMCORE_ENCRYPTION_SECRET:
+    required: false
+    description: (Optional) The Pimcore encryption secret for the project
   TORQ_GITHUB_TOKEN:
-    required: true
+    required: false
     description: "(Optional) A GitHub access token used to access private GitHub repositories"
   BUILD_TIME_ARGS:
-    required: true
+    required: false
     description: "(Optional) A JSON object containing a list of args and their values in key: value format"
   BUILD_TIME_SECRETS:
-    required: true
+    required: false
     description: "(Optional) A JSON object containing a list of secrets and their values in key: value format"
   NPM_BUILD:
     required: false
@@ -60,6 +69,10 @@ inputs:
   RECAPTCHA_CLIENT_KEY:
     required: false
     description: "(Optional) A client key used when building NPM frontends that require ReCAPTCHA"
+  LOAD:
+    required: false
+    description: "Whether to load the built image into the local Docker cache"
+    default: "false"
 
 runs:
   using: "composite"
@@ -135,15 +148,18 @@ runs:
         target: ${{ inputs.DOCKERFILE_TARGET }}
         build-args: |
           ${{ steps.build-args.outputs.args }}
-        # During the build, several secret values don't actually matter but still need to be present (e.g. kernel-secret, pimcore-encryption-secret),
+        # During the build, several secret values don't actually matter but still need to be present (e.g. kernel-secret),
         # so we simply add dummy values here
         secrets: |
           kernel-secret=secret
-          pimcore-encryption-secret=secret
+          pimcore-product-key=${{ inputs.PIMCORE_PRODUCT_KEY }}
+          pimcore-instance-identifier=${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}
+          pimcore-encryption-secret=${{ inputs.PIMCORE_ENCRYPTION_SECRET }}
           pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
           torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
           ${{ steps.build-secrets.outputs.secrets }}
-        push: ${{ fromJSON(inputs.PUSH) }}
+        push: ${{ inputs.PUSH == 'true' }}
         cache-from: ${{ inputs.CACHE_FROM }}
         cache-to: ${{ inputs.CACHE_TO }}
         tags: ${{ inputs.TAGS }}
+        load: ${{ inputs.LOAD == 'true' }}
