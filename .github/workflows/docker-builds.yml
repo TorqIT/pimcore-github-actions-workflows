@@ -115,7 +115,6 @@ jobs:
   build-docker-images:
     name: Build Docker images
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    environment: ${{ inputs.ENVIRONMENT }}
 
     steps:
       - name: Checkout repository
