@@ -513,20 +513,14 @@ jobs:
         run: |
           set -e
 
-          printf "%s\n" "${{ inputs.POST_DEPLOYMENT_COMMANDS }}" | \
-          while IFS= read -r command; do
-            # Skip empty lines
-            [[ -z "$command" ]] && continue
-
-            echo "Running command: $command"
-
-            docker compose \
-              --project-name=${{ steps.blue-green-deployment.outputs.new_deployment_name }} \
-              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-              --env-file ${{ inputs.ENV_FILE }} \
-              exec -T ${{ inputs.PHP_SERVICE }} \
-                bash -c "$command"
-          done
+          docker compose \
+            --project-name=${{ steps.blue-green-deployment.outputs.new_deployment_name }} \
+            -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+            --env-file ${{ inputs.ENV_FILE }} \
+            exec -T ${{ inputs.PHP_SERVICE }} \
+            bash -s <<'EOF'
+          ${{ inputs.POST_DEPLOYMENT_COMMANDS }}
+          EOF
 
   workflow-failure-notification:
     name: Send workflow failure notification to Slack channel
