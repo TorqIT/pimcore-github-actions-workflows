@@ -1,4 +1,6 @@
-name: "CI for Docker-based projects"
+# META - not reusable, runs directly on this repository
+
+name: "CI"
 
 on:
   pull_request:
@@ -9,15 +11,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  meta:
+    name: "Meta CI checks"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/lint
+
   skeleton-2024-x:
-    name: "Meta CI for skeleton (2024.x)"
+    name: "Test CI against Pimcore skeleton 2024.x"
     uses: ./.github/workflows/ci-docker.yml
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: 2024.x
 
   skeleton-2025-x:
-    name: "Meta CI for skeleton (2025.x)"
+    name: "Test CI against Pimcore skeleton 2025.x"
     uses: ./.github/workflows/ci-docker.yml
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
