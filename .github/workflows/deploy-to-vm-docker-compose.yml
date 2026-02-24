@@ -530,19 +530,21 @@ jobs:
       - name: Run post-deployment commands
         run: |
           set -e
-          # Read newline-delimited commands
+
+          printf "%s\n" "${{ inputs.POST_DEPLOYMENT_COMMANDS }}" | \
           while IFS= read -r command; do
             # Skip empty lines
             [[ -z "$command" ]] && continue
-            
+          
             echo "Running command: $command"
+          
             docker compose \
               --project-name=${{ needs.deploy-containers.outputs.new_deployment_name }} \
               -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
               --env-file ${{ inputs.ENV_FILE }} \
               exec -T ${{ inputs.PHP_SERVICE }} \
-                bash -c "$(printf '%s' "$command")"
-          done <<< "${{ inputs.POST_DEPLOYMENT_COMMANDS }}"
+                bash -c "$command"
+          done
 
   workflow-failure-notification:
     name: Send workflow failure notification to Slack channel
