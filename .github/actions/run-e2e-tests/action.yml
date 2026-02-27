@@ -96,10 +96,10 @@ runs:
           echo "$value" >> .secrets/$key
         done
 
-    - name: Overwrite run-tests.sh
+    - name: Overwrite run-tests.sh to just run tests and write results to a file
       shell: bash
       run: |
-        echo "set -e; npx playwright test --reporter=json=results.json" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
+        echo "set -e; mkdir -p test-results; npx playwright test --reporter=json --output=test-results" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
 
     - name: Start necessary Docker containers
       shell: bash
@@ -125,7 +125,7 @@ runs:
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
         EXIT_CODE=$?
         docker compose cp \
-          ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/results.json \
+          ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/report.json \
           ./results.json 2>/dev/null || true
         exit $EXIT_CODE
 
