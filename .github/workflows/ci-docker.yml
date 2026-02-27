@@ -3,6 +3,9 @@
 # on:
 #   pull_request:
 #     types: [opened, reopened, synchronize]
+# concurrency:
+#      group: "ci__${{ github.event.pull_request.number }}"
+#      cancel-in-progress: true
 # jobs:
 #   ci:
 #     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/ci-docker.yml@v7
@@ -44,6 +47,7 @@ on:
       NPM_RUN_CMD:
         required: false
         type: string
+        default: "build"
         description: "The NPM command that should be run prior to building the PHP image"
       NPM_SPA:
         required: false

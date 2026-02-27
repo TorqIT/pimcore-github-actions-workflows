@@ -76,7 +76,7 @@ runs:
         TORQ_GITHUB_TOKEN: ${{ inputs.TORQ_GITHUB_TOKEN }}
         PUSH: "false"
         LOAD: "true"
-        TAGS: "init:test"
+        TAGS: "test:test"
 
     - name: Run unit tests
       shell: bash
@@ -107,23 +107,30 @@ runs:
           -e PIMCORE_INSTALL_INSTANCE_IDENTIFIER='${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}' \
           -e PIMCORE_INSTALL_PRODUCT_KEY='${{ inputs.PIMCORE_PRODUCT_KEY }}' \
           --entrypoint /bin/bash \
-          init:test \
+          test:test \
           -c '
             set -e
             
+            # Determine if we need to use runuser
+            if [ "$(id -u)" -eq 0 ]; then
+              RUN_AS="runuser -u www-data --"
+            else
+              RUN_AS=""
+            fi
+            
             echo "Installing Pimcore..."
-            runuser -u www-data -- /var/www/html/vendor/bin/pimcore-install --skip-database-config --no-interaction
+            $RUN_AS /var/www/html/vendor/bin/pimcore-install --skip-database-config --no-interaction
 
             if [ ! -d "/var/www/html/var/classes/DataObject" ] || [ -z "$(ls -A /var/www/html/var/classes/DataObject 2>/dev/null)" ]; then
               echo "Building Data Object classes..."
-              runuser -u www-data -- /var/www/html/bin/console pimcore:build:classes
+              $RUN_AS /var/www/html/bin/console pimcore:build:classes
             fi
             
             echo "Running tests..."
             if [ -f "/var/www/html/vendor/bin/codecept" ]; then
-              runuser -u www-data -- /var/www/html/vendor/bin/codecept run
+              $RUN_AS /var/www/html/vendor/bin/codecept run
             elif [ -f "/var/www/html/vendor/bin/phpunit" ]; then
-              runuser -u www-data -- /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
+              $RUN_AS /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
             else
               echo "Error: Neither codecept nor phpunit found in vendor/bin"
               exit 1

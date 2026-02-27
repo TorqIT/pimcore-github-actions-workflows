@@ -1,4 +1,6 @@
-name: "CI for Docker-based projects"
+# META - not reusable, runs directly on this repository
+
+name: "CI"
 
 on:
   pull_request:
@@ -9,15 +11,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  meta:
+    name: "Meta CI checks"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Lint files
+        uses: ./.github/actions/lint
+
+      - name: Lint GitHub Actions workflows
+        uses: docker://rhysd/actionlint:latest
+        with:
+          args: -color -shellcheck=
+
   skeleton-2024-x:
-    name: "Meta CI for skeleton (2024.x)"
+    name: "Test CI workflow against Pimcore skeleton 2024.x"
     uses: ./.github/workflows/ci-docker.yml
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: 2024.x
 
   skeleton-2025-x:
-    name: "Meta CI for skeleton (2025.x)"
+    name: "Test CI workflow against Pimcore skeleton 2025.x"
     uses: ./.github/workflows/ci-docker.yml
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
@@ -28,3 +45,7 @@ jobs:
       PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+
+  # TODO test CD to Azure
+
+  # TODO test CD to VM

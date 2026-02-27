@@ -53,6 +53,7 @@ on:
         description: "Whether an NPM build should be run prior to building the PHP image"
       NPM_RUN_CMD:
         required: false
+        default: "build"
         type: string
         description: "The NPM command that should be run prior to building the PHP image"
       NPM_SPA:
@@ -189,6 +190,11 @@ on:
         required: false
         default: false
         description: "For legacy systems - set to true if you want the values in RUN_TIME_SECRETS to be stored as run-time env vars"
+      POST_DEPLOYMENT_COMMANDS:
+        required: false
+        type: string
+        default: ""
+        description: "Newline-delimited bash commands to run in the PHP container after deployment"
       USE_GHA_CACHE:
         required: false
         type: boolean
@@ -439,6 +445,7 @@ jobs:
               run --rm ${{ inputs.INIT_SERVICE }}
 
       - name: Perform blue/green deployment of PHP and supervisord containers
+        id: blue-green-deployment
         run: |
           if [ "$(docker ps -f name=blue -q)" ]; then
               NEW_DEPLOYMENT="green"
@@ -447,6 +454,7 @@ jobs:
               NEW_DEPLOYMENT="blue"
               OLD_DEPLOYMENT="green"
           fi
+          echo "new_deployment_name=$NEW_DEPLOYMENT" >> $GITHUB_OUTPUT
 
           echo "Starting "$NEW_DEPLOYMENT" containers..."
           docker compose \
@@ -511,6 +519,20 @@ jobs:
                   rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
               exit 1
           fi
+
+      - name: Run post-deployment commands
+        if: ${{ inputs.POST_DEPLOYMENT_COMMANDS != '' }}
+        run: |
+          set -e
+
+          docker compose \
+            --project-name=${{ steps.blue-green-deployment.outputs.new_deployment_name }} \
+            -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+            --env-file ${{ inputs.ENV_FILE }} \
+            exec -T ${{ inputs.PHP_SERVICE }} \
+            bash -s <<'EOF'
+          ${{ inputs.POST_DEPLOYMENT_COMMANDS }}
+          EOF
 
   workflow-failure-notification:
     name: Send workflow failure notification to Slack channel
