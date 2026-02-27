@@ -103,7 +103,7 @@ runs:
     - name: Overwrite run-tests.sh to just run tests and write results to a file
       shell: bash
       run: |
-        echo "set -e; mkdir -p test-results; npx playwright test --reporter=json --output=test-results" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
+        echo "set -e; mkdir -p test-results; npm ci; npx playwright test --reporter=json --output=test-results" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
 
     - name: Start necessary Docker containers
       shell: bash
