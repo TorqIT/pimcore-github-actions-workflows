@@ -130,7 +130,6 @@ runs:
           --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
         EXIT_CODE=$?
-        echo "Exit code: $EXIT_CODE"
         docker compose cp \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/.last-run.json \
           ./.last-run.json
