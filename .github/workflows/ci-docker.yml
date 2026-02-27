@@ -535,3 +535,4 @@ jobs:
           E2E_DOCKER_COMPOSE_SERVICE: ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
           GITHUB_TOKEN: ${{ secrets.CALLER_GITHUB_TOKEN }}
           PR_NUMBER: ${{ inputs.PR_NUMBER }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

@@ -60,6 +60,10 @@ inputs:
     description: 'Pull Request number to post results to'
     required: false
     default: ''
+  RUN_URL:
+    description: 'URL to the current workflow run, used for linking in the PR comment'
+    required: false
+    default: ''
 
 runs:
   using: "composite"
@@ -169,7 +173,7 @@ runs:
           echo ""
           echo "$COMMENT_STATUS"
           echo ""
-          echo "_Workflow: $GITHUB_WORKFLOW_"
+          echo "See more details here: ${{ inputs.RUN_URL }}"
           echo "EOF"
         } >> $GITHUB_OUTPUT
 
