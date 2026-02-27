@@ -36,6 +36,10 @@ jobs:
   skeleton-2025-x:
     name: "Test CI workflow against Pimcore skeleton 2025.x"
     uses: ./.github/workflows/ci-docker.yml
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: skeleton/e2e-standard
