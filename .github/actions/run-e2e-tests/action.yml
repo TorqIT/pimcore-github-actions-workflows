@@ -99,9 +99,9 @@ runs:
     - name: Overwrite run-tests.sh
       shell: bash
       run: |
-        echo "set -e; npx playwright test" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
+        echo "set -e; npx playwright test --reporter=json --output=/app/test-results > /app/test-results/results.json" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
 
-    - name: Start Docker containers
+    - name: Start necessary Docker containers
       shell: bash
       run: |
         set -e
@@ -115,16 +115,89 @@ runs:
             -d \
             --no-deps \
             ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
+
+    - name: Run e2e tests
+      shell: bash
+      run: |
+        set +e
         docker compose up \
           --no-deps \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
+        EXIT_CODE=$?
+        docker compose cp \
+          ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/app/test-results/results.json \
+          ./results.json 2>/dev/null || true
+        echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+        exit $EXIT_CODE
+
+    - name: Generate PR comment body
+      if: always()
+      id: e2e-comment
+      shell: bash
+      run: |
+        if [ ! -f results.json ]; then
+          echo "comment=
+                ## e2e Test Results
+                ❌ Tests did not produce a JSON report.
+                Check workflow logs." >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        PASSED=$(jq '.stats.expected' results.json)
+        FAILED=$(jq '.stats.unexpected' results.json)
+        SKIPPED=$(jq '.stats.skipped' results.json)
+        DURATION=$(jq '.stats.duration' results.json)
+
+        if [ "$FAILED" = "0" ]; then
+          STATUS="✅ **All tests passed**"
+        else
+          STATUS="❌ **$FAILED test(s) failed**"
+        fi
+
+        {
+          echo "comment<<EOF"
+          echo "## e2e Test Results"
+          echo ""
+          echo "$STATUS"
+          echo ""
+          echo "| Metric | Count |"
+          echo "|--------|-------|"
+          echo "| Passed | $PASSED |"
+          echo "| Failed | $FAILED |"
+          echo "| Skipped | $SKIPPED |"
+          echo "| Duration | $((DURATION / 1000))s |"
+          echo ""
+          echo "_Workflow: $GITHUB_WORKFLOW_"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
+
+    - name: Find Comment
+      uses: peter-evans/find-comment@v3
+      if: always()
+      id: find-comment
+      with:
+        issue-number: ${{ inputs.PR_NUMBER }}
+        comment-author: "github-actions[bot]"
+        body-includes: e2e Test Results
+
+    - name: Add or update PR comment with test results
+      uses: peter-evans/create-or-update-comment@v4
+      if: always()
+      with:
+        token: ${{ inputs.GITHUB_TOKEN }}
+        issue-number: ${{ inputs.PR_NUMBER }}
+        comment-id: ${{ steps.find-comment.outputs.comment-id }}
+        body: ${{ steps.e2e-comment.outputs.comment }}
+        edit-mode: replace
 
     - name: Stop Docker containers
       if: always()
+      continue-on-error: true
       shell: bash
       run: docker compose down -v
 
     - name: Clean up secrets
       if: always()
+      continue-on-error: true
       shell: bash
       run: rm -rf .secrets
