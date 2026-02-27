@@ -125,51 +125,51 @@ runs:
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
         EXIT_CODE=$?
         docker compose cp \
-          ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/report.json \
-          ./results.json
+          ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/.last-run.json \
+          ./.last-run.json
+        docker compose cp \
+          ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/results.json \
+          ./results.json >/dev/null 2>&1 || true
         exit $EXIT_CODE
 
-    - name: Generate PR comment body
+    - name: Parse test results and generate PR comment body
       id: e2e-comment
       if: always()
       shell: bash
       run: |
-        if [ ! -f results.json ]; then
-          {
-            echo "comment<<EOF"
-            echo "## e2e Test Results"
-            echo ""
-            echo "❌ Tests did not produce a JSON report."
-            echo ""
-            echo "Check workflow logs."
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+        # Prefer results.json if it exists
+        if [ -f results.json ]; then
+          JSON_FILE="results.json"
+          STATUS=$(jq -r '.status' $JSON_FILE 2>/dev/null || echo "failed")
+          FAILED_COUNT=$(jq '.failedTests | length' $JSON_FILE 2>/dev/null || echo 1)
+        elif [ -f .last-run.json ]; then
+          JSON_FILE=".last-run.json"
+          STATUS=$(jq -r '.status' $JSON_FILE)
+          FAILED_COUNT=$(jq '.failedTests | length' $JSON_FILE)
+        else
+          echo "comment<<EOF"
+          echo "## e2e Test Results"
+          echo ""
+          echo "❌ No test results produced."
+          echo ""
+          echo "Check workflow logs."
+          echo "EOF"
           exit 0
         fi
 
-        PASSED=$(jq '.stats.expected' results.json)
-        FAILED=$(jq '.stats.unexpected' results.json)
-        SKIPPED=$(jq '.stats.skipped' results.json)
-        DURATION=$(jq '.stats.duration' results.json)
-
-        if [ "$FAILED" = "0" ]; then
-          STATUS="✅ **All tests passed**"
+        if [ "$STATUS" = "passed" ]; then
+          COMMENT_STATUS="✅ All tests passed"
         else
-          STATUS="❌ **$FAILED test(s) failed**"
+          COMMENT_STATUS="❌ $FAILED_COUNT test(s) failed"
         fi
 
         {
           echo "comment<<EOF"
           echo "## e2e Test Results"
           echo ""
-          echo "$STATUS"
+          echo "$COMMENT_STATUS"
           echo ""
-          echo "| Metric | Count |"
-          echo "|--------|-------|"
-          echo "| Passed | $PASSED |"
-          echo "| Failed | $FAILED |"
-          echo "| Skipped | $SKIPPED |"
-          echo "| Duration | $((DURATION / 1000))s |"
+          echo "_Workflow: $GITHUB_WORKFLOW_"
           echo "EOF"
         } >> $GITHUB_OUTPUT
 
