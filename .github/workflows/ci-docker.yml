@@ -168,6 +168,9 @@ on:
       BUILD_TIME_SECRETS:
         required: false
         description: A JSON object of secrets required at build-time (see above for example format)
+      RUN_TIME_SECRETS:
+        required: false
+        description: A JSON object of secrets required at run-time (see above for example format)
       PIMCORE_ENTERPRISE_TOKEN:
         required: false
         description: (Optional) The value of your project's Pimcore Enterprise Token
