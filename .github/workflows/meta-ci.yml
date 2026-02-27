@@ -38,7 +38,7 @@ jobs:
     uses: ./.github/workflows/ci-docker.yml
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
-      PROJECT_REPOSITORY_REF: e2e-standard
+      PROJECT_REPOSITORY_REF: skeleton/e2e-standard
       RUN_UNIT_TESTS: true
       RUN_E2E_TESTS: true
     secrets:
