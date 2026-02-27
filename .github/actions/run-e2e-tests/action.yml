@@ -126,16 +126,17 @@ runs:
         set +e
         docker compose up \
           --no-deps \
+          --abort-on-container-exit \
+          --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
         EXIT_CODE=$?
+        echo "Exit code: $EXIT_CODE"
         docker compose cp \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/.last-run.json \
           ./.last-run.json
         docker compose cp \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/results.json \
           ./results.json >/dev/null 2>&1 || true
-        set -e
-        echo "Tests exit code: $EXIT_CODE"
         exit $EXIT_CODE
 
     - name: Parse test results and generate PR comment body
