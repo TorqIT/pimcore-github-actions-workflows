@@ -126,7 +126,7 @@ runs:
         EXIT_CODE=$?
         docker compose cp \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/report.json \
-          ./results.json 2>/dev/null || true
+          ./results.json
         exit $EXIT_CODE
 
     - name: Generate PR comment body
