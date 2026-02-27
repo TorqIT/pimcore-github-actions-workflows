@@ -96,6 +96,11 @@ runs:
           echo "$value" >> .secrets/$key
         done
 
+    - name: Overwrite run-tests.sh
+      shell: bash
+      run: |
+        echo "set -e; npx playwright test" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
+
     - name: Start Docker containers
       shell: bash
       run: |
@@ -113,64 +118,6 @@ runs:
         docker compose up \
           --no-deps \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
-
-    - name: Copy Playwright test results from container
-      if: always()
-      shell: bash
-      run: |
-        mkdir -p playwright-results
-        docker compose cp ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/results.xml ./playwright-results/playwright-results.xml
-        ls -l ./playwright-results
-
-    - name: Post Playwright results to PR (update existing comment)
-      if: always() && inputs.GITHUB_TOKEN != '' && inputs.PR_NUMBER != ''
-      shell: bash
-      run: |
-        RESULTS_FILE="./playwright-results/playwright-results.xml"
-        UNIQUE_MARKER="<!-- PLAYWRIGHT-RESULTS -->"
-
-        # Basic test summary
-        PASSED=$(xmllint --xpath 'count(//testcase[not(failure)])' "$RESULTS_FILE")
-        FAILED=$(xmllint --xpath 'count(//testcase[failure])' "$RESULTS_FILE")
-
-        COMMENT_BODY="$UNIQUE_MARKER
-        ### 🎭 Playwright E2E Test Results
-        **Passed:** $PASSED  
-        **Failed:** $FAILED  
-
-        <details>
-        <summary>Full test results</summary>
-
-        \`\`\`xml
-        $(cat "$RESULTS_FILE")
-        \`\`\`
-
-        </details>"
-
-        # Get existing comment ID if it exists
-        EXISTING_COMMENT_ID=$(gh api \
-          -H "Authorization: token ${{ inputs.GITHUB_TOKEN }}" \
-          -H "Accept: application/vnd.github+json" \
-          "repos/${{ github.repository }}/issues/${{ inputs.PR_NUMBER }}/comments" \
-          --jq ".[] | select(.body | contains(\"$UNIQUE_MARKER\")) | .id")
-
-        if [ -n "$EXISTING_COMMENT_ID" ]; then
-          echo "Updating existing Playwright comment (ID: $EXISTING_COMMENT_ID)"
-          gh api \
-            -X PATCH \
-            -H "Authorization: token ${{ inputs.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github+json" \
-            "repos/${{ github.repository }}/issues/comments/$EXISTING_COMMENT_ID" \
-            -f body="$COMMENT_BODY"
-        else
-          echo "Creating new Playwright comment"
-          gh api \
-            -X POST \
-            -H "Authorization: token ${{ inputs.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github+json" \
-            "repos/${{ github.repository }}/issues/${{ inputs.PR_NUMBER }}/comments" \
-            -f body="$COMMENT_BODY"
-        fi
 
     - name: Stop Docker containers
       if: always()
