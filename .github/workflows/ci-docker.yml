@@ -118,11 +118,36 @@ on:
         type: boolean
         default: false
         description: "Whether to run unit tests. Default: false, but will be true in future versions"
+      RUN_E2E_TESTS:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to run end-to-end tests. Default: false, but will be true in future versions"
       UNIT_TESTS_DIRECTORY:
         required: false
         type: string
         default: "tests"
         description: "The directory where unit tests are located - note this should be relative to the Pimcore root, as once inside the container the working directory is set to the Pimcore root"
+      E2E_TESTS_DIRECTORY:
+        required: false
+        type: string
+        default: "e2e"
+        description: "The directory where end-to-end tests are located - note this should be relative to the Pimcore root, as once inside the container the working directory is set to the Pimcore root"
+      E2E_DOCKER_COMPOSE_SERVICE:
+        required: false
+        type: string
+        default: "e2e"
+        description: "The name of the e2e service in your Docker Compose setup used for end-to-end tests"
+      PHP_DOCKER_COMPOSE_SERVICE:
+        required: false
+        type: string
+        default: "php"
+        description: "The name of the PHP service in your Docker Compose setup"
+      NODE_VERSION:
+        required: false
+        type: string
+        default: "25"
+        description: "The Node.js version to use when running end-to-end tests"
       GITHUB_APP_CHECKOUT:
         required: false
         type: boolean
@@ -133,11 +158,19 @@ on:
         type: string
         default: ""
         description: "A comma or newline-separated list of repositories to checkout with the GitHub App token - if empty, only the main project repository will be checked out"
+      PR_NUMBER:
+        required: false
+        type: string
+        default: ""
+        description: "The Pull Request number to post results to"
 
     secrets:
       BUILD_TIME_SECRETS:
         required: false
         description: A JSON object of secrets required at build-time (see above for example format)
+      RUN_TIME_SECRETS:
+        required: false
+        description: A JSON object of secrets required at run-time (see above for example format)
       PIMCORE_ENTERPRISE_TOKEN:
         required: false
         description: (Optional) The value of your project's Pimcore Enterprise Token
@@ -162,6 +195,9 @@ on:
       GITHUB_APP_PRIVATE_KEY:
         required: false
         description: The private key of the GitHub App used to generate a token for checking out the project repository and submodules
+      CALLER_GITHUB_TOKEN:
+        required: false
+        description: "The GitHub token of the caller workflow"
 
 jobs:
   lint:
@@ -447,3 +483,59 @@ jobs:
           PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           UNIT_TESTS_DIRECTORY: ${{ inputs.UNIT_TESTS_DIRECTORY }}
+
+  run-e2e-tests:
+    name: Run e2e tests
+    if: ${{ inputs.RUN_E2E_TESTS != '' }}
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    steps:
+      - name: Checkout Pimcore project repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.PROJECT_REPOSITORY }}
+          ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          submodules: ${{ inputs.SUBMODULES }}
+
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: ci-docker.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v4
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Install tools for workflows/actions
+        uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Setup Docker
+        uses: ./reusable-workflow/.github/actions/setup-docker
+
+      - name: Run e2e tests
+        uses: ./reusable-workflow/.github/actions/run-e2e-tests
+        with:
+          INIT_DOCKERFILE: ${{ inputs.INIT_DOCKERFILE }}
+          INIT_DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
+          PHP_DOCKERFILE: ${{ inputs.PHP_DOCKERFILE }}
+          PHP_DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
+          RUN_TIME_SECRETS: ${{ secrets.RUN_TIME_SECRETS }}
+          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
+          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
+          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          NODE_VERSION: ${{ inputs.NODE_VERSION }}
+          TESTS_DIRECTORY: "${{ inputs.E2E_TESTS_DIRECTORY }}"
+          PHP_DOCKER_COMPOSE_SERVICE: ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
+          E2E_DOCKER_COMPOSE_SERVICE: ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
+          GITHUB_TOKEN: ${{ secrets.CALLER_GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.PR_NUMBER }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

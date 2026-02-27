@@ -1,0 +1,211 @@
+name: Run e2e Tests
+description: Runs end-to-end tests
+
+inputs:
+  INIT_DOCKERFILE:
+    description: 'Path to the Dockerfile used for building the init image'
+    required: true
+  INIT_DOCKERFILE_TARGET:
+    description: 'Target stage in the Dockerfile for the init image'
+    required: true
+  PHP_DOCKERFILE:
+    description: 'Path to the Dockerfile used for building the PHP image'
+    required: true
+  PHP_DOCKERFILE_TARGET:
+    description: 'Target stage in the Dockerfile for the PHP image'
+    required: true
+  PIMCORE_ROOT:
+    description: 'Path to the Pimcore root directory (relative to project root)'
+    required: true
+  TESTS_DIRECTORY:
+    description: 'Path to e2e test files'
+    required: true
+  NODE_VERSION:
+    description: 'Node.js version to use'
+    required: true
+  PIMCORE_ENTERPRISE_TOKEN:
+    required: false
+    description: (Optional) The value of your project's Pimcore Enterprise Token
+  PIMCORE_PRODUCT_KEY:
+    required: false
+    description: (Optional) The Pimcore product key for the project
+  PIMCORE_INSTANCE_IDENTIFIER:
+    required: false
+    description: (Optional) The Pimcore instance identifier for the project
+  PIMCORE_ENCRYPTION_SECRET:
+    required: false
+    description: (Optional) The Pimcore encryption secret for the project
+  BUILD_TIME_SECRETS:
+    required: false
+    description: 'A JSON object containing a list of build-time secrets in key: value format'
+    default: '{}'
+  RUN_TIME_SECRETS:
+    required: false
+    description: 'A JSON object containing a list of run-time secrets in key: value format'
+    default: '{}'
+  HOSTNAME:
+    description: 'Hostname to add to /etc/hosts'
+    required: true
+  PHP_DOCKER_COMPOSE_SERVICE:
+    description: 'Name of the PHP service in Docker Compose'
+    required: true
+  E2E_DOCKER_COMPOSE_SERVICE:
+    description: 'Name of the e2e tests service in Docker Compose'
+    required: true
+  GITHUB_TOKEN:
+    description: 'GitHub token used for adding results to PRs'
+    required: false
+    default: ''
+  PR_NUMBER:
+    description: 'Pull Request number to post results to'
+    required: false
+    default: ''
+  RUN_URL:
+    description: 'URL to the current workflow run, used for linking in the PR comment'
+    required: false
+    default: ''
+
+runs:
+  using: "composite"
+  steps:
+    - name: Overwrite run-tests.sh so we just run the tests, instead of watching for changes
+      shell: bash
+      run: |
+        echo "set -e; npx playwright test" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
+
+    - name: Prepare run-time secrets directory
+      shell: bash
+      run: mkdir -p .secrets
+
+    - name: Create necessary Pimcore run-time secret files
+      shell: bash
+      run: |
+        echo -n "$(openssl rand -hex 16)" > .secrets/kernel-secret
+        echo "::add-mask::${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}"
+        echo -n "${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}" > .secrets/pimcore-enterprise-token
+        echo "::add-mask::${{ inputs.PIMCORE_PRODUCT_KEY }}"
+        echo -n "${{ inputs.PIMCORE_PRODUCT_KEY }}" > .secrets/pimcore-product-key
+        echo "::add-mask::${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}"
+        echo -n "${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}" > .secrets/pimcore-instance-identifier
+        echo "::add-mask::${{ inputs.PIMCORE_ENCRYPTION_SECRET }}"
+        echo -n "${{ inputs.PIMCORE_ENCRYPTION_SECRET }}" > .secrets/pimcore-encryption-secret
+
+    - name: Write other run-time secrets to files
+      shell: bash
+      run: |
+        set -e
+        JSON_INPUT='${{ inputs.RUN_TIME_SECRETS }}'
+        echo "$JSON_INPUT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
+          echo "::add-mask::$value"
+          echo "$value" >> .secrets/$key
+        done
+
+    - name: Overwrite run-tests.sh to just run tests and write results to a file
+      shell: bash
+      run: |
+        echo "set -e; mkdir -p test-results; npm ci; npx playwright test --reporter=json --output=test-results" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
+
+    - name: Start necessary Docker containers
+      shell: bash
+      run: |
+        set -e
+        userId=$(id -u $USER)
+        groupId=$(id -g $USER)
+        echo "UID=$(id -u $USER)" >> .env
+        echo "GID=$(id -g $USER)" >> .env
+        docker compose up init
+        NGINX_FILE=".docker/php/nginx.conf" \
+          docker compose up \
+            -d \
+            --no-deps \
+            ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
+
+    - name: Run e2e tests
+      shell: bash
+      run: |
+        set +e
+        docker compose up \
+          --no-deps \
+          --abort-on-container-exit \
+          --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
+          ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
+        EXIT_CODE=$?
+        docker compose cp \
+          ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/.last-run.json \
+          ./.last-run.json
+        docker compose cp \
+          ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/results.json \
+          ./results.json >/dev/null 2>&1 || true
+        exit $EXIT_CODE
+
+    - name: Parse test results and generate PR comment body
+      id: e2e-comment
+      if: always()
+      shell: bash
+      run: |
+        # Prefer results.json if it exists
+        if [ -f results.json ]; then
+          JSON_FILE="results.json"
+          STATUS=$(jq -r '.status' $JSON_FILE 2>/dev/null || echo "failed")
+          FAILED_COUNT=$(jq '.failedTests | length' $JSON_FILE 2>/dev/null || echo 1)
+        elif [ -f .last-run.json ]; then
+          JSON_FILE=".last-run.json"
+          STATUS=$(jq -r '.status' $JSON_FILE)
+          FAILED_COUNT=$(jq '.failedTests | length' $JSON_FILE)
+        else
+          echo "comment<<EOF"
+          echo "## e2e Test Results"
+          echo ""
+          echo "❌ No test results produced."
+          echo ""
+          echo "Check workflow logs."
+          echo "EOF"
+          exit 0
+        fi
+
+        if [ "$STATUS" = "passed" ]; then
+          COMMENT_STATUS="✅ All tests passed"
+        else
+          COMMENT_STATUS="❌ $FAILED_COUNT test(s) failed"
+        fi
+
+        {
+          echo "comment<<EOF"
+          echo "## e2e Test Results"
+          echo ""
+          echo "$COMMENT_STATUS"
+          echo ""
+          echo "See more details here: ${{ inputs.RUN_URL }}"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
+
+    - name: Find Comment
+      uses: peter-evans/find-comment@v3
+      if: always()
+      id: find-comment
+      with:
+        issue-number: ${{ inputs.PR_NUMBER }}
+        comment-author: "github-actions[bot]"
+        body-includes: e2e Test Results
+
+    - name: Add or update PR comment with test results
+      uses: peter-evans/create-or-update-comment@v4
+      if: always()
+      with:
+        token: ${{ inputs.GITHUB_TOKEN }}
+        issue-number: ${{ inputs.PR_NUMBER }}
+        comment-id: ${{ steps.find-comment.outputs.comment-id }}
+        body: ${{ steps.e2e-comment.outputs.comment }}
+        edit-mode: replace
+
+    - name: Stop Docker containers
+      if: always()
+      continue-on-error: true
+      shell: bash
+      run: docker compose down -v
+
+    - name: Clean up secrets
+      if: always()
+      continue-on-error: true
+      shell: bash
+      run: rm -rf .secrets

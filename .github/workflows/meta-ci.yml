@@ -36,14 +36,20 @@ jobs:
   skeleton-2025-x:
     name: "Test CI workflow against Pimcore skeleton 2025.x"
     uses: ./.github/workflows/ci-docker.yml
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
-      PROJECT_REPOSITORY_REF: 2025.x
+      PROJECT_REPOSITORY_REF: skeleton/e2e-standard
       RUN_UNIT_TESTS: true
+      RUN_E2E_TESTS: true
     secrets:
       PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+      CALLER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # TODO test CD to Azure
 
