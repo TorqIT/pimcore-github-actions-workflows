@@ -134,6 +134,7 @@ runs:
         docker compose cp \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/results.json \
           ./results.json >/dev/null 2>&1 || true
+        set -e
         exit $EXIT_CODE
 
     - name: Parse test results and generate PR comment body
