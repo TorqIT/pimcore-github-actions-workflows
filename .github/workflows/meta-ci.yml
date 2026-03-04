@@ -45,9 +45,9 @@ jobs:
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
 
-  deploy-ci-azure-environment:
-    name: "Deploy CI Azure environment"
-    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@main
+  provision-ci-azure-environment:
+    name: "Provision CI Azure environment for testing CD Azure workflow"
+    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@v2
     with:
       ENVIRONMENT: ci-azure
       AZURE_DOCKER_COMPOSE_SERVICE: azure
@@ -60,6 +60,19 @@ jobs:
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
 
-  # TODO test CD to Azure
+  skeleton-cd-azure-2025-x:
+    name: "Test Azure CD workflow against Pimcore skeleton 2025.x"
+    needs: provision-ci-azure-environment
+    uses: ./.github/workflows/deploy-to-azure-container-apps.yml
+    with:
+      PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
+      PROJECT_REPOSITORY_REF: 2025.x
+      ENVIRONMENT: ci-azure
+    secrets:
+      PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
+      PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
+      PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+      SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
+      SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
 
   # TODO test CD to VM
