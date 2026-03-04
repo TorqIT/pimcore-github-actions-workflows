@@ -1,0 +1,147 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "subscriptionId": {
+      "value": "27cab9a2-4a98-4eab-86ca-296494dbbcf2"
+    },
+    "tenantId": {
+      "value": "6f8ae12a-9b31-4877-b46f-c0590040b1fb"
+    },
+    "resourceGroupName": {
+      "value": "Pimcore-GH-Azure-CI"
+    },
+    "provisionServicePrincipal": {
+      "value": false
+    },
+    "location": {
+      "value": "canadacentral"
+    },
+    "keyVaultName": {
+      "value": "pimcore-gh-azure-kv-ci"
+    },
+    "keyVaultEnablePurgeProtection": {
+      "value": false
+    },
+    "keyVaultGenerateRandomSecrets": {
+      "value": true
+    },
+    "containerRegistryName": {
+      "value": "pimcoreghazurecrci"
+    },
+    "containerRegistrySku": {
+      "value": "Basic"
+    },
+    "virtualNetworkName": {
+      "value": "pimcore-gh-azure-vnet-ci"
+    },
+    "storageAccountName": {
+      "value": "pimcoreghazuresaci"
+    },
+    "storageAccountFileShares": {
+      "value": [
+        {
+          "name": "uploads"
+        }
+      ]
+    },
+    "storageAccountLongTermBackups": {
+      "value": false
+    },
+    "databaseServerName": {
+      "value": "pimcore-gh-azure-db-ci"
+    },
+    "containerAppsEnvironmentName": {
+      "value": "pimcore-gh-azure-cae-ci"
+    },
+    "containerAppsEnvironmentUseWorkloadProfiles": {
+      "value": true
+    },
+    "provisionInit": {
+      "value": true
+    },
+    "initContainerAppJobName": {
+      "value": "pimcore-gh-azure-init-ci"
+    },
+    "initContainerAppJobRunPimcoreInstall": {
+      "value": true
+    },
+    "phpContainerAppExternal": {
+      "value": true
+    },
+    "phpContainerAppName": {
+      "value": "pimcore-gh-azure-php-ci"
+    },
+    "phpContainerAppMinReplicas": {
+      "value": 0
+    },
+    "supervisordContainerAppName": {
+      "value": "pimcore-gh-azure-supervisord-ci"
+    },
+    "supervisordContainerAppImageName": {
+      "value": "supervisord"
+    },
+    "redisContainerAppName": {
+      "value": "pimcore-gh-azure-redis-ci"
+    },
+    "appDebug": {
+      "value": "1"
+    },
+    "appEnv": {
+      "value": "dev_deploy"
+    },
+    "pimcoreDev": {
+      "value": "1"
+    },
+    "pimcoreEnvironment": {
+      "value": "dev"
+    },
+    "redisDb": {
+      "value": "12"
+    },
+    "redisSessionDb": {
+      "value": "14"
+    },
+    "additionalEnvVars": {
+      "value": []
+    },
+    "additionalSecrets": {
+      "value": {
+        "array": [
+          {
+            "secretNameInKeyVault": "kernel-secret",
+            "secretRefInContainerApp": "kernel-secret"
+          },
+          {
+            "secretNameInKeyVault": "pimcore-product-key",
+            "secretRefInContainerApp": "pimcore-product-key"
+          },
+          {
+            "secretNameInKeyVault": "pimcore-instance-identifier",
+            "secretRefInContainerApp": "pimcore-instance-identifier"
+          },
+          {
+            "secretNameInKeyVault": "pimcore-encryption-secret",
+            "secretRefInContainerApp": "pimcore-encryption-secret"
+          }
+        ]
+      }
+    },
+    "additionalVolumesAndMounts": {
+      "value": [
+        {
+          "storageAccountName": "pimcoreghazuresaci",
+          "fileShareName": "uploads",
+          "mountName": "uploads",
+          "mountAccessMode": "ReadWrite",
+          "volumeName": "uploads",
+          "mountPath": "/var/www/html/uploads",
+          "storageType": "AzureFile"
+        }
+      ]
+    },
+    "provisionMetricAlerts": {
+      "value": true
+    }
+  }
+}
