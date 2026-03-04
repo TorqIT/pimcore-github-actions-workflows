@@ -262,6 +262,16 @@ jobs:
         if: ${{ inputs.SKIP_LINTING == false }}
         uses: ./reusable-workflow/.github/actions/lint
 
+      - name: Install Azure Flysystem bundle if not already installed
+        run: |
+          if [ ! -d "${{ inputs.PIMCORE_ROOT }}/vendor/torq/pimcore-azure-flysystem-bundle" ] || 
+             [ -d "${{ inputs.PIMCORE_ROOT}}/vendor/torqit/pimcore-azure-flysystem-bundle" ]; then
+            echo "Azure Flysystem bundle not found, installing..."
+            composer require torq/pimcore-azure-flysystem-bundle
+          else
+            echo "Azure Flysystem bundle already installed, skipping"
+          fi
+
       - name: Log in to Azure
         uses: ./reusable-workflow/.github/actions/azure-login
         with:
