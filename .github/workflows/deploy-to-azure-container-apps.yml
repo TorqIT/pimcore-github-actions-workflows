@@ -269,7 +269,7 @@ jobs:
           if ! composer show --no-interaction --no-ansi "torqit/pimcore-flysystem-azure-bundle" >/dev/null 2>&1 \
             && ! composer show --no-interaction --no-ansi "torq/pimcore-flysystem-azure-bundle" >/dev/null 2>&1; then
             echo "Azure Flysystem bundle not found, installing..."
-            composer require --no-interaction --no-ansi --no-scripts --no-install torq/pimcore-flysystem-azure-bundle
+            composer require --no-interaction --no-ansi --no-scripts torq/pimcore-flysystem-azure-bundle
           else
             echo "Azure Flysystem bundle already installed, skipping"
           fi
