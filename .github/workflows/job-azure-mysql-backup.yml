@@ -125,37 +125,42 @@ jobs:
       - name: Perform a MySQL dump and save the result to Storage Account
         id: dump
         run: |
-          set -e
-          fileName=$(date -u +"%Y-%m-%dT%H:%M:%SZ").sql
-          dbHost=$(echo "${{ vars.AZURE_MYSQL_SERVER }}.mysql.database.azure.com")
-          dbUser=$(echo "${{ vars.AZURE_MYSQL_USERNAME || 'adminuser' }}")
-          echo Performing database dump...          
+          set -euo pipefail
+
+          fileName="$(date -u +"%Y-%m-%dT%H:%M:%SZ").sql.gz"
+          dbHost="${{ vars.AZURE_MYSQL_SERVER }}.mysql.database.azure.com"
+          dbUser="${{ vars.AZURE_MYSQL_USERNAME || 'adminuser' }}"
+          dbName="${{ vars.AZURE_MYSQL_DATABASE || 'shopware' }}"
+
+          echo "Performing database dump..."
           MYSQL_PWD="${{ secrets.AZURE_MYSQL_PASSWORD }}" \
             mysqldump \
-            -h $dbHost \
-            -u $dbUser \
-            --ssl-mode=REQUIRED \
-            --ssl-mode=VERIFY_CA \
-            --ssl-ca ./reusable-workflow/.azure/config/db/DigiCertGlobalRootCA.crt.pem \
-            --single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert --no-tablespaces \
-            ${{ vars.AZURE_MYSQL_DATABASE || 'pimcore' }} \
-            > $fileName
+              -h "$dbHost" \
+              -u "$dbUser" \
+              --ssl-mode=VERIFY_CA \
+              --ssl-ca ./reusable-workflow/.azure/config/db/DigiCertGlobalRootCA.crt.pem \
+              --single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert --no-tablespaces \
+              "$dbName" \
+            | gzip -c > "$fileName"
+          fileSize="$(wc -c < "$fileName")"
+          echo "Dumped file is $fileSize bytes (compressed)"
+
+          echo "Uploading backup to Storage Account..."
+          az storage blob upload \
+            --account-name "${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }}" \
+            --container-name "${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT_CONTAINER || 'database' }}" \
+            --name "$fileName" \
+            --file "$fileName" \
+            --auth-mode login \
+            >/dev/null
+          rm -f "$fileName"
+          echo "Uploaded $fileName successfully"
 
           echo "fileName=$fileName" >> $GITHUB_OUTPUT
-          fileSize=$(stat -c%s $fileName)
-          echo "Dumped .sql file is $fileSize bytes"
           echo "fileSize=$fileSize" >> $GITHUB_OUTPUT
           if [ "$fileSize" -le 0 ]; then
             exit 1;
           fi
-
-          echo "Uploading dumped file to Storage Account..."
-          az storage blob upload \
-            --account-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT }} \
-            --container-name ${{ vars.AZURE_DB_BACKUPS_STORAGE_ACCOUNT_CONTAINER || 'database' }} \
-            --name $fileName \
-            --file $fileName \
-            --auth-mode login
 
       - name: Remove temporary network rule from database server firewall
         if: always()

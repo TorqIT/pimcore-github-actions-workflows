@@ -1,0 +1,21 @@
+name: Tear down Azure resources when PR is closed
+
+on:
+  pull_request:
+    types: closed
+
+concurrency:
+  group: ci-azure-close
+  cancel-in-progress: true
+
+jobs:
+  tear-down-azure-resources:
+    name: Tear down CI Azure resources
+    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/ci-close.yml@v2
+    with:
+      DOCKER_COMPOSE_FILE: ./.github/ci/azure/docker-compose.yml
+      AZURE_DOCKER_COMPOSE_SERVICE: azure
+      PARAMETERS_FILE: ./.github/ci/azure/parameters.json
+      SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
+    secrets:
+      SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
