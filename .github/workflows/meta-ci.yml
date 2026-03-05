@@ -54,7 +54,6 @@ jobs:
       DOCKER_COMPOSE_FILE: ./.github/ci/azure/docker-compose.yml
       PARAMETERS_FILE: ./.github/ci/azure/parameters.json
       SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
-      SKIP_IF_EXISTS: false
     secrets:
       PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
