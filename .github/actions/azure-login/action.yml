@@ -19,17 +19,9 @@ runs:
   steps:
     - name: Build Azure credentials JSON object
       shell: bash
-      id: build-creds
       run: |
-        azureCreds=$(jq -c -n \
-          --arg clientSecret "${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}" \
-          --arg subscriptionId "${{ inputs.SUBSCRIPTION }}" \
-          --arg tenantId "${{ inputs.TENANT }}" \
-          --arg clientId "${{ inputs.SERVICE_PRINCIPAL_ID }}" \
-          '{clientSecret: $clientSecret, subscriptionId: $subscriptionId, tenantId: $tenantId, clientId: $clientId}')
-        echo "::add-mask::$azureCreds" 
-        echo "azureCreds=$azureCreds" >> $GITHUB_OUTPUT
-    
-    - uses: azure/login@v2
-      with:
-        creds: ${{ steps.build-creds.outputs.azureCreds }}
+        az login --service-principal \
+          --username "${{ inputs.SERVICE_PRINCIPAL_ID }}" \
+          --password "${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}" \
+          --tenant "${{ inputs.TENANT }}"
+        az account set --subscription "${{ inputs.SUBSCRIPTION }}"
