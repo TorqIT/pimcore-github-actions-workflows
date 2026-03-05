@@ -76,3 +76,4 @@ jobs:
       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
 
   # TODO test CD to VM
+
