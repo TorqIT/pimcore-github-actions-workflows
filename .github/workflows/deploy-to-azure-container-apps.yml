@@ -264,10 +264,12 @@ jobs:
 
       - name: Install Azure Flysystem bundle if not already installed
         run: |
-          if [ ! -d "${{ inputs.PIMCORE_ROOT }}/vendor/torq/pimcore-azure-flysystem-bundle" ] || 
-             [ -d "${{ inputs.PIMCORE_ROOT}}/vendor/torqit/pimcore-azure-flysystem-bundle" ]; then
+          set -euo pipefail
+
+          if ! composer show --no-interaction --no-ansi "torqit/pimcore-flysystem-azure-bundle" >/dev/null 2>&1 \
+            && ! composer show --no-interaction --no-ansi "torq/pimcore-flysystem-azure-bundle" >/dev/null 2>&1; then
             echo "Azure Flysystem bundle not found, installing..."
-            composer require torq/pimcore-azure-flysystem-bundle
+            composer require --no-interaction --no-ansi torq/pimcore-flysystem-azure-bundle
           else
             echo "Azure Flysystem bundle already installed, skipping"
           fi
