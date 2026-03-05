@@ -262,6 +262,18 @@ jobs:
         if: ${{ inputs.SKIP_LINTING == false }}
         uses: ./reusable-workflow/.github/actions/lint
 
+      - name: Install Azure Flysystem bundle if not already installed
+        run: |
+          set -euo pipefail
+
+          if ! composer show --no-interaction --no-ansi "torqit/pimcore-flysystem-azure-bundle" >/dev/null 2>&1 \
+            && ! composer show --no-interaction --no-ansi "torq/pimcore-flysystem-azure-bundle" >/dev/null 2>&1; then
+            echo "Azure Flysystem bundle not found, installing..."
+            composer require --no-interaction --no-ansi --no-scripts torq/pimcore-flysystem-azure-bundle
+          else
+            echo "Azure Flysystem bundle already installed, skipping"
+          fi
+
       - name: Log in to Azure
         uses: ./reusable-workflow/.github/actions/azure-login
         with:
