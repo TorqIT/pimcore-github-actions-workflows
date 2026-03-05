@@ -47,7 +47,7 @@ jobs:
 
   provision-ci-azure-environment:
     name: "Provision CI Azure environment for testing CD Azure workflow"
-    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@v2
+    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@improvement/optional-quick-provision
     with:
       ENVIRONMENT: ci-azure
       AZURE_DOCKER_COMPOSE_SERVICE: azure
