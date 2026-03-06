@@ -233,7 +233,7 @@ jobs:
           echo test
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
@@ -249,7 +249,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -404,7 +404,7 @@ jobs:
             ${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ needs.build-and-push-images.outputs.workflow-version }}
@@ -448,7 +448,7 @@ jobs:
             ${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ needs.deploy-and-run-init.outputs.workflow-version }}
@@ -492,7 +492,7 @@ jobs:
             ${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ needs.deploy-and-run-init.outputs.workflow-version }}

@@ -179,7 +179,7 @@ jobs:
           repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
@@ -195,7 +195,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -223,7 +223,7 @@ jobs:
           repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
@@ -239,7 +239,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -281,7 +281,7 @@ jobs:
           repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
@@ -297,7 +297,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -345,7 +345,7 @@ jobs:
           repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
@@ -361,7 +361,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -404,7 +404,7 @@ jobs:
           repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
@@ -420,7 +420,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
