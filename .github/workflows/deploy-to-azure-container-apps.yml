@@ -382,12 +382,12 @@ jobs:
       - build-and-push-images
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          submodules: ${{ inputs.SUBMODULES }}
-          fetch-depth: 0
+          sparse-checkout: |
+            ${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}
 
       - name: Get workflow version
         id: workflow-version
@@ -434,12 +434,12 @@ jobs:
       - deploy-and-run-init
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          submodules: ${{ inputs.SUBMODULES }}
-          fetch-depth: 0
+          sparse-checkout: |
+            ${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}
 
       - name: Get workflow version
         id: workflow-version
@@ -486,12 +486,12 @@ jobs:
       - deploy-and-run-init
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          submodules: ${{ inputs.SUBMODULES }}
-          fetch-depth: 0
+          sparse-checkout: |
+            ${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}
 
       - name: Get workflow version
         id: workflow-version
