@@ -186,6 +186,11 @@ on:
         type: boolean
         default: false
         description: "Whether to automatically install missing required Pimcore bundles (e.g. Azure Flysystem bundle)"
+      FEATURE_FLAG_DISABLE_CONFIG_COPY:
+        required: false
+        type: boolean
+        default: false
+        description: "Feature flag - whether to disable copying of config files for Azure MySQL and Azure Storage. Will be removed and assumed true in a future release."
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -252,11 +257,13 @@ jobs:
 
       - name: Copy config files required for running with Azure Flysystem
         uses: ./reusable-workflow/.github/actions/azure-flysystem-copy-config
+        if: ${{ inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY == 'false' }}
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
       - name: Copy config files required for running with an Azure MySQL server
         uses: ./reusable-workflow/.github/actions/azure-mysql-copy-config
+        if: ${{ inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY == 'false' }}
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
