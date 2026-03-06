@@ -257,13 +257,13 @@ jobs:
 
       - name: Copy config files required for running with Azure Flysystem
         uses: ./reusable-workflow/.github/actions/azure-flysystem-copy-config
-        if: ${{ inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY == 'false' }}
+        if: ${{ !inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
       - name: Copy config files required for running with an Azure MySQL server
         uses: ./reusable-workflow/.github/actions/azure-mysql-copy-config
-        if: ${{ inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY == 'false' }}
+        if: ${{ !inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
