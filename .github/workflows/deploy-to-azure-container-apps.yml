@@ -181,6 +181,11 @@ on:
         type: boolean
         default: false
         description: "Whether database deployment steps should be skipped when applying Azure infrastructure changes"
+      INSTALL_MISSING_BUNDLES:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to automatically install missing required Pimcore bundles (e.g. Azure Flysystem bundle)"
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -267,6 +272,7 @@ jobs:
         uses: ./reusable-workflow/.github/actions/lint
 
       - name: Install Azure Flysystem bundle if not already installed
+        if: ${{ inputs.INSTALL_MISSING_BUNDLES }}
         run: |
           set -euo pipefail
 
