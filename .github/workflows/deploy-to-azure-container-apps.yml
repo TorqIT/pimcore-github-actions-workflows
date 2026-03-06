@@ -221,6 +221,10 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT }}
 
     steps:
+      - name: Completely redundant step
+        run: |
+          echo test
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
