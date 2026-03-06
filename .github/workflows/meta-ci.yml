@@ -68,6 +68,7 @@ jobs:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: skeleton/recipes # TODO changeme back to 2025.x!
       ENVIRONMENT: ci-azure
+      INSTALL_MISSING_BUNDLES: true
     secrets:
       PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
@@ -76,3 +77,4 @@ jobs:
       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
 
   # TODO test CD to VM
+
