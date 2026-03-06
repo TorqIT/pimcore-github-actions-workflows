@@ -181,11 +181,16 @@ on:
         type: boolean
         default: false
         description: "Whether database deployment steps should be skipped when applying Azure infrastructure changes"
-      INSTALL_MISSING_BUNDLES:
+      FEATURE_FLAG_INSTALL_MISSING_BUNDLES:
         required: false
         type: boolean
         default: false
-        description: "Whether to automatically install missing required Pimcore bundles (e.g. Azure Flysystem bundle)"
+        description: "Feature flag - whether to automatically install missing required Pimcore bundles (e.g. Azure Flysystem bundle). Will be removed and assumed true in a future release."
+      FEATURE_FLAG_DISABLE_CONFIG_COPY:
+        required: false
+        type: boolean
+        default: false
+        description: "Feature flag - whether to disable copying of config files for Azure MySQL and Azure Storage. Will be removed and assumed true in a future release."
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -252,11 +257,13 @@ jobs:
 
       - name: Copy config files required for running with Azure Flysystem
         uses: ./reusable-workflow/.github/actions/azure-flysystem-copy-config
+        if: ${{ !inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
       - name: Copy config files required for running with an Azure MySQL server
         uses: ./reusable-workflow/.github/actions/azure-mysql-copy-config
+        if: ${{ !inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
@@ -268,7 +275,7 @@ jobs:
         uses: ./reusable-workflow/.github/actions/lint
 
       - name: Install Azure Flysystem bundle if not already installed
-        if: ${{ inputs.INSTALL_MISSING_BUNDLES }}
+        if: ${{ inputs.FEATURE_FLAG_INSTALL_MISSING_BUNDLES }}
         run: |
           set -euo pipefail
 
