@@ -191,11 +191,6 @@ on:
         type: boolean
         default: false
         description: "Whether to use a GitHub App token for checking out the project repository and submodules"
-      GITHUB_APP_CHECKOUT_REPOSITORIES:
-        required: false
-        type: string
-        default: ""
-        description: "A comma or newline-separated list of repositories to checkout with the GitHub App token - if empty, only the main project repository will be checked out"
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -244,6 +239,14 @@ jobs:
       workflow-version: ${{ steps.workflow-version.outputs.version }}
 
     steps:
+      - name: Parse GitHub App checkout repository
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
+        id: parse_github_app_repository
+        env:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+        run: |
+          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
       - name: Create token from GitHub App
         uses: actions/create-github-app-token@v2
         if: ${{ inputs.GITHUB_APP_CHECKOUT }}
@@ -251,7 +254,7 @@ jobs:
         with:
           app-id: ${{ secrets.GITHUB_APP_ID }}
           private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
+          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
 
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -417,6 +420,14 @@ jobs:
     needs:
       - build-and-push-images
     steps:
+      - name: Parse GitHub App checkout repository
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
+        id: parse_github_app_repository
+        env:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+        run: |
+          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
       - name: Create token from GitHub App
         uses: actions/create-github-app-token@v2
         if: ${{ inputs.GITHUB_APP_CHECKOUT }}
@@ -424,7 +435,7 @@ jobs:
         with:
           app-id: ${{ secrets.GITHUB_APP_ID }}
           private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
+          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
 
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -471,6 +482,14 @@ jobs:
     needs:
       - deploy-and-run-init
     steps:
+      - name: Parse GitHub App checkout repository
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
+        id: parse_github_app_repository
+        env:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+        run: |
+          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
       - name: Create token from GitHub App
         uses: actions/create-github-app-token@v2
         if: ${{ inputs.GITHUB_APP_CHECKOUT }}
@@ -478,7 +497,7 @@ jobs:
         with:
           app-id: ${{ secrets.GITHUB_APP_ID }}
           private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
+          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
 
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -525,6 +544,14 @@ jobs:
     needs:
       - deploy-and-run-init
     steps:
+      - name: Parse GitHub App checkout repository
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
+        id: parse_github_app_repository
+        env:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+        run: |
+          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
       - name: Create token from GitHub App
         uses: actions/create-github-app-token@v2
         if: ${{ inputs.GITHUB_APP_CHECKOUT }}
@@ -532,7 +559,7 @@ jobs:
         with:
           app-id: ${{ secrets.GITHUB_APP_ID }}
           private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
+          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
 
       - name: Checkout repository
         uses: actions/checkout@v6
