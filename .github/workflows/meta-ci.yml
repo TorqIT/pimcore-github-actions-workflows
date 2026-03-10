@@ -33,6 +33,7 @@ jobs:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: 2024.x
       GITHUB_APP_CHECKOUT: true
+      GITHUB_APP_CHECKOUT_REPOSITORIES: TorqIT/pimcore-skeleton
     secrets:
       GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
       GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
@@ -45,6 +46,7 @@ jobs:
       PROJECT_REPOSITORY_REF: 2025.x
       RUN_UNIT_TESTS: true
       GITHUB_APP_CHECKOUT: true
+      GITHUB_APP_CHECKOUT_REPOSITORIES: TorqIT/pimcore-skeleton
     secrets:
       GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
       GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
@@ -75,6 +77,7 @@ jobs:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: skeleton/recipes # TODO changeme back to 2025.x!
       GITHUB_APP_CHECKOUT: true
+      GITHUB_APP_CHECKOUT_REPOSITORIES: TorqIT/pimcore-skeleton
       ENVIRONMENT: ci-azure
       INSTALL_MISSING_BUNDLES: true
     secrets:
