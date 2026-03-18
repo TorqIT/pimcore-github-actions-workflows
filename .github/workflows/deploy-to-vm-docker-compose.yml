@@ -200,6 +200,11 @@ on:
         type: boolean
         default: true
         description: "Whether to use GitHub Actions cache for Docker layer caching during image builds"
+      DOCKER_DIRECTORY:
+        required: false
+        type: string
+        default: '.docker'
+        description: "The path relative to the project's root of the directory where Docker-related files are stored"
 
     secrets:
       CALLER_GITHUB_TOKEN:
@@ -339,6 +344,7 @@ jobs:
             docker-compose.yaml
             ${{ inputs.DOCKER_COMPOSE_FILE }}
             ${{ inputs.ENV_FILE }}
+            ${{ inputs.DOCKER_DIRECTORY }}
           sparse-checkout-cone-mode: false
 
       - name: Install jq
