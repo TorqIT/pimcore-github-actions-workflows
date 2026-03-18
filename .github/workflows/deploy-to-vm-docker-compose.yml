@@ -203,8 +203,18 @@ on:
       DOCKER_DIRECTORY:
         required: false
         type: string
-        default: '.docker'
+        default: ".docker"
         description: "The path relative to the project's root of the directory where Docker-related files are stored"
+      GITHUB_APP_CHECKOUT:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to use a GitHub App token for checking out the project repository and submodules"
+      GITHUB_APP_CHECKOUT_REPOSITORIES:
+        required: false
+        type: string
+        default: ""
+        description: "A comma or newline-separated list of repositories to checkout with the GitHub App token - if empty, only the main project repository will be checked out"
 
     secrets:
       CALLER_GITHUB_TOKEN:
@@ -225,6 +235,12 @@ on:
       SLACK_WORKFLOW_STATUS_WEBHOOK_URL:
         required: false
         description: Slack webhook URL to send workflow results to
+      GITHUB_APP_ID:
+        required: false
+        description: The ID of the GitHub App used to generate a token for checking out the project repository and submodules
+      GITHUB_APP_PRIVATE_KEY:
+        required: false
+        description: The private key of the GitHub App used to generate a token for checking out the project repository and submodules
 
 jobs:
   build-and-push-images:
@@ -233,11 +249,21 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT }}
 
     steps:
+      - name: Create token from GitHub App
+        uses: actions/create-github-app-token@v2
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
+        id: create_token
+        with:
+          app-id: ${{ secrets.GITHUB_APP_ID }}
+          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+          repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: ${{ inputs.SUBMODULES }}
           fetch-depth: 0
+          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.CALLER_GITHUB_TOKEN }}
 
       - name: Get workflow version
         id: workflow-version
