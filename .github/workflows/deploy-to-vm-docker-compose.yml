@@ -528,6 +528,7 @@ jobs:
                   --env-file ${{ inputs.ENV_FILE }} \
                   rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
           else
+              set +e
               echo "Error bringing up new containers - here are stdout logs from failed container:"
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
@@ -550,6 +551,7 @@ jobs:
                         echo "No error log file found at /var/www/html/var/log/$APP_ENV-error.log"
                       fi
                     '
+              set -e
               echo "Stopping "$NEW_DEPLOYMENT" containers..."
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
