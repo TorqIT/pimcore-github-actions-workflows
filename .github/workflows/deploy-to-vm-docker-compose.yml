@@ -215,6 +215,11 @@ on:
         type: string
         default: ""
         description: "A comma or newline-separated list of repositories to checkout with the GitHub App token - if empty, only the main project repository will be checked out"
+      HEALTCHECK_ENDPOINT:
+        required: false
+        type: string
+        default: ""
+        description: "Sub-path (relative to http://localhost) to use when checking the health of the new deployment during blue/green deployment (e.g. /health or /status) - if empty, the root path will be used"
 
     secrets:
       CALLER_GITHUB_TOKEN:
@@ -511,7 +516,7 @@ jobs:
                     -T 3 -t 100 \
                     --retry-connrefused \
                     -O /dev/null \
-                    localhost
+                    "localhost/${{ inputs.HEALTCHECK_ENDPOINT }}"
           DEPLOY_STATUS=$?
           set -e
 
