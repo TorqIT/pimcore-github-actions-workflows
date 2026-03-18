@@ -426,6 +426,8 @@ jobs:
               if ! docker volume inspect "$volume" >/dev/null 2>&1; then
                 echo "Creating volume: $volume"
                 docker volume create "$volume"
+                echo "Adjust permissions on $volume"
+                docker run --rm -v "$volume":/volume alpine chown -R 1000:1000 /volume
               else
                 echo "Volume '$volume' already exists"
               fi
