@@ -21,92 +21,89 @@ runs:
   using: "composite"
   steps:
     - name: Deploy new revision of init Container App Job
-      uses: azure/cli@v2
-      with:
-        inlineScript: |
-          echo Creating new revision of ${{ inputs.INIT_CONTAINER_APP_JOB }} Container App Job...
-          retries=0
-          while [[ $retries < 3 ]]; do
-            az containerapp job update \
-              --resource-group ${{ inputs.RESOURCE_GROUP }} \
-              --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
-              --image ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE }}:${{ github.run_id }} \
-              || true # do not exit the script on error
-            status=$?
-            if [[ $status != 0 ]]; then
-              echo Revision creation failed, retrying...
-              retries=$((retries + 1))
-              continue
-            else
-              exit 0
-            fi 
-          done
-          echo Failed to create revision!
-
-    - name: Run init job
-      uses: azure/cli@v2
-      id: run-init
-      with:
-        inlineScript: |
-          get_execution_status() {
-            executionName=$1
-            local executionStatus=$(az containerapp job execution list \
-              --resource-group ${{ inputs.RESOURCE_GROUP }} \
-              --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
-              | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
-            echo "$executionStatus"
-          }
-
-          echo Starting init Container App Job...
-          az containerapp job start \
-            --resource-group ${{ inputs.RESOURCE_GROUP }} \
-            --name ${{ inputs.INIT_CONTAINER_APP_JOB }}
-
-          executionName=$(az containerapp job execution list \
+      shell: bash
+      run: |
+        echo Creating new revision of ${{ inputs.INIT_CONTAINER_APP_JOB }} Container App Job...
+        retries=0
+        while [[ $retries < 3 ]]; do
+          az containerapp job update \
             --resource-group ${{ inputs.RESOURCE_GROUP }} \
             --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
-            | jq -r '.[] | select(.properties.status | contains("Running")) | .name')
-          echo "EXECUTION_NAME=$executionName" >> $GITHUB_OUTPUT
+            --image ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE }}:${{ github.run_id }} \
+            || true # do not exit the script on error
+          status=$?
+          if [[ $status != 0 ]]; then
+            echo Revision creation failed, retrying...
+            retries=$((retries + 1))
+            continue
+          else
+            exit 0
+          fi 
+        done
+        echo Failed to create revision!
+
+    - name: Run init job
+      shell: bash
+      id: run-init
+      run: |
+        get_execution_status() {
+          executionName=$1
+          local executionStatus=$(az containerapp job execution list \
+            --resource-group ${{ inputs.RESOURCE_GROUP }} \
+            --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
+            | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
+          echo "$executionStatus"
+        }
+
+        echo Starting init Container App Job...
+        az containerapp job start \
+          --resource-group ${{ inputs.RESOURCE_GROUP }} \
+          --name ${{ inputs.INIT_CONTAINER_APP_JOB }}
+
+        executionName=$(az containerapp job execution list \
+          --resource-group ${{ inputs.RESOURCE_GROUP }} \
+          --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
+          | jq -r '.[] | select(.properties.status | contains("Running")) | .name')
+        echo "EXECUTION_NAME=$executionName" >> $GITHUB_OUTPUT
+
+        executionStatus=$(get_execution_status $executionName)
+        while [[ "$executionStatus" != "Running" ]]
+        do
+          echo Waiting for job execution $executionName to start...
+          sleep 1
+          executionStatus=$(get_execution_status $executionName)
+        done
+
+        while [[ true ]]; do
+          az containerapp job logs show \
+            --resource-group ${{ inputs.RESOURCE_GROUP }} \
+            --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
+            --execution $executionName \
+            --container ${{ inputs.INIT_CONTAINER_NAME }} \
+            --follow true \
+            || true # do not exit the script on error
 
           executionStatus=$(get_execution_status $executionName)
-          while [[ "$executionStatus" != "Running" ]]
-          do
-            echo Waiting for job execution $executionName to start...
-            sleep 1
-            executionStatus=$(get_execution_status $executionName)
-          done
 
-          while [[ true ]]; do
-            az containerapp job logs show \
-              --resource-group ${{ inputs.RESOURCE_GROUP }} \
-              --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
-              --execution $executionName \
-              --container ${{ inputs.INIT_CONTAINER_NAME }} \
-              --follow true \
-              || true # do not exit the script on error
-
-            executionStatus=$(get_execution_status $executionName)
-
-            if [[ "$executionStatus" == "Running" ]] || [[ "$executionStatus" == "Unknown" ]]; then
-              echo "Execution $executionName has status $executionStatus, checking again for logs..."
-              continue
-            elif [[ "$executionStatus" == "Succeeded" ]]; then
-              echo "Execution $executionName succeeded!"
-              exit 0
-            else
-              echo "Execution $executionName has status $executionStatus - marking this job as failed"
-              exit 1
-            fi
-          done
+          if [[ "$executionStatus" == "Running" ]] || [[ "$executionStatus" == "Unknown" ]]; then
+            echo "Execution $executionName has status $executionStatus, checking again for logs..."
+            continue
+          elif [[ "$executionStatus" == "Succeeded" ]]; then
+            echo "Execution $executionName succeeded!"
+            exit 0
+          else
+            echo "Execution $executionName has status $executionStatus - marking this job as failed"
+            exit 1
+          fi
+        done
 
     - name: Stop execution 
-      uses: azure/cli@v2
       if: always()
       continue-on-error: true
-      with:
-        inlineScript: |
-          echo Stopping execution ${{ steps.run-init.outputs.EXECUTION_NAME }}
-          az containerapp job stop \
+      shell: bash
+      run: |
+        echo Stopping execution ${{ steps.run-init.outputs.EXECUTION_NAME }}
+        az containerapp job stop \
             --resource-group ${{ inputs.RESOURCE_GROUP }} \
             --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
             --job-execution-name ${{ steps.run-init.outputs.EXECUTION_NAME }}
