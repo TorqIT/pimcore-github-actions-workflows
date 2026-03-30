@@ -205,6 +205,26 @@ on:
         type: boolean
         default: false
         description: "Feature flag - whether to disable copying of config files for Azure MySQL and Azure Storage. Will be removed and assumed true in a future release."
+      DOCKER_DIRECTORY:
+        required: false
+        type: string
+        default: ".docker"
+        description: "The path relative to the project's root of the directory where Docker-related files are stored"
+      GITHUB_APP_CHECKOUT:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to use a GitHub App token for checking out the project repository and submodules"
+      GITHUB_APP_CHECKOUT_REPOSITORIES:
+        required: false
+        type: string
+        default: ""
+        description: "A comma or newline-separated list of repositories to checkout with the GitHub App token - if empty, only the main project repository will be checked out"
+      HEALTHCHECK_ENDPOINT:
+        required: false
+        type: string
+        default: "/"
+        description: "Sub-path (relative to http://localhost, using the format /my-healthcheck) to use when checking the health of the new deployment during blue/green deployment (e.g. /health or /status) - if empty, the root path will be used"
 
     secrets:
       CALLER_GITHUB_TOKEN:
@@ -225,6 +245,12 @@ on:
       SLACK_WORKFLOW_STATUS_WEBHOOK_URL:
         required: false
         description: Slack webhook URL to send workflow results to
+      GITHUB_APP_ID:
+        required: false
+        description: The ID of the GitHub App used to generate a token for checking out the project repository and submodules
+      GITHUB_APP_PRIVATE_KEY:
+        required: false
+        description: The private key of the GitHub App used to generate a token for checking out the project repository and submodules
 
 jobs:
   build-and-push-images:
@@ -233,11 +259,21 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT }}
 
     steps:
+      - name: Create token from GitHub App
+        uses: actions/create-github-app-token@v2
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
+        id: create_token
+        with:
+          app-id: ${{ secrets.GITHUB_APP_ID }}
+          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+          repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: ${{ inputs.SUBMODULES }}
           fetch-depth: 0
+          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.CALLER_GITHUB_TOKEN }}
 
       - name: Get workflow version
         id: workflow-version
@@ -344,6 +380,7 @@ jobs:
             docker-compose.yaml
             ${{ inputs.DOCKER_COMPOSE_FILE }}
             ${{ inputs.ENV_FILE }}
+            ${{ inputs.DOCKER_DIRECTORY }}
           sparse-checkout-cone-mode: false
 
       - name: Install jq
@@ -399,6 +436,8 @@ jobs:
               if ! docker volume inspect "$volume" >/dev/null 2>&1; then
                 echo "Creating volume: $volume"
                 docker volume create "$volume"
+                echo "Adjust permissions on $volume"
+                docker run --rm -v "$volume":/volume alpine chown -R 1000:1000 /volume
               else
                 echo "Volume '$volume' already exists"
               fi
@@ -482,7 +521,7 @@ jobs:
                     -T 3 -t 100 \
                     --retry-connrefused \
                     -O /dev/null \
-                    localhost
+                    "localhost${{ inputs.HEALTHCHECK_ENDPOINT }}"
           DEPLOY_STATUS=$?
           set -e
 
@@ -494,6 +533,7 @@ jobs:
                   --env-file ${{ inputs.ENV_FILE }} \
                   rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
           else
+              set +e
               echo "Error bringing up new containers - here are stdout logs from failed container:"
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
@@ -516,6 +556,7 @@ jobs:
                         echo "No error log file found at /var/www/html/var/log/$APP_ENV-error.log"
                       fi
                     '
+              set -e
               echo "Stopping "$NEW_DEPLOYMENT" containers..."
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
