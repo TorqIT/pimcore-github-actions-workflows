@@ -200,6 +200,11 @@ on:
         type: boolean
         default: true
         description: "Whether to use GitHub Actions cache for Docker layer caching during image builds"
+      FEATURE_FLAG_DISABLE_CONFIG_COPY:
+        required: false
+        type: boolean
+        default: false
+        description: "Feature flag - whether to disable copying of config files for Azure MySQL and Azure Storage. Will be removed and assumed true in a future release."
       DOCKER_DIRECTORY:
         required: false
         type: string
@@ -288,13 +293,13 @@ jobs:
 
       - name: Copy config files required for running with an Azure MySQL server
         uses: ./reusable-workflow/.github/actions/azure-mysql-copy-config
-        if: ${{ inputs.AZURE_MYSQL }}
+        if: ${{ inputs.AZURE_MYSQL && !inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 
       - name: Copy config files required for running with Flysystem bundle and Azure Storage
         uses: ./reusable-workflow/.github/actions/azure-flysystem-copy-config
-        if: ${{ inputs.AZURE_STORAGE }}
+        if: ${{ inputs.AZURE_STORAGE && !inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
         with:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
 

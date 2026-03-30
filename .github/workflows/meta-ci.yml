@@ -82,7 +82,7 @@ jobs:
       PROJECT_REPOSITORY_REF: skeleton/recipes # TODO changeme back to 2025.x!
       GITHUB_APP_CHECKOUT: true
       ENVIRONMENT: ci-azure
-      INSTALL_MISSING_BUNDLES: true
+      FEATURE_FLAG_INSTALL_MISSING_BUNDLES: true
     secrets:
       GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
       GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
