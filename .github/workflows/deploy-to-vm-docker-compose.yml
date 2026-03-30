@@ -269,7 +269,7 @@ jobs:
           repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: ${{ inputs.SUBMODULES }}
           fetch-depth: 0
@@ -284,7 +284,7 @@ jobs:
           github-token: ${{ secrets.CALLER_GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -374,7 +374,7 @@ jobs:
       - build-and-push-images
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             docker-compose.yaml

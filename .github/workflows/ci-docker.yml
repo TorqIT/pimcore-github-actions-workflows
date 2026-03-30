@@ -128,11 +128,6 @@ on:
         type: boolean
         default: false
         description: "Whether to use a GitHub App token for checking out the project repository and submodules"
-      GITHUB_APP_CHECKOUT_REPOSITORIES:
-        required: false
-        type: string
-        default: ""
-        description: "A comma or newline-separated list of repositories to checkout with the GitHub App token - if empty, only the main project repository will be checked out"
 
     secrets:
       BUILD_TIME_SECRETS:
@@ -169,6 +164,14 @@ jobs:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
     steps:
+      - name: Parse GitHub App checkout repository
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
+        id: parse_github_app_repository
+        env:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+        run: |
+          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
       - name: Create token from GitHub App
         uses: actions/create-github-app-token@v2
         if: ${{ inputs.GITHUB_APP_CHECKOUT }}
@@ -176,10 +179,10 @@ jobs:
         with:
           app-id: ${{ secrets.GITHUB_APP_ID }}
           private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
+          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
@@ -195,7 +198,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -213,6 +216,14 @@ jobs:
     if: ${{ inputs.INIT }}
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
+      - name: Parse GitHub App checkout repository
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
+        id: parse_github_app_repository
+        env:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+        run: |
+          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
       - name: Create token from GitHub App
         uses: actions/create-github-app-token@v2
         if: ${{ inputs.GITHUB_APP_CHECKOUT }}
@@ -220,10 +231,10 @@ jobs:
         with:
           app-id: ${{ secrets.GITHUB_APP_ID }}
           private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
+          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
@@ -239,7 +250,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -271,6 +282,14 @@ jobs:
     name: Build PHP image
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
+      - name: Parse GitHub App checkout repository
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
+        id: parse_github_app_repository
+        env:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+        run: |
+          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
       - name: Create token from GitHub App
         uses: actions/create-github-app-token@v2
         if: ${{ inputs.GITHUB_APP_CHECKOUT }}
@@ -278,10 +297,10 @@ jobs:
         with:
           app-id: ${{ secrets.GITHUB_APP_ID }}
           private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
+          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
@@ -297,7 +316,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -335,6 +354,14 @@ jobs:
     name: Build supervisord image
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
+      - name: Parse GitHub App checkout repository
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
+        id: parse_github_app_repository
+        env:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+        run: |
+          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
       - name: Create token from GitHub App
         uses: actions/create-github-app-token@v2
         if: ${{ inputs.GITHUB_APP_CHECKOUT }}
@@ -342,10 +369,10 @@ jobs:
         with:
           app-id: ${{ secrets.GITHUB_APP_ID }}
           private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
+          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
@@ -361,7 +388,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -394,6 +421,14 @@ jobs:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     if: ${{ inputs.RUN_UNIT_TESTS }}
     steps:
+      - name: Parse GitHub App checkout repository
+        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
+        id: parse_github_app_repository
+        env:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+        run: |
+          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
       - name: Create token from GitHub App
         uses: actions/create-github-app-token@v2
         if: ${{ inputs.GITHUB_APP_CHECKOUT }}
@@ -401,10 +436,10 @@ jobs:
         with:
           app-id: ${{ secrets.GITHUB_APP_ID }}
           private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
+          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
@@ -420,7 +455,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -447,3 +482,4 @@ jobs:
           PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           UNIT_TESTS_DIRECTORY: ${{ inputs.UNIT_TESTS_DIRECTORY }}
+
