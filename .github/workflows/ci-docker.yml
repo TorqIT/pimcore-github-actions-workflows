@@ -186,6 +186,7 @@ jobs:
           PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
           PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
           SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
           GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
           GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
@@ -223,6 +224,7 @@ jobs:
           PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
           PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
           SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
           GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
           GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
@@ -274,6 +276,7 @@ jobs:
           PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
           PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
           SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
           GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
           GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
@@ -331,6 +334,7 @@ jobs:
           PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
           PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
           SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
           GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
           GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
@@ -383,6 +387,7 @@ jobs:
           PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
           PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
           SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
           GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
           GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
