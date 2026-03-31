@@ -92,6 +92,7 @@ runs:
         ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
         submodules: recursive
         token: ${{ steps.full_token.outputs.token || inputs.GITHUB_TOKEN }}
+        clean: false # Don't delete the reusable-workflow folder that was checked out prior to this action
         path: ${{ github.workspace }} # Be explicit to avoid project being checked out in under a subdirectory
 
     - shell: bash
