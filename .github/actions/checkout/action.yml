@@ -1,0 +1,53 @@
+name: "Checkout"
+description: "Checks out the project repository and any defined submodules"
+inputs:
+  PROJECT_REPOSITORY:
+    description: "The repository to checkout, in the format 'owner/repo'."
+    required: true
+  PROJECT_REPOSITORY_REF:
+    description: "The branch, tag, or commit to checkout. Default is 'main'."
+    required: false
+    default: "main"
+  SUBMODULES:
+    description: "Whether to checkout submodules. Default is 'false'."
+    required: false
+    default: "false"
+  GITHUB_APP_CHECKOUT:
+    description: "Whether to use a GitHub App for authentication when checking out the repository. Default is 'false'."
+    required: false
+    default: "false"
+  GITHUB_APP_ID:
+    description: "The ID of the GitHub App to use for authentication when checking out the repository. Required if GITHUB_APP_CHECKOUT is 'true'."
+    required: false
+  GITHUB_APP_PRIVATE_KEY:
+    description: "The private key of the GitHub App to use for authentication when checking out the repository. Required if GITHUB_APP_CHECKOUT is 'true'."
+    required: false
+
+runs: 
+  using: "composite"
+  steps:
+    - name: Parse project repository name
+      if: inputs.GITHUB_APP_CHECKOUT == 'true'
+      id: parse_repositories
+      env:
+        PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+      shell: bash
+      run: |
+        echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
+    - name: Create token from GitHub App
+      uses: actions/create-github-app-token@v2
+      if: inputs.GITHUB_APP_CHECKOUT == 'true'
+      id: create_token
+      with:
+        app-id: ${{ inputs.GITHUB_APP_ID }}
+        private-key: ${{ inputs.GITHUB_APP_PRIVATE_KEY }}
+        repositories: ${{ steps.parse_repositories.outputs.repository }}
+
+    - name: Checkout repository
+      uses: actions/checkout@v6
+      with:
+        repository: ${{ inputs.PROJECT_REPOSITORY }}
+        ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
+        submodules: ${{ inputs.SUBMODULES == 'true' && 'recursive' || 'false' }}
+        token: ${{ inputs.GITHUB_APP_CHECKOUT == 'true' && steps.create_token.outputs.token || inputs.GITHUB_TOKEN }}
