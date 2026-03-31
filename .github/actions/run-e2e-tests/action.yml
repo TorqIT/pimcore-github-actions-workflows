@@ -181,7 +181,7 @@ runs:
 
     - name: Find Comment
       uses: peter-evans/find-comment@v3
-      if: always()
+      if: always() && inputs.PR_NUMBER != ''
       id: find-comment
       with:
         issue-number: ${{ inputs.PR_NUMBER }}
@@ -190,7 +190,7 @@ runs:
 
     - name: Add or update PR comment with test results
       uses: peter-evans/create-or-update-comment@v4
-      if: always()
+      if: always() && inputs.PR_NUMBER != ''
       with:
         token: ${{ inputs.GITHUB_TOKEN }}
         issue-number: ${{ inputs.PR_NUMBER }}
