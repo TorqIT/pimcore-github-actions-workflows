@@ -1,0 +1,111 @@
+name: "Checkout"
+description: "Checks out the project repository and any defined submodules"
+inputs:
+  PROJECT_REPOSITORY:
+    description: "The repository to checkout, in the format 'owner/repo'."
+    required: true
+  PROJECT_REPOSITORY_REF:
+    description: "The branch, tag, or commit to checkout. Default is 'main'."
+    required: false
+    default: "main"
+  SUBMODULES:
+    description: "Whether to checkout submodules. Default is 'false'."
+    required: false
+    default: "false"
+  GITHUB_TOKEN:
+    description: "The GitHub token to use for authentication when checking out the repository. Required if GITHUB_APP_CHECKOUT is 'false'."
+    required: false
+  GITHUB_APP_CHECKOUT:
+    description: "Whether to use a GitHub App for authentication when checking out the repository. Default is 'false'."
+    required: false
+    default: "false"
+  GITHUB_APP_ID:
+    description: "The ID of the GitHub App to use for authentication when checking out the repository. Required if GITHUB_APP_CHECKOUT is 'true'."
+    required: false
+  GITHUB_APP_PRIVATE_KEY:
+    description: "The private key of the GitHub App to use for authentication when checking out the repository. Required if GITHUB_APP_CHECKOUT is 'true'."
+    required: false
+
+runs: 
+  using: "composite"
+  steps:
+    - name: Parse project repository name for GitHub App token
+      if: inputs.GITHUB_APP_CHECKOUT == 'true'
+      id: parse_project_repo_name
+      env:
+        PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+      shell: bash
+      run: |
+        echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
+    - name: Create token for main repository if using GitHub App authentication
+      id: main_token
+      uses: actions/create-github-app-token@v2
+      if: inputs.GITHUB_APP_CHECKOUT == 'true'
+      with:
+        app-id: ${{ inputs.GITHUB_APP_ID }}
+        private-key: ${{ inputs.GITHUB_APP_PRIVATE_KEY }}
+        repositories: ${{ steps.parse_project_repo_name.outputs.repository }}
+
+    - name: Temporarily move reusable-workflow files to avoid deletion by checkout actions
+      shell: bash
+      run: |
+        if [ -d reusable-workflow ]; then
+          mv reusable-workflow ../reusable-workflow-temp
+        fi
+
+    - name: Checkout .gitmodules file, if using submodules
+      uses: actions/checkout@v6
+      if: inputs.SUBMODULES == 'true'
+      with:
+        repository: ${{ inputs.PROJECT_REPOSITORY }}
+        ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
+        token: ${{ steps.main_token.outputs.token }}
+        submodules: false
+        sparse-checkout: |
+          .gitmodules
+
+    - name: Parse submodules from .gitmodules
+      id: parse_repo_names
+      shell: bash
+      run: |
+        set -e
+        REPOS="${{ steps.parse_project_repo_name.outputs.repository }}"
+
+        if [ -f .gitmodules ]; then
+          # Read each URL line from .gitmodules
+          urls=$(git config --file .gitmodules --get-regexp 'url' | awk '{print $2}')
+          for url in $urls; do
+            # Extract just the repo name (strip owner and .git)
+            if [[ "$url" =~ github.com[:/].+/(.+)\.git ]]; then
+              repo_name="${BASH_REMATCH[1]}"
+              REPOS="$REPOS,$repo_name"
+            fi
+          done
+        fi
+
+        echo "repositories=$REPOS" >> "$GITHUB_OUTPUT"
+
+    - name: Create token for project and any submodules
+      id: full_token
+      uses: actions/create-github-app-token@v2
+      if: inputs.GITHUB_APP_CHECKOUT == 'true'
+      with:
+        app-id: ${{ inputs.GITHUB_APP_ID }}
+        private-key: ${{ inputs.GITHUB_APP_PRIVATE_KEY }}
+        repositories: ${{ steps.parse_repo_names.outputs.repositories }}
+
+    - name: Checkout project repo and any submodules
+      uses: actions/checkout@v6
+      with:
+        repository: ${{ inputs.PROJECT_REPOSITORY }}
+        ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
+        submodules: recursive
+        token: ${{ steps.full_token.outputs.token || inputs.GITHUB_TOKEN }}
+
+    - name: Move reusable-workflow files back to original location
+      shell: bash
+      run: |
+        if [ -d ../reusable-workflow-temp ]; then
+          mv ../reusable-workflow-temp reusable-workflow
+        fi

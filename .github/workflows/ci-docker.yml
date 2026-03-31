@@ -164,31 +164,6 @@ jobs:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
 
     steps:
-      - name: Parse GitHub App checkout repository
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: parse_github_app_repository
-        env:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-        run: |
-          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
-
-      - name: Create token from GitHub App
-        uses: actions/create-github-app-token@v2
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: create_token
-        with:
-          app-id: ${{ secrets.GITHUB_APP_ID }}
-          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
-
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ inputs.PROJECT_REPOSITORY }}
-          ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          submodules: ${{ inputs.SUBMODULES }}
-          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
-
       - name: Get workflow version
         id: workflow-version
         uses: canonical/get-workflow-version-action@v1
@@ -204,6 +179,17 @@ jobs:
           ref: ${{ steps.workflow-version.outputs.sha }}
           path: reusable-workflow
           fetch-depth: 1
+
+      - name: Check out project repository and submodules
+        uses: ./reusable-workflow/.github/actions/checkout
+        with:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
 
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
@@ -216,31 +202,6 @@ jobs:
     if: ${{ inputs.INIT }}
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
-      - name: Parse GitHub App checkout repository
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: parse_github_app_repository
-        env:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-        run: |
-          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
-
-      - name: Create token from GitHub App
-        uses: actions/create-github-app-token@v2
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: create_token
-        with:
-          app-id: ${{ secrets.GITHUB_APP_ID }}
-          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
-
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ inputs.PROJECT_REPOSITORY }}
-          ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          submodules: ${{ inputs.SUBMODULES }}
-          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
-
       - name: Get workflow version
         id: workflow-version
         uses: canonical/get-workflow-version-action@v1
@@ -256,6 +217,17 @@ jobs:
           ref: ${{ steps.workflow-version.outputs.sha }}
           path: reusable-workflow
           fetch-depth: 1
+
+      - name: Check out project repository and submodules
+        uses: ./reusable-workflow/.github/actions/checkout
+        with:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
 
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
@@ -282,31 +254,6 @@ jobs:
     name: Build PHP image
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
-      - name: Parse GitHub App checkout repository
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: parse_github_app_repository
-        env:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-        run: |
-          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
-
-      - name: Create token from GitHub App
-        uses: actions/create-github-app-token@v2
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: create_token
-        with:
-          app-id: ${{ secrets.GITHUB_APP_ID }}
-          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
-
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ inputs.PROJECT_REPOSITORY }}
-          ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          submodules: ${{ inputs.SUBMODULES }}
-          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
-
       - name: Get workflow version
         id: workflow-version
         uses: canonical/get-workflow-version-action@v1
@@ -322,6 +269,17 @@ jobs:
           ref: ${{ steps.workflow-version.outputs.sha }}
           path: reusable-workflow
           fetch-depth: 1
+
+      - name: Check out project repository and submodules
+        uses: ./reusable-workflow/.github/actions/checkout
+        with:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
 
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
@@ -354,31 +312,6 @@ jobs:
     name: Build supervisord image
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
-      - name: Parse GitHub App checkout repository
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: parse_github_app_repository
-        env:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-        run: |
-          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
-
-      - name: Create token from GitHub App
-        uses: actions/create-github-app-token@v2
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: create_token
-        with:
-          app-id: ${{ secrets.GITHUB_APP_ID }}
-          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
-
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ inputs.PROJECT_REPOSITORY }}
-          ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          submodules: ${{ inputs.SUBMODULES }}
-          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
-
       - name: Get workflow version
         id: workflow-version
         uses: canonical/get-workflow-version-action@v1
@@ -394,6 +327,17 @@ jobs:
           ref: ${{ steps.workflow-version.outputs.sha }}
           path: reusable-workflow
           fetch-depth: 1
+
+      - name: Check out project repository and submodules
+        uses: ./reusable-workflow/.github/actions/checkout
+        with:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
 
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
@@ -421,31 +365,6 @@ jobs:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     if: ${{ inputs.RUN_UNIT_TESTS }}
     steps:
-      - name: Parse GitHub App checkout repository
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: parse_github_app_repository
-        env:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-        run: |
-          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
-
-      - name: Create token from GitHub App
-        uses: actions/create-github-app-token@v2
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: create_token
-        with:
-          app-id: ${{ secrets.GITHUB_APP_ID }}
-          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
-
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ inputs.PROJECT_REPOSITORY }}
-          ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          submodules: ${{ inputs.SUBMODULES }}
-          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
-
       - name: Get workflow version
         id: workflow-version
         uses: canonical/get-workflow-version-action@v1
@@ -461,6 +380,17 @@ jobs:
           ref: ${{ steps.workflow-version.outputs.sha }}
           path: reusable-workflow
           fetch-depth: 1
+
+      - name: Check out project repository and submodules
+        uses: ./reusable-workflow/.github/actions/checkout
+        with:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
 
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
@@ -482,4 +412,3 @@ jobs:
           PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           UNIT_TESTS_DIRECTORY: ${{ inputs.UNIT_TESTS_DIRECTORY }}
-
