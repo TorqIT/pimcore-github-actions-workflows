@@ -47,6 +47,13 @@ runs:
         private-key: ${{ inputs.GITHUB_APP_PRIVATE_KEY }}
         repositories: ${{ steps.parse_project_repo_name.outputs.repository }}
 
+    - name: Temporarily move reusable-workflow files to avoid deletion by checkout actions
+      shell: bash
+      run: |
+        if [ -d reusable-workflow ]; then
+          mv reusable-workflow ../reusable-workflow-temp
+        fi
+
     - name: Checkout .gitmodules file, if using submodules
       uses: actions/checkout@v6
       if: inputs.SUBMODULES == 'true'
@@ -87,13 +94,6 @@ runs:
         app-id: ${{ inputs.GITHUB_APP_ID }}
         private-key: ${{ inputs.GITHUB_APP_PRIVATE_KEY }}
         repositories: ${{ steps.parse_repo_names.outputs.repositories }}
-
-    - name: Temporarily move reusable-workflow files to avoid deletion by checkout action
-      shell: bash
-      run: |
-        if [ -d reusable-workflow ]; then
-          mv reusable-workflow ../reusable-workflow-temp
-        fi
 
     - name: Checkout project repo and any submodules
       uses: actions/checkout@v6
