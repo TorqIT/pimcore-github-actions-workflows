@@ -93,3 +93,6 @@ runs:
         submodules: recursive
         token: ${{ steps.full_token.outputs.token || inputs.GITHUB_TOKEN }}
         path: ${{ github.workspace }} # Be explicit to avoid project being checked out in under a subdirectory
+
+    - shell: bash
+      run: ls -la
