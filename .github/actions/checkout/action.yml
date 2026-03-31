@@ -92,3 +92,4 @@ runs:
         ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
         submodules: recursive
         token: ${{ steps.full_token.outputs.token || inputs.GITHUB_TOKEN }}
+        path: ../ # as we are inside a subdirectory, checkout the repository one level up at the root of the workspace
