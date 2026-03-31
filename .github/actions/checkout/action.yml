@@ -66,17 +66,18 @@ runs:
         set -e
         REPOS="${{ steps.parse_project_repo_name.outputs.repository }}"
         if [ -f .gitmodules ]; then
-          git config --file .gitmodules --get-regexp 'url' | while read key url; do
+          while read key url; do
             # Extract just the repo name from the URL (strip owner and .git)
             if [[ "$url" =~ github.com[:/].+/(.+)\.git ]]; then
               repo_name="${BASH_REMATCH[1]}"
               REPOS="$REPOS,$repo_name"
             fi
-          done
+          done < <(git config --file .gitmodules --get-regexp 'url')
         fi
-        echo "repositories=$REPOS" >> "$GITHUB_OUTPUT"
 
-    - name: Create token for main and any submodules
+echo "repositories=$REPOS" >> "$GITHUB_OUTPUT"
+
+    - name: Create token for project and any submodules
       id: full_token
       uses: actions/create-github-app-token@v2
       if: inputs.GITHUB_APP_CHECKOUT == 'true'
