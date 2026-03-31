@@ -55,6 +55,7 @@ runs:
         ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
         token: ${{ steps.main_token.outputs.token }}
         submodules: false
+        clean: false
         sparse-checkout: |
           .gitmodules
 
