@@ -180,8 +180,6 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - run: ls -la
-
       - name: Check out project repository and submodules
         uses: ./reusable-workflow/.github/actions/checkout
         with:
@@ -192,8 +190,6 @@ jobs:
           GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
           GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
           GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-
-      - run: cd ..
 
       - run: ls -la
 

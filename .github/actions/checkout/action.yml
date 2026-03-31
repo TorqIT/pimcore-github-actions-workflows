@@ -55,7 +55,6 @@ runs:
         ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
         token: ${{ steps.main_token.outputs.token }}
         submodules: false
-        clean: false
         sparse-checkout: |
           .gitmodules
 
@@ -86,6 +85,13 @@ runs:
         private-key: ${{ inputs.GITHUB_APP_PRIVATE_KEY }}
         repositories: ${{ steps.parse_submodules.outputs.repositories }}
 
+    - name: Temporarily move reusable-workflow files to avoid deletion by checkout action
+      shell: bash
+      run: |
+        if [ -d reusable-workflow ]; then
+          mv reusable-workflow ../reusable-workflow-temp
+        fi
+
     - name: Checkout project repo and any submodules
       uses: actions/checkout@v6
       with:
@@ -93,8 +99,10 @@ runs:
         ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
         submodules: recursive
         token: ${{ steps.full_token.outputs.token || inputs.GITHUB_TOKEN }}
-        clean: false # Don't delete the reusable-workflow folder that was checked out prior to this action
-        path: ${{ github.workspace }} # Be explicit to avoid project being checked out in under a subdirectory
 
-    - shell: bash
-      run: ls -la
+    - name: Move reusable-workflow files back to original location
+      shell: bash
+      run: |
+        if [ -d ../reusable-workflow-temp ]; then
+          mv ../reusable-workflow-temp reusable-workflow
+        fi
