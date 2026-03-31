@@ -58,22 +58,25 @@ runs:
         sparse-checkout: |
           .gitmodules
 
-    - name: Parse repository names for GitHub App token
-      id: parse_submodules
-      if: inputs.GITHUB_APP_CHECKOUT == 'true'
+    - name: Parse submodules from .gitmodules
+      id: parse_repo_names
       shell: bash
       run: |
         set -e
         REPOS="${{ steps.parse_project_repo_name.outputs.repository }}"
+
         if [ -f .gitmodules ]; then
-          while read key url; do
-            # Extract just the repo name from the URL (strip owner and .git)
+          # Read each URL line from .gitmodules
+          urls=$(git config --file .gitmodules --get-regexp 'url' | awk '{print $2}')
+          for url in $urls; do
+            # Extract just the repo name (strip owner and .git)
             if [[ "$url" =~ github.com[:/].+/(.+)\.git ]]; then
               repo_name="${BASH_REMATCH[1]}"
               REPOS="$REPOS,$repo_name"
             fi
-          done < <(git config --file .gitmodules --get-regexp 'url')
+          done
         fi
+
         echo "repositories=$REPOS" >> "$GITHUB_OUTPUT"
 
     - name: Create token for project and any submodules
@@ -83,7 +86,7 @@ runs:
       with:
         app-id: ${{ inputs.GITHUB_APP_ID }}
         private-key: ${{ inputs.GITHUB_APP_PRIVATE_KEY }}
-        repositories: ${{ steps.parse_submodules.outputs.repositories }}
+        repositories: ${{ steps.parse_repo_names.outputs.repositories }}
 
     - name: Temporarily move reusable-workflow files to avoid deletion by checkout action
       shell: bash
