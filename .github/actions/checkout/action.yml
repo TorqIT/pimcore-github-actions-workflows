@@ -29,6 +29,15 @@ inputs:
 runs: 
   using: "composite"
   steps:
+    - name: Parse project repository name
+      if: inputs.GITHUB_APP_CHECKOUT == 'true'
+      id: parse_project_repo_name
+      env:
+        PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+      shell: bash
+      run: |
+        echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
     - name: Create token for main repository
       id: main_token
       uses: actions/create-github-app-token@v2
@@ -36,7 +45,7 @@ runs:
       with:
         app-id: ${{ inputs.GITHUB_APP_ID }}
         private-key: ${{ inputs.GITHUB_APP_PRIVATE_KEY }}
-        repositories: ${{ inputs.PROJECT_REPOSITORY }}
+        repositories: ${{ steps.parse_project_repo_name.outputs.repository }}
 
     - name: Checkout .gitmodules file
       uses: actions/checkout@v6
@@ -55,7 +64,7 @@ runs:
       shell: bash
       run: |
         set -e
-        REPOS="${{ inputs.PROJECT_REPOSITORY }}"
+        REPOS="${{ steps.parse_project_repo_name.outputs.repository }}"
         if [ -f .gitmodules ]; then
           git config --file .gitmodules --get-regexp 'url' | while read key url; do
             # Extract owner/repo from URL (support HTTPS)
