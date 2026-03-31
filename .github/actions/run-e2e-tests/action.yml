@@ -140,7 +140,7 @@ runs:
 
     - name: Parse test results and generate PR comment body
       id: e2e-comment
-      if: always()
+      if: always() && inputs.PR_NUMBER != ''
       shell: bash
       run: |
         # Prefer results.json if it exists
