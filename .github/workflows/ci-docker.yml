@@ -191,8 +191,6 @@ jobs:
           GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
           GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
 
-      - run: ls -la
-
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
 
