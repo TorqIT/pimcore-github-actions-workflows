@@ -26,28 +26,47 @@ inputs:
 runs: 
   using: "composite"
   steps:
-    - name: Parse project repository name
-      if: inputs.GITHUB_APP_CHECKOUT == 'true'
-      id: parse_repositories
-      env:
-        PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-      shell: bash
-      run: |
-        echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+      - name: Create GitHub App token
+        id: create_gh_app_token
+        uses: actions/create-github-app-token@v2
+        if: inputs.GITHUB_APP_CHECKOUT == 'true'
+        with:
+          app-id: ${{ inputs.GITHUB_APP_ID }}
+          private-key: ${{ inputs.GITHUB_APP_PRIVATE_KEY }}
+          repositories: ${{ inputs.PROJECT_REPOSITORY }}
 
-    - name: Create token from GitHub App
-      uses: actions/create-github-app-token@v2
-      if: inputs.GITHUB_APP_CHECKOUT == 'true'
-      id: create_token
-      with:
-        app-id: ${{ inputs.GITHUB_APP_ID }}
-        private-key: ${{ inputs.GITHUB_APP_PRIVATE_KEY }}
-        repositories: ${{ steps.parse_repositories.outputs.repository }}
+      - name: Checkout main repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.PROJECT_REPOSITORY }}
+          ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          submodules: false 
+          token: ${{ steps.create_gh_app_token.outputs.token || inputs.GITHUB_TOKEN }}
 
-    - name: Checkout repository
-      uses: actions/checkout@v6
-      with:
-        repository: ${{ inputs.PROJECT_REPOSITORY }}
-        ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
-        submodules: ${{ inputs.SUBMODULES == 'true' && 'recursive' || 'false' }}
-        token: ${{ inputs.GITHUB_APP_CHECKOUT == 'true' && steps.create_token.outputs.token || inputs.GITHUB_TOKEN }}
+      - name: Parse and checkout submodules
+        shell: bash
+        if: inputs.SUBMODULES == 'true'
+        run: |
+          set -e
+          token="${{ steps.create_gh_app_token.outputs.token || inputs.GITHUB_TOKEN }}"
+
+          if [ ! -f .gitmodules ]; then
+            echo "No submodules found."
+            exit 0
+          fi
+
+          echo "Parsing submodules..."
+          git config --file .gitmodules --get-regexp 'submodule\..*\.url' | while read key url; do
+            path=$(echo "$key" | sed -E 's/submodule\.(.*)\.url/\1/')
+            echo "Submodule path: $path, URL: $url"
+
+            # Rewrite HTTPS URL to include GitHub App token
+            if [[ "$url" == https://* ]]; then
+              url="https://${token}@${url#https://}"
+            fi
+
+            # Initialize and update submodule
+            git submodule init "$path"
+            git config submodule."$path".url "$url"
+            git submodule update --init "$path"
+          done
