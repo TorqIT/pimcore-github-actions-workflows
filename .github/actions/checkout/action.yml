@@ -29,7 +29,7 @@ inputs:
 runs: 
   using: "composite"
   steps:
-    - name: Parse project repository name
+    - name: Parse project repository name for GitHub App token
       if: inputs.GITHUB_APP_CHECKOUT == 'true'
       id: parse_project_repo_name
       env:
@@ -38,7 +38,7 @@ runs:
       run: |
         echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
 
-    - name: Create token for main repository
+    - name: Create token for main repository if using GitHub App authentication
       id: main_token
       uses: actions/create-github-app-token@v2
       if: inputs.GITHUB_APP_CHECKOUT == 'true'
@@ -47,7 +47,7 @@ runs:
         private-key: ${{ inputs.GITHUB_APP_PRIVATE_KEY }}
         repositories: ${{ steps.parse_project_repo_name.outputs.repository }}
 
-    - name: Checkout .gitmodules file
+    - name: Checkout .gitmodules file, if using submodules
       uses: actions/checkout@v6
       if: inputs.SUBMODULES == 'true'
       with:
@@ -58,24 +58,25 @@ runs:
         sparse-checkout: |
           .gitmodules
 
-    - name: Parse submodules
+    - name: Parse repository names for GitHub App token
       id: parse_submodules
-      if: inputs.SUBMODULES == 'true'
+      if: inputs.GITHUB_APP_CHECKOUT == 'true'
       shell: bash
       run: |
         set -e
         REPOS="${{ steps.parse_project_repo_name.outputs.repository }}"
         if [ -f .gitmodules ]; then
           git config --file .gitmodules --get-regexp 'url' | while read key url; do
-            # Extract owner/repo from URL (support HTTPS)
-            if [[ "$url" =~ github.com[:/](.+/.+).git ]]; then
-              REPOS="$REPOS,$BASH_REMATCH"
+            # Extract just the repo name from the URL (strip owner and .git)
+            if [[ "$url" =~ github.com[:/].+/(.+)\.git ]]; then
+              repo_name="${BASH_REMATCH[1]}"
+              REPOS="$REPOS,$repo_name"
             fi
           done
         fi
         echo "repositories=$REPOS" >> "$GITHUB_OUTPUT"
 
-    - name: Create token for main + submodules
+    - name: Create token for main and any submodules
       id: full_token
       uses: actions/create-github-app-token@v2
       if: inputs.GITHUB_APP_CHECKOUT == 'true'
@@ -84,7 +85,7 @@ runs:
         private-key: ${{ inputs.GITHUB_APP_PRIVATE_KEY }}
         repositories: ${{ steps.parse_submodules.outputs.repositories }}
 
-    - name: Checkout project repo andy any submodules
+    - name: Checkout project repo and any submodules
       uses: actions/checkout@v6
       with:
         repository: ${{ inputs.PROJECT_REPOSITORY }}
