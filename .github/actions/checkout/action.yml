@@ -26,6 +26,15 @@ inputs:
 runs: 
   using: "composite"
   steps:
+      - name: Parse project repository name
+        if: inputs.GITHUB_APP_CHECKOUT == 'true'
+        id: parse_project_repo_name
+        env:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+        shell: bash
+        run: |
+          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub App token
         id: create_gh_app_token
         uses: actions/create-github-app-token@v2
@@ -33,7 +42,7 @@ runs:
         with:
           app-id: ${{ inputs.GITHUB_APP_ID }}
           private-key: ${{ inputs.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ inputs.PROJECT_REPOSITORY }}
+          repositories: ${{ steps.parse_project_repo_name.outputs.repository }}
 
       - name: Checkout main repository
         uses: actions/checkout@v6
