@@ -28,10 +28,3 @@ runs:
         registry: ${{ inputs.CONTAINER_REGISTRY }}
         username: "${{ inputs.CONTAINER_REGISTRY_USERNAME }}"
         password: "${{ inputs.CONTAINER_REGISTRY_PASSWORD }}"
-      
-    - name: Clean up Docker disk space
-      shell: bash
-      run: |
-        echo "Pruning unused Docker objects to free space..."
-        docker system prune -af
-        docker volume prune -f
