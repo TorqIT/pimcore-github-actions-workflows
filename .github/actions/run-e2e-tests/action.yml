@@ -199,11 +199,14 @@ runs:
         body: ${{ steps.e2e-comment.outputs.comment }}
         edit-mode: replace
 
-    - name: Stop Docker containers
+    - name: Clean up Docker objects
       if: always()
       continue-on-error: true
       shell: bash
-      run: docker compose down -v
+      run: |
+        docker compose down -v
+        docker system prune -af
+        docker volume prune -f
 
     - name: Clean up secrets
       if: always()
