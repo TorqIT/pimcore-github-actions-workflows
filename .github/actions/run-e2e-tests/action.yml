@@ -126,13 +126,10 @@ runs:
       shell: bash
       run: |
         set +e
-        # Bridge mode here is used as host mode presents issues in GitHub-hosted runners
-        # Host mode is used locally so that references to "localhost" in the Studio UI NodeJS built files work properly,
-        # but these tests leave out that container and use the pre-built JS
-        E2E_NETWORK_MODE="bridge" \
-        # Since we're not using host mode, APP_URL needs to be set to the Docker Compose service's name rather than localhost
-        APP_URL="http://${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}:80" \
-          docker compose up \
+        docker compose \
+          --file ./reusable-workflow/.github/ci/docker-compose.e2e.yml \
+          --file ./docker-compose.yml \
+          up \
             --no-deps \
             --abort-on-container-exit \
             --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
