@@ -128,7 +128,7 @@ runs:
         set +e
         docker compose \
           --file ./reusable-workflow/.github/ci/docker-compose.e2e.yml \
-          --file ./docker-compose.yml \
+          --file ./docker-compose.yaml \
           up \
             --no-deps \
             --abort-on-container-exit \
