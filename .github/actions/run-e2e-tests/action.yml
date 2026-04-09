@@ -106,7 +106,7 @@ runs:
       run: |
         echo "set -e; mkdir -p test-results; npm ci; npx playwright test --reporter=json --output=test-results" > ${{ inputs.TESTS_DIRECTORY }}/run-tests.sh
 
-    - name: Start necessary Docker containers
+    - name: Start Pimcore PHP container
       shell: bash
       run: |
         set -e
@@ -114,6 +114,7 @@ runs:
         groupId=$(id -g $USER)
         echo "UID=$(id -u $USER)" >> .env
         echo "GID=$(id -g $USER)" >> .env
+        docker compose build init ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
         docker compose up init
         NGINX_FILE=".docker/php/nginx.conf" \
           docker compose up \
@@ -125,11 +126,15 @@ runs:
       shell: bash
       run: |
         set +e
-        docker compose up \
-          --no-deps \
-          --abort-on-container-exit \
-          --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
-          ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
+        # Bridge mode here is used as host mode presents issues in GitHub-hosted runners
+        # Host mode is used locally so that references to "localhost" in the Studio UI NodeJS built files work properly,
+        # but these tests leave out that container and use the pre-built JS
+        E2E_NETWORK_MODE="bridge" \
+          docker compose up \
+            --no-deps \
+            --abort-on-container-exit \
+            --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
+            ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
         EXIT_CODE=$?
         docker compose cp \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/.last-run.json \
