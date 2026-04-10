@@ -117,10 +117,13 @@ runs:
         docker compose build init ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
         docker compose up init
         NGINX_FILE=".docker/php/nginx.conf" \
-          docker compose up \
-            -d \
-            --no-deps \
-            ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
+          docker compose \
+            --file ./docker-compose.yaml \
+            --file ./reusable-workflow/.github/ci/docker-compose.e2e.yml \
+            up \
+              -d \
+              --no-deps \
+              ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
 
     - name: Run e2e tests
       shell: bash
