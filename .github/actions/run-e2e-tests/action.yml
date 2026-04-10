@@ -126,14 +126,15 @@ runs:
       shell: bash
       run: |
         set +e
-        docker compose \
-          --file ./reusable-workflow/.github/ci/docker-compose.e2e.yml \
-          --file ./docker-compose.yaml \
-          up \
-            --no-deps \
-            --abort-on-container-exit \
-            --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
-            ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
+        PHP_DOCKER_COMPOSE_SERVICE=${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }} \
+          docker compose \
+            --file ./docker-compose.yaml \
+            --file ./reusable-workflow/.github/ci/docker-compose.e2e.yml \
+            up \
+              --no-deps \
+              --abort-on-container-exit \
+              --exit-code-from ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }} \
+              ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
         EXIT_CODE=$?
         docker compose cp \
           ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}:/e2e/test-results/.last-run.json \
