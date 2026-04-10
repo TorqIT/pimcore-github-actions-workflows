@@ -6,10 +6,7 @@ services:
     network_mode: ""
     # Explicitly join the default Compose network so the php service can be reached
     networks:
-      - e2e
+      - default
     environment:
       # Since we're not using host mode, APP_URL needs to be set to the Docker Compose service's name rather than localhost
       - APP_URL=http://${PHP_DOCKER_COMPOSE_SERVICE}:80
-
-networks:
-  e2e:
