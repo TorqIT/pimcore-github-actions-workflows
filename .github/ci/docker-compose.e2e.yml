@@ -1,30 +1,9 @@
 services:
-  redis:
-    networks:
-      - default
-
-  db:
-    networks:
-      - default
-
-  opensearch:
-    networks:
-      - default
-
-  mercure:
-    networks:
-      - default
-
-  php:
-    networks:
-      - default
-      - e2e
-
   e2e:
-    # Bridge mode here is used as host mode presents issues in GitHub-hosted runners
+    # Default network_mode is used here as host mode presents issues in GitHub-hosted runners.
     # Host mode is used locally so that references to "localhost" in the Studio UI NodeJS built files work properly,
-    # but these tests leave out that container and use the pre-built JS
-    network_mode: bridge
+    # but these tests leave out that container and use the pre-built JS, so localhost references don't need to resolve.
+    network_mode: ""
     # Explicitly join the default Compose network so the php service can be reached
     networks:
       - e2e
