@@ -1,0 +1,12 @@
+services:
+  e2e:
+    # Default network_mode is used here as host mode presents issues in GitHub-hosted runners.
+    # Host mode is used locally so that references to "localhost" in the Studio UI NodeJS built files work properly,
+    # but these tests leave out that container and use the pre-built JS, so localhost references don't need to resolve.
+    network_mode: ""
+    # Explicitly join the default Compose network so the php service can be reached
+    networks:
+      - default
+    environment:
+      # Since we're not using host mode, APP_URL needs to be set to the Docker Compose service's name rather than localhost
+      - APP_URL=http://${PHP_DOCKER_COMPOSE_SERVICE}:80
