@@ -37,7 +37,7 @@ on:
         description: "The GitHub repository of the project containing Pimcore"
       PROJECT_REPOSITORY_REF:
         required: false
-        default: "${{ github.ref }}"
+        default: "${{ github.head_ref }}"
         type: string
         description: "The Git reference (branch, tag, commit SHA) to checkout from the project repository"
       NPM_BUILD:
