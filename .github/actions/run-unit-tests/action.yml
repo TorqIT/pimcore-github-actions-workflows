@@ -123,8 +123,8 @@ runs:
             echo "Installing Pimcore..."
             pimcore_version=$(composer show "pimcore/pimcore" | sed -n "/versions/s/^[^0-9]\+\([^,]\+\).*$/\1/p")
             if [[ "$pimcore_version" =~ ^20.*$ ]]; then
-              $RUN_AS /var/www/html/vendor/bin/pimcore-install 
-                --install-profile="App\\Installer\\SkeletonProfile" \
+              $RUN_AS /var/www/html/vendor/bin/pimcore-install \
+                --install-profile "App\\Installer\\SkeletonProfile" \
                 --skip-validation \
                 --no-interaction
             else
