@@ -98,7 +98,6 @@ runs:
           -e PIMCORE_ENTERPRISE_TOKEN='${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}' \
           -e PIMCORE_ADMIN_USER='admin' \
           -e PIMCORE_ADMIN_PASSWORD='pimcore' \
-          # Legacy installs require these _INSTALL_ variables
           -e PIMCORE_INSTALL_MYSQL_HOST_SOCKET='test-db' \
           -e PIMCORE_INSTALL_MYSQL_PORT='3306' \
           -e PIMCORE_INSTALL_MYSQL_USERNAME='test' \
