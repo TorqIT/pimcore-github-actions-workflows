@@ -81,7 +81,7 @@ runs:
     - name: Run unit tests
       shell: bash
       run: |
-        set -e
+        set -eEuo pipefail
         
         docker run --rm \
           --network test-network \
@@ -112,7 +112,7 @@ runs:
           --entrypoint /bin/bash \
           test:test \
           -c '
-            set -e
+            set -Eeuo pipefail
 
             # Dotenv files that may exist in the image may interfere with the env vars set above,
             # so we remove them here before doing anything
@@ -131,7 +131,7 @@ runs:
             echo "Installing Pimcore..."
             pimcore_version=$(composer show "pimcore/pimcore" | sed -n "/versions/s/^[^0-9]\+\([^,]\+\).*$/\1/p")
             if [[ "$pimcore_version" =~ ^20.*$ ]]; then
-              $RUN_AS /var/www/html/vendor/bin/pimcore-install \
+              $RUN_AS php -d display_errors=1 -d error_reporting=E_ALL /var/www/html/vendor/bin/pimcore-install \
                 --install-profile "App\\Installer\\SkeletonProfile" \
                 --skip-validation \
                 --no-interaction
