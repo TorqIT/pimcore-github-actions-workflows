@@ -113,6 +113,12 @@ runs:
           test:test \
           -c '
             set -e
+
+            # Dotenv files that may exist in the image may interfere with the env vars set above,
+            # so we remove them here before doing anything
+            if [ -f "/var/www/html/.env*" ]; then
+              rm /var/www/html/.env*
+            fi
             
             # Determine if we need to use runuser
             if [ "$(id -u)" -eq 0 ]; then
