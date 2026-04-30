@@ -69,7 +69,7 @@ jobs:
 
   provision-azure-env-2025-x:
     name: "Provision CI Azure environment for testing CD Azure workflow"
-    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@v2
+    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@modify-parameters-path
     with:
       ENVIRONMENT: 2025.x
       AZURE_DOCKER_COMPOSE_SERVICE: azure
