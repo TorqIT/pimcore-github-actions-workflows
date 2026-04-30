@@ -69,11 +69,9 @@ jobs:
 
   provision-azure-env-2025-x:
     name: "Provision CI Azure environment for testing CD Azure workflow"
-    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@modify-parameters-path
+    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@support-2026.x
     with:
       ENVIRONMENT: 2025.x
-      AZURE_DOCKER_COMPOSE_SERVICE: azure
-      DOCKER_COMPOSE_FILE: ./.github/ci/azure/docker-compose.2025-x.yml
       PARAMETERS_FILE: "./.github/ci/azure/parameters.2025-x.json"
       SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
     secrets:
