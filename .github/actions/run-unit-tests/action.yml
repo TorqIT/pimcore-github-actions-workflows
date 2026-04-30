@@ -114,13 +114,14 @@ runs:
           -c '
             set -Eeuo pipefail
 
-            # Dotenv files that may exist in the image may interfere with the env vars set above,
-            # so we remove them here before doing anything
+            # pimcore-install uses Symfony Dotenv, which requires a .env file to be present,
+            # but that will interfere with the env vars we set above, so we simply remove all 
+            # .env files that might be in the image, then create an empty one to appease Symfony Dotenv.
             if compgen -G "/var/www/html/.env*" > /dev/null; then
               echo "Replacing .env files before running tests to prevent interference with environment variables..."
               rm -f /var/www/html/.env*
-              touch /var/www/html/.env
             fi
+            touch /var/www/html/.env
             
             # Determine if we need to use runuser
             if [ "$(id -u)" -eq 0 ]; then
