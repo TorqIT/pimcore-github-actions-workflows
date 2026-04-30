@@ -86,13 +86,13 @@ runs:
         docker run --rm \
           --network test-network \
           -e APP_ENV=test \
-          -e DATABASE_URL='mysql://test:test@test-db:3306/test' \
+          -e DATABASE_URL='mysql://test:test@test-db:3306/test?serverVersion=mariadb-11.4.0' \
           -e DATABASE_HOST=test-db \
           -e DATABASE_PORT=3306 \
           -e DATABASE_NAME=test \
           -e DATABASE_USER=test \
           -e DATABASE_PASSWORD=test \
-          -e PIMCORE_TEST_DB_DSN='mysql://test:test@test-db:3306/test?serverVersion=11.4-MariaDB' \
+          -e PIMCORE_TEST_DB_DSN='mysql://test:test@test-db:3306/test?serverVersion=mariadb-11.4.0' \
           -e PIMCORE_PRODUCT_KEY='${{ inputs.PIMCORE_PRODUCT_KEY }}' \
           -e PIMCORE_INSTANCE_IDENTIFIER='${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}' \
           -e PIMCORE_ENCRYPTION_SECRET='${{ inputs.PIMCORE_ENCRYPTION_SECRET }}' \
