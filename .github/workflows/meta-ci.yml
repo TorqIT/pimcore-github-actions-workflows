@@ -52,6 +52,21 @@ jobs:
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
 
+  skeleton-ci-2026-x:
+    name: "Test CI workflow against Pimcore skeleton 2026.x"
+    uses: ./.github/workflows/ci-docker.yml
+    with:
+      PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
+      PROJECT_REPOSITORY_REF: prepare-2026.x # TODO changeme back to 2026.x!
+      RUN_UNIT_TESTS: true
+      GITHUB_APP_CHECKOUT: true
+    secrets:
+      GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
+      GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
+      PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
+      PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+
   provision-ci-azure-environment:
     name: "Provision CI Azure environment for testing CD Azure workflow"
     uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@v2
