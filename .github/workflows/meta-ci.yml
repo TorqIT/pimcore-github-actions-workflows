@@ -84,7 +84,7 @@ jobs:
 
   skeleton-cd-azure-2025-x:
     name: "Test Azure CD workflow against Pimcore skeleton 2025.x"
-    needs: provision-ci-azure-environment
+    needs: provision-azure-env-2025-x
     uses: ./.github/workflows/deploy-to-azure-container-apps.yml
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
