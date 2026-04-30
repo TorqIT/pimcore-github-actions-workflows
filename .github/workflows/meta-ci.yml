@@ -67,14 +67,14 @@ jobs:
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
 
-  provision-ci-azure-environment:
+  provision-azure-env-2025-x:
     name: "Provision CI Azure environment for testing CD Azure workflow"
     uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@v2
     with:
-      ENVIRONMENT: ci-azure
+      ENVIRONMENT: 2025.x
       AZURE_DOCKER_COMPOSE_SERVICE: azure
       DOCKER_COMPOSE_FILE: ./.github/ci/azure/docker-compose.yml
-      PARAMETERS_FILE: ./.github/ci/azure/parameters.json
+      PARAMETERS_FILE: ./.github/ci/azure/parameters.2025.x.json
       SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
     secrets:
       PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
@@ -90,7 +90,7 @@ jobs:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: skeleton/recipes # TODO changeme back to 2025.x!
       GITHUB_APP_CHECKOUT: true
-      ENVIRONMENT: ci-azure
+      ENVIRONMENT: 2025.x
       FEATURE_FLAG_INSTALL_MISSING_BUNDLES: true
     secrets:
       GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
