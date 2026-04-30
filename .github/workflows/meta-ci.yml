@@ -57,7 +57,7 @@ jobs:
     uses: ./.github/workflows/ci-docker.yml
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
-      PROJECT_REPOSITORY_REF: prepare-2026.x # TODO changeme back to 2026.x!
+      PROJECT_REPOSITORY_REF: feat/prepare-2026.x # TODO changeme back to 2026.x!
       RUN_UNIT_TESTS: true
       GITHUB_APP_CHECKOUT: true
     secrets:
