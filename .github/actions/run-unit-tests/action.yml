@@ -96,6 +96,9 @@ runs:
           -e PIMCORE_INSTANCE_IDENTIFIER='${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}' \
           -e PIMCORE_ENCRYPTION_SECRET='${{ inputs.PIMCORE_ENCRYPTION_SECRET }}' \
           -e PIMCORE_ENTERPRISE_TOKEN='${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}' \
+          -e PIMCORE_ADMIN_USER='admin' \
+          -e PIMCORE_ADMIN_PASSWORD='pimcore' \
+          # Legacy installs require these _INSTALL_ variables
           -e PIMCORE_INSTALL_MYSQL_HOST_SOCKET='test-db' \
           -e PIMCORE_INSTALL_MYSQL_PORT='3306' \
           -e PIMCORE_INSTALL_MYSQL_USERNAME='test' \
@@ -119,7 +122,16 @@ runs:
             fi
             
             echo "Installing Pimcore..."
-            $RUN_AS /var/www/html/vendor/bin/pimcore-install --skip-database-config --no-interaction
+            pimcore_version=$(composer show 'pimcore/pimcore' | sed -n '/versions/s/^[^0-9]\+\([^,]\+\).*$/\1/p')
+            if [[ "$pimcore_version" =~ ^20.*$ ]]; then
+              $RUN_AS /var/www/html/vendor/bin/pimcore-install 
+                --install-profile='App\Installer\SkeletonProfile' \
+                --skip-validation \
+                --no-interaction
+            else
+              # Legacy pimcore-install format
+              $RUN_AS /var/www/html/vendor/bin/pimcore-install --skip-database-config --no-interaction
+            fi
 
             if [ ! -d "/var/www/html/var/classes/DataObject" ] || [ -z "$(ls -A /var/www/html/var/classes/DataObject 2>/dev/null)" ]; then
               echo "Building Data Object classes..."
