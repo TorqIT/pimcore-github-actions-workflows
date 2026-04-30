@@ -86,6 +86,7 @@ runs:
         docker run --rm \
           --network test-network \
           -e APP_ENV=test \
+          -e DATABASE_URL='mysql://test:test@test-db:3306/test' \
           -e DATABASE_HOST=test-db \
           -e DATABASE_PORT=3306 \
           -e DATABASE_NAME=test \
