@@ -82,17 +82,21 @@ on:
       RUNNER:
         required: false
         type: string
-        description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
+        description: Optional self-hosted runner for this workflow (see
+          https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       PROJECT_REPOSITORY:
         required: false
         type: string
         default: ${{ github.repository }}
-        description: "The repository in which the Pimcore project is located, in owner/repo format. If not provided, the value of github.repository will be used"
+        description: "The repository in which the Pimcore project is located, in
+          owner/repo format. If not provided, the value of github.repository
+          will be used"
       PROJECT_REPOSITORY_REF:
         required: false
         type: string
         default: ${{ github.ref }}
-        description: "The branch or tag of the repository to use. If not provided, the branch that this workflow was called from will be used"
+        description: "The branch or tag of the repository to use. If not provided, the
+          branch that this workflow was called from will be used"
       SKIP_LINTING:
         required: false
         type: boolean
@@ -120,12 +124,14 @@ on:
         required: false
         type: string
         default: "default/default.html.twig"
-        description: "The path to the Twig file where the result of the NPM single-page application build should be copied"
+        description: "The path to the Twig file where the result of the NPM single-page
+          application build should be copied"
       FRONTEND_ROOT:
         required: false
         type: string
         default: "frontend"
-        description: "The path (relative to the project's root) where frontend files are stored"
+        description: "The path (relative to the project's root) where frontend files are
+          stored"
       SUBMODULES:
         required: false
         type: boolean
@@ -135,12 +141,14 @@ on:
         required: false
         type: string
         default: "."
-        description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, etc)"
+        description: "The path (relative to the project's root) in which the Pimcore
+          files are stored (e.g. config, src, etc)"
       INIT_DOCKERFILE:
         required: false
         type: string
         default: ".docker/Dockerfile"
-        description: "The path (relative to the project's root) of the Dockerfile used to build the init image"
+        description: "The path (relative to the project's root) of the Dockerfile used
+          to build the init image"
       INIT_DOCKER_TARGET:
         required: false
         type: string
@@ -150,7 +158,8 @@ on:
         required: false
         type: string
         default: ".docker/Dockerfile"
-        description: "The path (relative to the project's root) of the Dockerfile used to build the PHP image"
+        description: "The path (relative to the project's root) of the Dockerfile used
+          to build the PHP image"
       PHP_DOCKER_TARGET:
         required: false
         type: string
@@ -160,7 +169,8 @@ on:
         required: false
         type: string
         default: ".docker/Dockerfile"
-        description: "The path (relative to the project's root) of the Dockerfile used to build the supervisord image"
+        description: "The path (relative to the project's root) of the Dockerfile used
+          to build the supervisord image"
       SUPERVISORD_TARGET:
         required: false
         type: string
@@ -170,43 +180,55 @@ on:
         required: false
         type: string
         default: ".azure"
-        description: "The path (relative to the project's root) of the directory containing the project's Azure parameter files"
+        description: "The path (relative to the project's root) of the directory
+          containing the project's Azure parameter files"
       AZURE_IMAGE_TAG:
         required: false
         type: string
         default: "2"
-        description: "Tag to use when pulling the TORQ Azure provisioning image (https://github.com/TorqIT/pimcore-azure-provisioning)"
+        description: "Tag to use when pulling the TORQ Azure provisioning image
+          (https://github.com/TorqIT/pimcore-azure-provisioning)"
       AZURE_SKIP_DB_DEPLOY:
         required: false
         type: boolean
         default: false
-        description: "Whether database deployment steps should be skipped when applying Azure infrastructure changes"
+        description: "Whether database deployment steps should be skipped when applying
+          Azure infrastructure changes"
       FEATURE_FLAG_INSTALL_MISSING_BUNDLES:
         required: false
         type: boolean
         default: false
-        description: "Feature flag - whether to automatically install missing required Pimcore bundles (e.g. Azure Flysystem bundle). Will be removed and assumed true in a future release."
+        description: "Feature flag - whether to automatically install missing required
+          Pimcore bundles (e.g. Azure Flysystem bundle). Will be removed and
+          assumed true in a future release."
       FEATURE_FLAG_DISABLE_CONFIG_COPY:
         required: false
         type: boolean
         default: false
-        description: "Feature flag - whether to disable copying of config files for Azure MySQL and Azure Storage. Will be removed and assumed true in a future release."
+        description: "Feature flag - whether to disable copying of config files for
+          Azure MySQL and Azure Storage. Will be removed and assumed true in a
+          future release."
       GITHUB_APP_CHECKOUT:
         required: false
         type: boolean
         default: false
-        description: "Whether to use a GitHub App token for checking out the project repository and submodules"
+        description: "Whether to use a GitHub App token for checking out the project
+          repository and submodules"
 
     secrets:
       SERVICE_PRINCIPAL_ID:
         required: true
-        description: The ID of the Service Principal in Azure that will be used to deploy. The Service Principal must have permission to push images to the Container Registry and to deploy new revisions to the init, PHP and supervisord Container Apps.
+        description: The ID of the Service Principal in Azure that will be used to
+          deploy. The Service Principal must have permission to push images to
+          the Container Registry and to deploy new revisions to the init, PHP
+          and supervisord Container Apps.
       SERVICE_PRINCIPAL_PASSWORD:
         required: true
         description: The password for the Service Principal in Azure
       BUILD_TIME_SECRETS:
         required: false
-        description: A JSON object of secrets required at build-time (see above for example format)
+        description: A JSON object of secrets required at build-time (see above for
+          example format)
       PIMCORE_ENTERPRISE_TOKEN:
         required: false
         description: (Optional) The value of your project's Pimcore Enterprise Token
@@ -221,19 +243,23 @@ on:
         description: (Optional) The Pimcore encryption secret for the project
       TORQ_GITHUB_TOKEN:
         required: false
-        description: (Optional) A GitHub access token used to access private GitHub repositories
+        description: (Optional) A GitHub access token used to access private GitHub
+          repositories
       RECAPTCHA_CLIENT_KEY:
         required: false
-        description: (Optional) A client key used when building NPM frontends that require ReCAPTCHA
+        description: (Optional) A client key used when building NPM frontends that
+          require ReCAPTCHA
       SLACK_WORKFLOW_STATUS_WEBHOOK_URL:
         required: false
         description: (Optional) Slack webhook URL to send workflow results to
       GITHUB_APP_ID:
         required: false
-        description: The ID of the GitHub App used to generate a token for checking out the project repository and submodules
+        description: The ID of the GitHub App used to generate a token for checking out
+          the project repository and submodules
       GITHUB_APP_PRIVATE_KEY:
         required: false
-        description: The private key of the GitHub App used to generate a token for checking out the project repository and submodules
+        description: The private key of the GitHub App used to generate a token for
+          checking out the project repository and submodules
 
 jobs:
   build-and-push-images:
@@ -267,7 +293,8 @@ jobs:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           submodules: ${{ inputs.SUBMODULES }}
-          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
+          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token ||
+            secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Get workflow version
@@ -305,18 +332,22 @@ jobs:
         if: ${{ inputs.SKIP_LINTING == false }}
         uses: ./reusable-workflow/.github/actions/lint
 
-      - name: Install Azure Flysystem bundle if not already installed
+      - name: Install required Azure bundles if not already installed
         if: ${{ inputs.FEATURE_FLAG_INSTALL_MISSING_BUNDLES }}
         run: |
           set -euo pipefail
-
-          if ! composer show --no-interaction --no-ansi "torqit/pimcore-flysystem-azure-bundle" >/dev/null 2>&1 \
-            && ! composer show --no-interaction --no-ansi "torq/pimcore-flysystem-azure-bundle" >/dev/null 2>&1; then
-            echo "Azure Flysystem bundle not found, installing..."
-            composer require --no-interaction --no-ansi --no-scripts torq/pimcore-flysystem-azure-bundle
-          else
-            echo "Azure Flysystem bundle already installed, skipping"
-          fi
+          bundles=(
+            "torqit/pimcore-azure-mysql"
+            "torq/pimcore-flysystem-azure-bundle"
+          )
+          for bundle in "${bundles[@]}"; do
+            if composer show --no-interaction --no-ansi "$bundle" >/dev/null 2>&1; then
+              echo "Bundle $bundle is already installed"
+            else
+              echo "Bundle $bundle not found, installing..."
+              composer require --no-interaction --no-ansi --no-scripts "$bundle"
+            fi
+          done
 
       - name: Log in to Azure
         uses: ./reusable-workflow/.github/actions/azure-login
@@ -408,7 +439,8 @@ jobs:
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:latest,
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
 
-      - name: Remove exception from Azure Container Registry firewall, if one is in place
+      - name: Remove exception from Azure Container Registry firewall, if one is in
+          place
         if: always()
         run: |
           if [[ ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }} == "true" ]]; then
@@ -449,7 +481,8 @@ jobs:
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
+          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token ||
+            secrets.GITHUB_TOKEN }}
           sparse-checkout: |
             ${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}
 
@@ -513,7 +546,8 @@ jobs:
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           sparse-checkout: |
             ${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}
-          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
+          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token ||
+            secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
         uses: actions/checkout@v6
@@ -573,7 +607,8 @@ jobs:
         with:
           repository: ${{ inputs.PROJECT_REPOSITORY }}
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
+          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token ||
+            secrets.GITHUB_TOKEN }}
           sparse-checkout: |
             ${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}
 
