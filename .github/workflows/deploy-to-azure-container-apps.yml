@@ -337,7 +337,7 @@ jobs:
         run: |
           set -euo pipefail
           bundles=(
-            "torqit/pimcore-azure-mysql"
+            "torq/pimcore-azure-mysql"
             "torq/pimcore-flysystem-azure-bundle"
           )
           for bundle in "${bundles[@]}"; do
