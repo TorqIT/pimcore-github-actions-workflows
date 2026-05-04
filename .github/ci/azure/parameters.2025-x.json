@@ -76,7 +76,7 @@
       "value": 0
     },
     "supervisordContainerAppName": {
-      "value": "pim-2025x-gh-azure-supervisord-ci"
+      "value": "pim-2025x-gh-azure-svisord-ci"
     },
     "supervisordContainerAppImageName": {
       "value": "supervisord"
