@@ -4,7 +4,7 @@ name: "CI"
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [ opened, synchronize, reopened ]
 
 concurrency:
   group: "meta-ci-docker-pr-${{ github.event.pull_request.number }}"
@@ -74,7 +74,6 @@ jobs:
       ENVIRONMENT: 2025.x
       PARAMETERS_FILE: "./.github/ci/azure/parameters.2025-x.json"
       SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
-      SKIP_IF_EXISTS: false
     secrets:
       PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
@@ -91,6 +90,7 @@ jobs:
       GITHUB_APP_CHECKOUT: true
       ENVIRONMENT: 2025.x
       FEATURE_FLAG_INSTALL_MISSING_BUNDLES: true
+      FEATURE_FLAG_DISABLE_CONFIG_COPY: true
     secrets:
       GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
       GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
@@ -99,5 +99,4 @@ jobs:
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
       SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
-
   # TODO test CD to VM
