@@ -57,7 +57,7 @@ jobs:
     uses: ./.github/workflows/ci-docker.yml
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
-      PROJECT_REPOSITORY_REF: feat/prepare-2026.x # TODO changeme back to 2026.x!
+      PROJECT_REPOSITORY_REF: skeleton/prepare-2026.x # TODO changeme back to 2026.x!
       RUN_UNIT_TESTS: true
       GITHUB_APP_CHECKOUT: true
     secrets:
@@ -87,7 +87,7 @@ jobs:
     uses: ./.github/workflows/deploy-to-azure-container-apps.yml
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
-      PROJECT_REPOSITORY_REF: skeleton/recipes # TODO changeme back to 2025.x!
+      PROJECT_REPOSITORY_REF: 2025.x
       GITHUB_APP_CHECKOUT: true
       ENVIRONMENT: 2025.x
       FEATURE_FLAG_INSTALL_MISSING_BUNDLES: true
