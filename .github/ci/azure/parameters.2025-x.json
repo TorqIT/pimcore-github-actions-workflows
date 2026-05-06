@@ -116,22 +116,23 @@
         "array": [
           {
             "secretNameInKeyVault": "kernel-secret",
-            "secretRefInContainerApp": "kernel-secret"
+            "secretRefInContainerApp": "kernel-secret",
+            "secretEnvVarNameInContainerApp": "KERNEL_SECRET"
           },
           {
             "secretNameInKeyVault": "pimcore-product-key",
             "secretRefInContainerApp": "pimcore-product-key",
-            "envVarInContainerApp": "PIMCORE_PRODUCT_KEY"
+            "secretEnvVarNameInContainerApp": "PIMCORE_PRODUCT_KEY"
           },
           {
             "secretNameInKeyVault": "pimcore-instance-identifier",
             "secretRefInContainerApp": "pimcore-instance-identifier",
-            "envVarInContainerApp": "PIMCORE_INSTANCE_IDENTIFIER"
+            "secretEnvVarNameInContainerApp": "PIMCORE_INSTANCE_IDENTIFIER"
           },
           {
             "secretNameInKeyVault": "pimcore-encryption-secret",
             "secretRefInContainerApp": "pimcore-encryption-secret",
-            "envVarInContainerApp": "PIMCORE_ENCRYPTION_SECRET"
+            "secretEnvVarNameInContainerApp": "PIMCORE_ENCRYPTION_SECRET"
           }
         ]
       }
