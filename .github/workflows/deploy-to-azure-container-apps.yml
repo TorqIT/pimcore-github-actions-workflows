@@ -339,7 +339,6 @@ jobs:
 
           bundles=(
             "torq/pimcore-flysystem-azure-bundle"
-            "torq/pimcore-azure-mysql"
           )
 
           for bundle in "${bundles[@]}"; do
