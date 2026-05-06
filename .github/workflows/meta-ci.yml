@@ -69,7 +69,7 @@ jobs:
 
   provision-azure-env-2025-x:
     name: "Provision CI Azure environment for testing CD Azure workflow"
-    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@support-2026.x
+    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@support-2026.x # TODO changeme back to v2
     with:
       ENVIRONMENT: 2025.x
       PARAMETERS_FILE: "./.github/ci/azure/parameters.2025-x.json"
