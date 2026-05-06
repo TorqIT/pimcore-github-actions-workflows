@@ -332,7 +332,7 @@ jobs:
         if: ${{ inputs.SKIP_LINTING == false }}
         uses: ./reusable-workflow/.github/actions/lint
 
-      - name: Install Azure Flysystem bundle if not already installed
+      - name: Install required bundles if not already installed
         if: ${{ inputs.FEATURE_FLAG_INSTALL_MISSING_BUNDLES }}
         run: |
           set -euo pipefail
