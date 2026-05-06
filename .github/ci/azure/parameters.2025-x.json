@@ -84,6 +84,12 @@
     "redisContainerAppName": {
       "value": "pim-2025x-gh-azure-redis-ci"
     },
+    "provisionMercure": {
+      "value": true
+    },
+    "mercureContainerAppName": {
+      "value": "pim-2025x-gh-azure-mrcre-ci"
+    },
     "appDebug": {
       "value": "1"
     },
