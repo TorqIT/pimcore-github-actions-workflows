@@ -337,10 +337,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          bundles=[
-            "torq/pimcore-flysystem-azure-bundle",
+          bundles=(
+            "torq/pimcore-flysystem-azure-bundle"
             "torq/pimcore-azure-mysql"
-          ]
+          )
 
           for bundle in "${bundles[@]}"; do
             if composer show --no-interaction --no-ansi "$bundle" >/dev/null 2>&1; then
