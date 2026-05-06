@@ -120,15 +120,18 @@
           },
           {
             "secretNameInKeyVault": "pimcore-product-key",
-            "secretRefInContainerApp": "pimcore-product-key"
+            "secretRefInContainerApp": "pimcore-product-key",
+            "envVarInContainerApp": "PIMCORE_PRODUCT_KEY"
           },
           {
             "secretNameInKeyVault": "pimcore-instance-identifier",
-            "secretRefInContainerApp": "pimcore-instance-identifier"
+            "secretRefInContainerApp": "pimcore-instance-identifier",
+            "envVarInContainerApp": "PIMCORE_INSTANCE_IDENTIFIER"
           },
           {
             "secretNameInKeyVault": "pimcore-encryption-secret",
-            "secretRefInContainerApp": "pimcore-encryption-secret"
+            "secretRefInContainerApp": "pimcore-encryption-secret",
+            "envVarInContainerApp": "PIMCORE_ENCRYPTION_SECRET"
           }
         ]
       }
