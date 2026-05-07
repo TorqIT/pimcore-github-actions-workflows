@@ -90,6 +90,12 @@
     "mercureContainerAppName": {
       "value": "pim-2025x-gh-azure-mrcre-ci"
     },
+    "provisionOpensearch": {
+      "value": true
+    },
+    "opensearchContainerAppName": {
+      "value": "pim-2025x-gh-azure-opnsrch-ci"
+    },
     "appDebug": {
       "value": "1"
     },
