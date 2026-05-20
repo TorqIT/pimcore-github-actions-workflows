@@ -9,7 +9,7 @@
       "value": "6f8ae12a-9b31-4877-b46f-c0590040b1fb"
     },
     "resourceGroupName": {
-      "value": "Pim-2025x-GH-Azure-CI"
+      "value": "Pim-2025x-GH-CI"
     },
     "provisionServicePrincipal": {
       "value": false
@@ -18,7 +18,7 @@
       "value": "canadacentral"
     },
     "keyVaultName": {
-      "value": "pim-2025x-gh-azure-kv-ci"
+      "value": "pim-2025x-gh-kv-ci"
     },
     "keyVaultEnablePurgeProtection": {
       "value": false
@@ -27,16 +27,16 @@
       "value": true
     },
     "containerRegistryName": {
-      "value": "pim2025xghazurecrci"
+      "value": "pim2025xghcrci"
     },
     "containerRegistrySku": {
       "value": "Basic"
     },
     "virtualNetworkName": {
-      "value": "pim-2025x-gh-azure-vnet-ci"
+      "value": "pim-2025x-gh-vnet-ci"
     },
     "storageAccountName": {
-      "value": "pim2025xghazuresaci"
+      "value": "pim2025xghsaci"
     },
     "storageAccountFileShares": {
       "value": [
@@ -49,10 +49,10 @@
       "value": false
     },
     "databaseServerName": {
-      "value": "pim-2025x-gh-azure-db-ci"
+      "value": "pim-2025x-gh-db-ci"
     },
     "containerAppsEnvironmentName": {
-      "value": "pim-2025x-gh-azure-cae-ci"
+      "value": "pim-2025x-gh-cae-ci"
     },
     "containerAppsEnvironmentUseWorkloadProfiles": {
       "value": true
@@ -61,7 +61,7 @@
       "value": true
     },
     "initContainerAppJobName": {
-      "value": "pim-2025x-gh-azure-init-ci"
+      "value": "pim-2025x-gh-init-ci"
     },
     "initContainerAppJobRunPimcoreInstall": {
       "value": true
@@ -70,31 +70,31 @@
       "value": true
     },
     "phpContainerAppName": {
-      "value": "pim-2025x-gh-azure-php-ci"
+      "value": "pim-2025x-gh-php-ci"
     },
     "phpContainerAppMinReplicas": {
       "value": 0
     },
     "supervisordContainerAppName": {
-      "value": "pim-2025x-gh-azure-svisord-ci"
+      "value": "pim-2025x-gh-supervisord-ci"
     },
     "supervisordContainerAppImageName": {
       "value": "supervisord"
     },
     "redisContainerAppName": {
-      "value": "pim-2025x-gh-azure-redis-ci"
+      "value": "pim-2025x-gh-redis-ci"
     },
     "provisionMercure": {
       "value": true
     },
     "mercureContainerAppName": {
-      "value": "pim-2025x-gh-azure-mrcre-ci"
+      "value": "pim-2025x-gh-mercure-ci"
     },
     "provisionOpensearch": {
       "value": true
     },
     "opensearchContainerAppName": {
-      "value": "pim-2025x-gh-azure-opnsrch-ci"
+      "value": "pim-2025x-gh-opnsrch-ci"
     },
     "appDebug": {
       "value": "1"
@@ -146,7 +146,7 @@
     "additionalVolumesAndMounts": {
       "value": [
         {
-          "storageAccountName": "pim2025xghazuresaci",
+          "storageAccountName": "pim2025xghsaci",
           "fileShareName": "uploads",
           "mountName": "uploads",
           "mountAccessMode": "ReadWrite",
