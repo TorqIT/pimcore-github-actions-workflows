@@ -76,10 +76,7 @@
       "value": 0
     },
     "supervisordContainerAppName": {
-      "value": "pim-2025x-gh-supervisord-ci"
-    },
-    "supervisordContainerAppImageName": {
-      "value": "supervisord"
+      "value": "pim-2025x-gh-svisord-ci"
     },
     "redisContainerAppName": {
       "value": "pim-2025x-gh-redis-ci"
