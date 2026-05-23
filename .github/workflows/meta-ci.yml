@@ -44,69 +44,27 @@ jobs:
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
 
-  provision-azure-env-2025-x:
-    name: "Provision CI Azure environment for testing CD Azure workflow"
-    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@support-2026.x # TODO changeme back to v2
+  skeleton-ci-azure:
+    name: "Test Azure CD workflow against Pimcore skeleton"
+    strategy:
+      matrix:
+        include:
+          - branch: 2025.x
+            parameters_file: "./.github/ci/azure/parameters.2025-x.json"
+            skeleton_ref: skeleton/recipes # TODO changeme back to 2025.x
+          - branch: 2026.x
+            parameters_file: "./.github/ci/azure/parameters.2026-x.json"
+            skeleton_ref: skeleton/recipes-2026.x # TODO changeme back to 2026.x
+    uses: ./.github/workflows/meta-ci-azure.yml
     with:
-      ENVIRONMENT: 2025.x
-      PARAMETERS_FILE: "./.github/ci/azure/parameters.2025-x.json"
-      SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
-      SKIP_IF_EXISTS: false
+      ENVIRONMENT: ${{ matrix.branch }}
+      PARAMETERS_FILE: ${{ matrix.parameters_file }}
+      PROJECT_REPOSITORY_REF: ${{ matrix.skeleton_ref }}
     secrets:
       PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
-      SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
-
-  skeleton-cd-azure-2025-x:
-    name: "Test Azure CD workflow against Pimcore skeleton 2025.x"
-    needs: provision-azure-env-2025-x
-    uses: ./.github/workflows/deploy-to-azure-container-apps.yml
-    with:
-      PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
-      PROJECT_REPOSITORY_REF: skeleton/recipes # TODO changeme back to 2025.x
-      GITHUB_APP_CHECKOUT: true
-      ENVIRONMENT: 2025.x
-      FEATURE_FLAG_INSTALL_MISSING_BUNDLES: true
-    secrets:
-      GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
-      GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
-      PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
-      PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
-      PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
-      SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
-      SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
-
-  provision-azure-env-2026-x:
-    name: "Provision CI Azure environment for testing CD Azure workflow"
-    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@support-2026.x # TODO changeme back to v2
-    with:
-      ENVIRONMENT: 2026.x
-      PARAMETERS_FILE: "./.github/ci/azure/parameters.2026-x.json"
-      SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
-      SKIP_IF_EXISTS: false
-    secrets:
-      PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
-      PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
-      PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
-      SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
-
-  skeleton-cd-azure-2026-x:
-    name: "Test Azure CD workflow against Pimcore skeleton 2026.x"
-    needs: provision-azure-env-2026-x
-    uses: ./.github/workflows/deploy-to-azure-container-apps.yml
-    with:
-      PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
-      PROJECT_REPOSITORY_REF: skeleton/recipes-2026.x # TODO changeme back to 2026.x
-      GITHUB_APP_CHECKOUT: true
-      ENVIRONMENT: 2026.x
-      FEATURE_FLAG_INSTALL_MISSING_BUNDLES: true
-    secrets:
-      GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
-      GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
-      PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
-      PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
-      PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
-      SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
-      SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
+      CI_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
+      GH_APP_ID: ${{ secrets.GH_APP_ID }}
+      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
   # TODO test CD to VM

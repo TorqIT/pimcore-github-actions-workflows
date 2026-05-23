@@ -1,0 +1,71 @@
+name: CI Azure
+
+on:
+  workflow_call:
+    inputs:
+      ENVIRONMENT:
+        required: true
+        type: string
+        description: "The GitHub Environment to provision and deploy to"
+      PARAMETERS_FILE:
+        required: true
+        type: string
+        description: "Path to the Azure parameters file used when provisioning the environment"
+      PROJECT_REPOSITORY_REF:
+        required: false
+        type: string
+        default: ${{ github.ref }}
+        description: "The branch/tag of TorqIT/pimcore-skeleton to test against"
+      FEATURE_FLAG_INSTALL_MISSING_BUNDLES:
+        required: false
+        type: boolean
+        default: true
+        description: "Whether to automatically install missing required Pimcore bundles"
+
+    secrets:
+      PIMCORE_ENCRYPTION_SECRET:
+        required: false
+      PIMCORE_INSTANCE_IDENTIFIER:
+        required: false
+      PIMCORE_PRODUCT_KEY:
+        required: false
+      CI_SERVICE_PRINCIPAL_PASSWORD:
+        required: true
+      GH_APP_ID:
+        required: false
+      GH_APP_PRIVATE_KEY:
+        required: false
+
+jobs:
+  provision:
+    name: "Provision CI Azure environment"
+    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@support-2026.x # TODO changeme back to v2
+    with:
+      ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
+      PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
+      SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
+      SKIP_IF_EXISTS: false
+    secrets:
+      PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
+      PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
+      PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+      SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
+
+  deploy:
+    name: "Test Azure CD workflow against Pimcore skeleton"
+    needs: provision
+    uses: ./.github/workflows/deploy-to-azure-container-apps.yml
+    with:
+      PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
+      PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+      GITHUB_APP_CHECKOUT: true
+      ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
+      FEATURE_FLAG_INSTALL_MISSING_BUNDLES: ${{ inputs.FEATURE_FLAG_INSTALL_MISSING_BUNDLES }}
+    secrets:
+      GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
+      GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
+      PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
+      PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+      SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
+      SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
