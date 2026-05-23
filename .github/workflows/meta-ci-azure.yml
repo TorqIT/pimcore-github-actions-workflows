@@ -38,7 +38,7 @@ on:
 
 jobs:
   provision:
-    name: "Provision CI Azure environment"
+    name: "Provision Azure environment"
     uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@support-2026.x # TODO changeme back to v2
     with:
       ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
