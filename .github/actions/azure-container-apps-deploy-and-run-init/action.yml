@@ -80,7 +80,6 @@ runs:
             --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
             --execution $executionName \
             --container ${{ inputs.INIT_CONTAINER_NAME }} \
-            --format text \
             --follow true \
             || true # do not exit the script on error
 
