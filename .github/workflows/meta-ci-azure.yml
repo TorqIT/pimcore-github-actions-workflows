@@ -69,3 +69,17 @@ jobs:
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
       SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
+
+  post-url:
+    name: Post Container App URL to PR
+    needs: [deploy]
+    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/post-container-app-url-to-pr.yml@support-2026.x # TODO changeme back to v2
+    with:
+      ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
+      PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
+      SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
+    secrets:
+      SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CISERVICE_PRINCIPAL_PASSWORD }}
+      PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
+      PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+      PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
