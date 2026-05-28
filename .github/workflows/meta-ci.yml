@@ -50,10 +50,10 @@ jobs:
       matrix:
         include:
           - branch: 2025.x
-            parameters_file: "./.github/ci/azure/parameters.2025-x.json"
+            parameters_file: "./.github/ci/azure/parameters.2025.x.json"
             skeleton_ref: skeleton/recipes # TODO changeme back to 2025.x
           - branch: 2026.x
-            parameters_file: "./.github/ci/azure/parameters.2026-x.json"
+            parameters_file: "./.github/ci/azure/parameters.2026.x.json"
             skeleton_ref: skeleton/recipes-2026.x # TODO changeme back to 2026.x
     uses: ./.github/workflows/meta-ci-azure.yml
     with:
@@ -67,4 +67,5 @@ jobs:
       CI_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
       GH_APP_ID: ${{ secrets.GH_APP_ID }}
       GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+
   # TODO test CD to VM
