@@ -518,9 +518,7 @@ jobs:
           ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
           sparse-checkout: |
             ${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}
-          token:
-            ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token ||
-            secrets.GITHUB_TOKEN }}
+          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
         uses: actions/checkout@v6
