@@ -249,7 +249,7 @@ jobs:
         uses: canonical/get-workflow-version-action@v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: ci-docker.yml
+          file-name: deploy-to-azure-container-apps.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
@@ -422,7 +422,7 @@ jobs:
         uses: canonical/get-workflow-version-action@v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: ci-docker.yml
+          file-name: deploy-to-azure-container-apps.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
@@ -477,7 +477,7 @@ jobs:
         uses: canonical/get-workflow-version-action@v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: ci-docker.yml
+          file-name: deploy-to-azure-container-apps.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
@@ -532,7 +532,7 @@ jobs:
         uses: canonical/get-workflow-version-action@v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: ci-docker.yml
+          file-name: deploy-to-azure-container-apps.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
