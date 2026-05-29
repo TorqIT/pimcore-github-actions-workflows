@@ -198,7 +198,7 @@ jobs:
         uses: ./reusable-workflow/.github/actions/lint
 
   vulnerability-scan:
-    name: Scan for vulnerabilities
+    name: Scan for vulnerabilities (npm, composer, etc.)
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Get workflow version
@@ -321,7 +321,7 @@ jobs:
           LOAD: true
           TAGS: "${{ matrix.name }}:ci-${{ github.run_id }}"
 
-      - name: Run Trivy vulnerability scanner
+      - name: Run Trivy vulnerability scanner on image
         uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # v0.36.0
         with:
           image-ref: "${{ matrix.name }}:ci-${{ github.run_id }}"
