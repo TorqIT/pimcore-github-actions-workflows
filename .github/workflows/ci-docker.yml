@@ -239,7 +239,7 @@ jobs:
 
       - name: Scan for composer vulnerabilities
         run: |
-          composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit
+          composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --locked
 
   build-init:
     name: Build init image
