@@ -241,7 +241,7 @@ jobs:
       - name: Scan for composer vulnerabilities
         run: |
           composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts
-          composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --no-abandoned
+          composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore
 
   build-init:
     name: Build init image
