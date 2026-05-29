@@ -42,7 +42,7 @@ jobs:
     uses: ./.github/workflows/ci-docker.yml
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
-      PROJECT_REPOSITORY_REF: 2025.x
+      PROJECT_REPOSITORY_REF: fix/bump-vulnerable-npm-packages # TODO changeme back to 2025.x!
       RUN_UNIT_TESTS: true
       GITHUB_APP_CHECKOUT: true
     secrets:
