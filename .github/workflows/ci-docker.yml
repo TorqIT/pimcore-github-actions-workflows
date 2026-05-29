@@ -233,7 +233,9 @@ jobs:
 
       - name: Scan for npm vulnerabilities
         run: |
-          find . -name "package-lock.json" -not -path "*/node_modules/*" -exec sh -c 'npm audit --audit-level=high --prefix $(dirname {})'
+          find . -name "package-lock.json" -not -path "*/node_modules/*" | while read -r f; do
+            npm audit --audit-level=high --prefix "$(dirname "$f")"
+          done
 
       - name: Scan for composer vulnerabilities
         run: |
