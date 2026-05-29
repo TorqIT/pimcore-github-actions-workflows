@@ -240,6 +240,7 @@ jobs:
 
       - name: Scan for composer vulnerabilities
         run: |
+          composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts
           composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --locked
 
   build-init:
@@ -305,6 +306,7 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           vuln-type: "os,library"
+          scanners: "vuln"
           severity: "CRITICAL,HIGH"
 
   build-php:
