@@ -243,10 +243,27 @@ jobs:
           composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts
           composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore
 
-  build-init:
-    name: Build init image
-    if: ${{ inputs.INIT }}
+  build:
+    name: Build ${{ matrix.name }} image
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: init
+            dockerfile: ${{ inputs.INIT_DOCKERFILE }}
+            target: ${{ inputs.INIT_DOCKER_TARGET }}
+          - name: php
+            dockerfile: ${{ inputs.PHP_DOCKERFILE }}
+            target: ${{ inputs.PHP_DOCKER_TARGET }}
+            npm_build: ${{ inputs.NPM_BUILD }}
+            npm_spa: ${{ inputs.NPM_SPA }}
+            spa_twig: ${{ inputs.SPA_TWIG }}
+            frontend_root: ${{ inputs.FRONTEND_ROOT }}
+            npm_run_cmd: ${{ inputs.NPM_RUN_CMD }}
+          - name: supervisord
+            dockerfile: ${{ inputs.SUPERVISORD_DOCKERFILE }}
+            target: ${{ inputs.SUPERVISORD_TARGET }}
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -281,11 +298,11 @@ jobs:
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
 
-      - name: Build init image
+      - name: Build ${{ matrix.name }} image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
-          DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
-          DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
+          DOCKERFILE_TARGET: ${{ matrix.target }}
+          DOCKERFILE_PATH: ${{ matrix.dockerfile }}
           BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
@@ -294,153 +311,25 @@ jobs:
           PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
           PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          FRONTEND_ROOT: ${{ matrix.frontend_root }}
+          NPM_BUILD: ${{ matrix.npm_build }}
+          RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
+          NPM_SPA: ${{ matrix.npm_spa }}
+          SPA_TWIG: ${{ matrix.spa_twig }}
+          NPM_RUN_CMD: ${{ matrix.npm_run_cmd }}
           PUSH: false
           LOAD: true
-          TAGS: "init:ci-${{ github.run_id }}"
+          TAGS: "${{ matrix.name }}:ci-${{ github.run_id }}"
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # v0.36.0
         with:
-          image-ref: "init:ci-${{ github.run_id }}"
+          image-ref: "${{ matrix.name }}:ci-${{ github.run_id }}"
           format: "table"
           exit-code: "1"
           ignore-unfixed: true
           vuln-type: "os,library"
           scanners: "vuln"
-          severity: "CRITICAL,HIGH"
-
-  build-php:
-    name: Build PHP image
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    steps:
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@v1
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: ci-docker.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v6
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
-
-      - name: Check out project repository and submodules
-        uses: ./reusable-workflow/.github/actions/checkout
-        with:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          SUBMODULES: ${{ inputs.SUBMODULES }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
-          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-
-      - name: Install tools for workflows/actions
-        uses: ./reusable-workflow/.github/actions/setup-tools
-
-      - name: Set up Docker
-        uses: ./reusable-workflow/.github/actions/setup-docker
-
-      - name: Build PHP image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
-        with:
-          DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
-          DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
-          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
-          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
-          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
-          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
-          FRONTEND_ROOT: ${{ inputs.FRONTEND_ROOT }}
-          NPM_BUILD: ${{ inputs.NPM_BUILD }}
-          RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
-          NPM_SPA: ${{ inputs.NPM_SPA }}
-          SPA_TWIG: ${{ inputs.SPA_TWIG }}
-          NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
-          PUSH: false
-          LOAD: true
-          TAGS: "php:ci-${{ github.run_id }}"
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # v0.36.0
-        with:
-          image-ref: "php:ci-${{ github.run_id }}"
-          format: "table"
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
-
-  build-supervisord:
-    name: Build supervisord image
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    steps:
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@v1
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: ci-docker.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@v6
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
-
-      - name: Check out project repository and submodules
-        uses: ./reusable-workflow/.github/actions/checkout
-        with:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          SUBMODULES: ${{ inputs.SUBMODULES }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
-          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-
-      - name: Install tools for workflows/actions
-        uses: ./reusable-workflow/.github/actions/setup-tools
-
-      - name: Set up Docker
-        uses: ./reusable-workflow/.github/actions/setup-docker
-
-      - name: Build supervisord image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
-        with:
-          DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
-          DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
-          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
-          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
-          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
-          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          PUSH: false
-          LOAD: true
-          TAGS: "supervisord:ci-${{ github.run_id }}"
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # v0.36.0
-        with:
-          image-ref: "supervisord:ci-${{ github.run_id }}"
-          format: "table"
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
 
   run-unit-tests:
