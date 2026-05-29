@@ -197,6 +197,48 @@ jobs:
       - name: Lint all files
         uses: ./reusable-workflow/.github/actions/lint
 
+  vulnerability-scan:
+    name: Scan for vulnerabilities
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    steps:
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: ci-docker.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@v6
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Check out project repository and submodules
+        uses: ./reusable-workflow/.github/actions/checkout
+        with:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+
+      - name: Install tools for workflows/actions
+        uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Scan for npm vulnerabilities
+        run: |
+          find . -name "package-lock.json" -not -path "*/node_modules/*" -exec sh -c 'npm audit --audit-level=high --prefix $(dirname {})'
+
+      - name: Scan for composer vulnerabilities
+        run: |
+          composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit
+
   build-init:
     name: Build init image
     if: ${{ inputs.INIT }}
@@ -249,6 +291,18 @@ jobs:
           PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           PUSH: false
+          LOAD: true
+          TAGS: "init:ci-${{ github.run_id }}"
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # v0.36.0
+        with:
+          image-ref: "init:ci-${{ github.run_id }}"
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
 
   build-php:
     name: Build PHP image
@@ -307,6 +361,18 @@ jobs:
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
           PUSH: false
+          LOAD: true
+          TAGS: "php:ci-${{ github.run_id }}"
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # v0.36.0
+        with:
+          image-ref: "php:ci-${{ github.run_id }}"
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
 
   build-supervisord:
     name: Build supervisord image
@@ -359,6 +425,18 @@ jobs:
           PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           PUSH: false
+          LOAD: true
+          TAGS: "supervisord:ci-${{ github.run_id }}"
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # v0.36.0
+        with:
+          image-ref: "supervisord:ci-${{ github.run_id }}"
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
 
   run-unit-tests:
     name: Run unit tests
