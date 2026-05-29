@@ -234,6 +234,7 @@ jobs:
       - name: Scan for npm vulnerabilities
         run: |
           find . -name "package-lock.json" -not -path "*/node_modules/*" | while read -r f; do
+            echo "--- Scanning $(dirname "$f") ---"
             npm audit --audit-level=high --prefix "$(dirname "$f")"
           done
 
