@@ -244,7 +244,7 @@ jobs:
           composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore
 
   build:
-    name: Build ${{ matrix.name }} image
+    name: Build and scan ${{ matrix.name }} image
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
