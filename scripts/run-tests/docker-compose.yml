@@ -21,7 +21,7 @@ services:
     entrypoint: ['/bin/sh', /entrypoint.sh]
 
   test-db:
-    image: mariadb:10.4
+    image: mariadb:10.11
     environment:
       MYSQL_DATABASE: test
       MYSQL_USER: test
