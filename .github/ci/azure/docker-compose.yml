@@ -1,6 +1,0 @@
-services:
-  azure:
-    image: ghcr.io/torqit/pimcore-azure-provisioning:2
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./parameters.json:/azure/parameters.json

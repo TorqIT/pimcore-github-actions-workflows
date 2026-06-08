@@ -11,7 +11,19 @@ runs:
     - name: Copy in config files
       shell: bash
       run: |
-        cp ./reusable-workflow/.azure/config/database.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
+        set -euo pipefail
+
+        PIMCORE_VERSION=$(jq -r '.require["pimcore/pimcore"] // ""' ${{ inputs.PIMCORE_ROOT }}/composer.json | sed 's/^[^0-9]*//')
+        PIMCORE_MAJOR=$(echo "$PIMCORE_VERSION" | cut -d'.' -f1)
+
+        if [ -n "$PIMCORE_MAJOR" ] && [ "$PIMCORE_MAJOR" -ge 2026 ] 2>/dev/null; then
+          echo "Detected pimcore/pimcore >= 2026, using database.yaml"
+          cp ./reusable-workflow/.azure/config/database.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
+        else
+          echo "Using database-legacy.yaml"
+          cp ./reusable-workflow/.azure/config/database-legacy.yaml ${{ inputs.PIMCORE_ROOT }}/config/database.yaml
+        fi
+
         mkdir -p ${{ inputs.PIMCORE_ROOT }}/config/db
         cp ./reusable-workflow/.azure/config/db/DigiCertGlobalRootCA.crt.pem ${{ inputs.PIMCORE_ROOT }}/config/db/DigiCertGlobalRootCA.crt.pem
 
