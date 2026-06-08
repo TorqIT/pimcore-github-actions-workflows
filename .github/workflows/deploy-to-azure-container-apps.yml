@@ -244,38 +244,12 @@ jobs:
       workflow-version: ${{ steps.workflow-version.outputs.version }}
 
     steps:
-      - name: Parse GitHub App checkout repository
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: parse_github_app_repository
-        env:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-        run: |
-          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
-
-      - name: Create token from GitHub App
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: create_token
-        with:
-          app-id: ${{ secrets.GITHUB_APP_ID }}
-          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
-
-      - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          repository: ${{ inputs.PROJECT_REPOSITORY }}
-          ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          submodules: ${{ inputs.SUBMODULES }}
-          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
       - name: Get workflow version
         id: workflow-version
         uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: deploy-to-azure-container-apps.yml
+          file-name: ci-docker.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
@@ -443,28 +417,12 @@ jobs:
     needs:
       - build-and-push-images
     steps:
-      - name: Parse GitHub App checkout repository
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: parse_github_app_repository
-        env:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-        run: |
-          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
-
-      - name: Create token from GitHub App
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: create_token
-        with:
-          app-id: ${{ secrets.GITHUB_APP_ID }}
-          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
-
-      - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: deploy-to-azure-container-apps.yml
+          file-name: ci-docker.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
@@ -514,28 +472,12 @@ jobs:
     needs:
       - deploy-and-run-init
     steps:
-      - name: Parse GitHub App checkout repository
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: parse_github_app_repository
-        env:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-        run: |
-          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
-
-      - name: Create token from GitHub App
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: create_token
-        with:
-          app-id: ${{ secrets.GITHUB_APP_ID }}
-          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
-
-      - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: deploy-to-azure-container-apps.yml
+          file-name: ci-docker.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
@@ -585,28 +527,12 @@ jobs:
     needs:
       - deploy-and-run-init
     steps:
-      - name: Parse GitHub App checkout repository
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: parse_github_app_repository
-        env:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-        run: |
-          echo "repository=${PROJECT_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
-
-      - name: Create token from GitHub App
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: create_token
-        with:
-          app-id: ${{ secrets.GITHUB_APP_ID }}
-          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ steps.parse_github_app_repository.outputs.repository }}
-
-      - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: deploy-to-azure-container-apps.yml
+          file-name: ci-docker.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
