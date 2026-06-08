@@ -240,7 +240,7 @@ jobs:
 
       - name: Scan for composer vulnerabilities
         run: |
-          if [[ -n ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }} ]]; then
+          if [[ -n "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}" ]]; then
             composer --working-dir=${{ inputs.PIMCORE_ROOT }} --global --auth http-basic.repo.pimcore.com token "$PIMCORE_ENTERPRISE_TOKEN"
           fi
           composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts
