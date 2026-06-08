@@ -6,7 +6,8 @@
       "pinDigests": true,
       "groupName": "GitHub Actions",
       "schedule": ["on monday"],
-      "updateNotScheduled": false
+      "updateNotScheduled": false,
+      "separateMajorMinor": false
     },
     {
       "matchManagers": ["github-actions"],
