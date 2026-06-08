@@ -5,7 +5,7 @@ runs:
   using: "composite"
   steps:
     - name: Install jq
-      uses: dcarbone/install-jq-action@b7ef57d46ece78760b4019dbc4080a1ba2a40b45
+      uses: dcarbone/install-jq-action@b7ef57d46ece78760b4019dbc4080a1ba2a40b45 # v3.2.0
       with:
         version: "1.7"
 
@@ -45,6 +45,6 @@ runs:
         echo "version=$version" >> "$GITHUB_OUTPUT"
 
     - name: Setup PHP
-      uses: shivammathur/setup-php@v2
+      uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc # v2.37.1
       with:
         php-version: ${{ steps.get-php-version.outputs.version }}
