@@ -5,7 +5,8 @@
       "matchManagers": ["github-actions"],
       "pinDigests": true,
       "groupName": "GitHub Actions",
-      "schedule": ["on monday"]
+      "schedule": ["on monday"],
+      "updateNotScheduled": false
     },
     {
       "matchManagers": ["github-actions"],
