@@ -39,7 +39,7 @@ on:
 jobs:
   provision:
     name: "Provision Azure environment"
-    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@support-2026.x # TODO changeme back to v2
+    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@v2
     with:
       ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
       PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
@@ -73,7 +73,7 @@ jobs:
   post-url:
     name: Post Container App URL to PR
     needs: [deploy]
-    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/post-container-app-url-to-pr.yml@support-2026.x # TODO changeme back to v2
+    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/post-container-app-url-to-pr.yml@v2
     with:
       ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
       PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
