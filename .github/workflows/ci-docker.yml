@@ -198,7 +198,7 @@ jobs:
         uses: ./reusable-workflow/.github/actions/lint
 
   vulnerability-scan:
-    name: Scan for vulnerabilities (npm, composer, etc.)
+    name: Scan for vulnerabilities in dependencies and code (SCA and SAST)
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Get workflow version
@@ -242,6 +242,17 @@ jobs:
         run: |
           composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts
           composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore
+
+      - name: Run Semgrep SAST scan
+        run: |
+          pip install semgrep --quiet
+          semgrep scan \
+            --config p/php \
+            --config p/javascript \
+            --error \
+            .
+        env:
+          SEMGREP_SEND_METRICS: off
 
   build:
     name: Build and scan ${{ matrix.name }} image
