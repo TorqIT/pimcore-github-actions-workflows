@@ -69,6 +69,24 @@ runs:
           echo "No XML syntax errors found"
         fi
 
+    - name: Lint GitHub Actions workflows
+      id: lint-actions
+      shell: bash
+      continue-on-error: true
+      run: |
+        ACTIONLINT_VERSION="1.7.7"
+        curl -sL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+          | tar xz -C /tmp actionlint
+        errors=0
+        output=$(/tmp/actionlint -color -shellcheck= 2>&1) || errors=1
+        echo "$output"
+        echo "errors=$errors" >> "$GITHUB_OUTPUT"
+        if [ "$errors" -ne 0 ]; then
+          echo "GitHub Actions workflow linting errors found"
+        else
+          echo "No GitHub Actions workflow linting errors found"
+        fi
+
     - name: Report linting results
       id: report
       shell: bash
@@ -76,7 +94,8 @@ runs:
         json_errors=${{ steps.lint-json.outputs.errors }}
         php_errors=${{ steps.lint-php.outputs.errors }}
         xml_errors=${{ steps.lint-xml.outputs.errors }}
-        total_errors=$((json_errors + php_errors + xml_errors))
+        actions_errors=${{ steps.lint-actions.outputs.errors || 0 }}
+        total_errors=$((json_errors + php_errors + xml_errors + actions_errors))
         if [ "$total_errors" -ne 0 ]; then
           echo "Linting failed with $total_errors total errors"
           exit 1
