@@ -1,0 +1,118 @@
+name: "Post Security Scan Results"
+description: "Posts security scan results as a PR comment, creating or updating an existing comment"
+
+inputs:
+  NPM_OUTCOME:
+    required: true
+    description: "Outcome of the npm vulnerability scan (success/failure/skipped)"
+  COMPOSER_OUTCOME:
+    required: true
+    description: "Outcome of the Composer vulnerability scan (success/failure/skipped)"
+  SEMGREP_OUTCOME:
+    required: true
+    description: "Outcome of the Semgrep SAST scan (success/failure/skipped)"
+  REF:
+    required: true
+    description: "The branch/ref name used in the comment marker for deduplication"
+  GITHUB_TOKEN:
+    required: true
+    description: "GitHub token for posting PR comments (requires pull-requests: write)"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Download scan results
+      uses: actions/download-artifact@v4
+      with:
+        name: scan-results
+        path: ./scan-results
+      continue-on-error: true
+
+    - name: Download Trivy results (init)
+      uses: actions/download-artifact@v4
+      with:
+        name: trivy-results-init
+        path: ./trivy-results-init
+      continue-on-error: true
+
+    - name: Download Trivy results (php)
+      uses: actions/download-artifact@v4
+      with:
+        name: trivy-results-php
+        path: ./trivy-results-php
+      continue-on-error: true
+
+    - name: Download Trivy results (supervisord)
+      uses: actions/download-artifact@v4
+      with:
+        name: trivy-results-supervisord
+        path: ./trivy-results-supervisord
+      continue-on-error: true
+
+    - name: Post security scan results to PR
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+      run: |
+        npm_outcome="${{ inputs.NPM_OUTCOME }}"
+        composer_outcome="${{ inputs.COMPOSER_OUTCOME }}"
+        semgrep_outcome="${{ inputs.SEMGREP_OUTCOME }}"
+        init_outcome=$(cat ./trivy-results-init/trivy-init-status.txt 2>/dev/null || echo "unknown")
+        php_outcome=$(cat ./trivy-results-php/trivy-php-status.txt 2>/dev/null || echo "unknown")
+        supervisord_outcome=$(cat ./trivy-results-supervisord/trivy-supervisord-status.txt 2>/dev/null || echo "unknown")
+
+        status_icon() {
+          case "$1" in
+            success) echo "✅ Passed" ;;
+            failure) echo "❌ Failed" ;;
+            skipped) echo "⏭️ Skipped" ;;
+            *) echo "⚠️ Unknown" ;;
+          esac
+        }
+        strip_ansi() { sed 's/\x1B\[[0-9;]*[mK]//g' "$1" 2>/dev/null || echo "No output captured"; }
+
+        npm_details=$(strip_ansi ./scan-results/npm-audit.txt | head -c 4000)
+        composer_details=$(strip_ansi ./scan-results/composer-audit.txt | head -c 4000)
+        semgrep_details=$(cat ./scan-results/semgrep.txt 2>/dev/null | head -c 4000 || echo "No output captured")
+        init_details=$(cat ./trivy-results-init/trivy-init.txt 2>/dev/null | head -c 4000 || echo "No output captured")
+        php_details=$(cat ./trivy-results-php/trivy-php.txt 2>/dev/null | head -c 4000 || echo "No output captured")
+        supervisord_details=$(cat ./trivy-results-supervisord/trivy-supervisord.txt 2>/dev/null | head -c 4000 || echo "No output captured")
+
+        labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
+        outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$init_outcome" "$php_outcome" "$supervisord_outcome")
+        details=("$npm_details" "$composer_details" "$semgrep_details" "$init_details" "$php_details" "$supervisord_details")
+
+        {
+          echo "<!-- vulnerability-scan-results-${{ inputs.REF }} -->"
+          echo "## Security Scan Results for ${{ inputs.REF }}"
+          echo ""
+          echo "| Scan | Status |"
+          echo "|------|--------|"
+          for i in "${!labels[@]}"; do
+            echo "| ${labels[$i]} | $(status_icon "${outcomes[$i]}") |"
+          done
+          echo ""
+          for i in "${!labels[@]}"; do
+            echo "<details><summary>${labels[$i]} details</summary>"
+            echo ""
+            echo '```'
+            printf '%s\n' "${details[$i]}"
+            echo '```'
+            echo ""
+            echo "</details>"
+            echo ""
+          done
+        } > /tmp/pr-comment.md
+
+        PR_NUMBER=${{ github.event.pull_request.number }}
+        REPO=${{ github.repository }}
+        MARKER="<!-- vulnerability-scan-results-${{ inputs.REF }} -->"
+
+        comment_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+          --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\")))] | last | .id // empty")
+
+        if [ -n "$comment_id" ]; then
+          gh api "repos/$REPO/issues/comments/$comment_id" --method PATCH --field body=@/tmp/pr-comment.md
+        else
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file /tmp/pr-comment.md
+        fi

@@ -424,100 +424,30 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - name: Download scan results
-        uses: actions/download-artifact@v4
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
         with:
-          name: scan-results
-          path: ./scan-results
-        continue-on-error: true
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: ci-docker.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download Trivy results (init)
-        uses: actions/download-artifact@v4
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          name: trivy-results-init
-          path: ./trivy-results-init
-        continue-on-error: true
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
 
-      - name: Download Trivy results (php)
-        uses: actions/download-artifact@v4
+      - name: Post security scan results
+        uses: ./reusable-workflow/.github/actions/post-scan-report
         with:
-          name: trivy-results-php
-          path: ./trivy-results-php
-        continue-on-error: true
-
-      - name: Download Trivy results (supervisord)
-        uses: actions/download-artifact@v4
-        with:
-          name: trivy-results-supervisord
-          path: ./trivy-results-supervisord
-        continue-on-error: true
-
-      - name: Post security scan results to PR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          npm_outcome="${{ needs.vulnerability-scan.outputs.npm-outcome }}"
-          composer_outcome="${{ needs.vulnerability-scan.outputs.composer-outcome }}"
-          semgrep_outcome="${{ needs.vulnerability-scan.outputs.semgrep-outcome }}"
-          init_outcome=$(cat ./trivy-results-init/trivy-init-status.txt 2>/dev/null || echo "unknown")
-          php_outcome=$(cat ./trivy-results-php/trivy-php-status.txt 2>/dev/null || echo "unknown")
-          supervisord_outcome=$(cat ./trivy-results-supervisord/trivy-supervisord-status.txt 2>/dev/null || echo "unknown")
-
-          status_icon() {
-            case "$1" in
-              success) echo "✅ Passed" ;;
-              failure) echo "❌ Failed" ;;
-              skipped) echo "⏭️ Skipped" ;;
-              *) echo "⚠️ Unknown" ;;
-            esac
-          }
-          strip_ansi() { sed 's/\x1B\[[0-9;]*[mK]//g' "$1" 2>/dev/null || echo "No output captured"; }
-
-          npm_details=$(strip_ansi ./scan-results/npm-audit.txt | head -c 4000)
-          composer_details=$(strip_ansi ./scan-results/composer-audit.txt | head -c 4000)
-          semgrep_details=$(cat ./scan-results/semgrep.txt 2>/dev/null | head -c 4000 || echo "No output captured")
-          init_details=$(cat ./trivy-results-init/trivy-init.txt 2>/dev/null | head -c 4000 || echo "No output captured")
-          php_details=$(cat ./trivy-results-php/trivy-php.txt 2>/dev/null | head -c 4000 || echo "No output captured")
-          supervisord_details=$(cat ./trivy-results-supervisord/trivy-supervisord.txt 2>/dev/null | head -c 4000 || echo "No output captured")
-
-          labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
-          outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$init_outcome" "$php_outcome" "$supervisord_outcome")
-          details=("$npm_details" "$composer_details" "$semgrep_details" "$init_details" "$php_details" "$supervisord_details")
-
-          {
-            echo "<!-- vulnerability-scan-results-${{ inputs.PROJECT_REPOSITORY_REF }} -->"
-            echo "## Security Scan Results for ${{ inputs.PROJECT_REPOSITORY_REF }}"
-            echo ""
-            echo "| Scan | Status |"
-            echo "|------|--------|"
-            for i in "${!labels[@]}"; do
-              echo "| ${labels[$i]} | $(status_icon "${outcomes[$i]}") |"
-            done
-            echo ""
-            for i in "${!labels[@]}"; do
-              echo "<details><summary>${labels[$i]} details</summary>"
-              echo ""
-              echo '```'
-              printf '%s\n' "${details[$i]}"
-              echo '```'
-              echo ""
-              echo "</details>"
-              echo ""
-            done
-          } > /tmp/pr-comment.md
-
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          REPO=${{ github.repository }}
-          MARKER="<!-- vulnerability-scan-results-${{ inputs.PROJECT_REPOSITORY_REF }} -->"
-
-          comment_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
-            --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\")))] | last | .id // empty")
-
-          if [ -n "$comment_id" ]; then
-            gh api "repos/$REPO/issues/comments/$comment_id" --method PATCH --field body=@/tmp/pr-comment.md
-          else
-            gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file /tmp/pr-comment.md
-          fi
+          NPM_OUTCOME: ${{ needs.vulnerability-scan.outputs.npm-outcome }}
+          COMPOSER_OUTCOME: ${{ needs.vulnerability-scan.outputs.composer-outcome }}
+          SEMGREP_OUTCOME: ${{ needs.vulnerability-scan.outputs.semgrep-outcome }}
+          REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   run-unit-tests:
     name: Run unit tests
