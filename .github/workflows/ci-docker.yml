@@ -291,8 +291,12 @@ jobs:
             --no-git \
             --no-banner \
             --redact \
-            2>&1 | tee /tmp/gitleaks.txt
-          exit ${PIPESTATUS[0]}
+            --report-format table \
+            --report-path /tmp/gitleaks.txt \
+            2>&1
+          exit_code=$?
+          cat /tmp/gitleaks.txt 2>/dev/null || true
+          exit $exit_code
 
       - name: Upload scan results
         if: always()
