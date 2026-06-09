@@ -12,6 +12,7 @@
 #     permissions:
 #       contents: read
 #       actions: read
+#       pull-requests: write  # required for post-scan-report to comment on PRs
 #     secrets:
 #       BUILD_TIME_SECRETS: >
 #         {
@@ -200,6 +201,10 @@ jobs:
   vulnerability-scan:
     name: Scan for vulnerabilities in dependencies and code (SCA and SAST)
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    outputs:
+      npm-outcome: ${{ steps.npm-scan.outcome }}
+      composer-outcome: ${{ steps.composer-scan.outcome }}
+      semgrep-outcome: ${{ steps.semgrep-scan.outcome }}
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -232,30 +237,70 @@ jobs:
         uses: ./reusable-workflow/.github/actions/setup-tools
 
       - name: Scan for npm vulnerabilities
+        id: npm-scan
+        continue-on-error: true
         run: |
-          find . -name "package-lock.json" -not -path "*/node_modules/*" | while read -r f; do
-            echo "--- Scanning $(dirname "$f") ---"
-            npm audit --audit-level=high --prefix "$(dirname "$f")"
-          done
+          result=0
+          > /tmp/npm-audit.txt
+          while IFS= read -r -d '' f; do
+            echo "--- Scanning $(dirname "$f") ---" | tee -a /tmp/npm-audit.txt
+            npm audit --audit-level=high --prefix "$(dirname "$f")" 2>&1 | tee -a /tmp/npm-audit.txt
+            [ "${PIPESTATUS[0]}" -eq 0 ] || result=1
+          done < <(find . -name "package-lock.json" -not -path "*/node_modules/*" -print0)
+          exit $result
 
       - name: Scan for composer vulnerabilities
+        id: composer-scan
+        continue-on-error: true
         run: |
-          if [[ -n "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}" ]]; then
-            composer --working-dir=${{ inputs.PIMCORE_ROOT }} --global --auth http-basic.repo.pimcore.com token "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
-          fi
-          composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts
-          composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore
+          set -o pipefail
+          {
+            if [[ -n "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}" ]]; then
+              composer --working-dir=${{ inputs.PIMCORE_ROOT }} --global --auth http-basic.repo.pimcore.com token "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
+            fi
+            composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts
+            composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore
+          } 2>&1 | tee /tmp/composer-audit.txt
 
       - name: Run Semgrep SAST scan
+        id: semgrep-scan
+        continue-on-error: true
         run: |
+          set -o pipefail
           pip install semgrep --quiet
           semgrep scan \
             --config p/php \
             --config p/javascript \
+            --no-color \
             --error \
-            .
+            . 2>&1 | tee /tmp/semgrep.txt
         env:
           SEMGREP_SEND_METRICS: off
+
+      - name: Upload scan results
+        if: always()
+        run: |
+          mkdir -p scan-results
+          cp /tmp/npm-audit.txt scan-results/ 2>/dev/null || true
+          cp /tmp/composer-audit.txt scan-results/ 2>/dev/null || true
+          cp /tmp/semgrep.txt scan-results/ 2>/dev/null || true
+
+      - name: Upload scan results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-results
+          path: scan-results/
+          if-no-files-found: ignore
+
+      - name: Fail if any scan found issues
+        if: >-
+          steps.npm-scan.outcome == 'failure' ||
+          steps.composer-scan.outcome == 'failure' ||
+          steps.semgrep-scan.outcome == 'failure'
+        run: |
+          echo "One or more vulnerability scans found issues - see PR comment for details"
+          exit 1
 
   build:
     name: Build and scan ${{ matrix.name }} image
@@ -336,15 +381,140 @@ jobs:
           TAGS: "${{ matrix.name }}:ci-${{ github.run_id }}"
 
       - name: Run Trivy vulnerability scanner on image
+        id: trivy-scan
+        continue-on-error: true
         uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # v0.36.0
         with:
           image-ref: "${{ matrix.name }}:ci-${{ github.run_id }}"
           format: "table"
+          output: "trivy-${{ matrix.name }}.txt"
           exit-code: "1"
           ignore-unfixed: true
           vuln-type: "os,library"
           scanners: "vuln"
           severity: "CRITICAL,HIGH"
+
+      - name: Upload Trivy results
+        if: always()
+        run: echo "${{ steps.trivy-scan.outcome }}" > trivy-${{ matrix.name }}-status.txt
+
+      - name: Upload Trivy results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-results-${{ matrix.name }}
+          path: |
+            trivy-${{ matrix.name }}.txt
+            trivy-${{ matrix.name }}-status.txt
+          if-no-files-found: ignore
+
+      - name: Fail if Trivy found vulnerabilities
+        if: steps.trivy-scan.outcome == 'failure'
+        run: |
+          echo "Trivy found CRITICAL or HIGH vulnerabilities in the ${{ matrix.name }} image"
+          exit 1
+
+  post-scan-report:
+    name: Post security scan results to PR
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    needs: [vulnerability-scan, build]
+    if: failure() && github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Download scan results
+        uses: actions/download-artifact@v4
+        with:
+          name: scan-results
+          path: ./scan-results
+        continue-on-error: true
+
+      - name: Download Trivy results (init)
+        uses: actions/download-artifact@v4
+        with:
+          name: trivy-results-init
+          path: ./trivy-results-init
+        continue-on-error: true
+
+      - name: Download Trivy results (php)
+        uses: actions/download-artifact@v4
+        with:
+          name: trivy-results-php
+          path: ./trivy-results-php
+        continue-on-error: true
+
+      - name: Download Trivy results (supervisord)
+        uses: actions/download-artifact@v4
+        with:
+          name: trivy-results-supervisord
+          path: ./trivy-results-supervisord
+        continue-on-error: true
+
+      - name: Post security scan results to PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm_outcome="${{ needs.vulnerability-scan.outputs.npm-outcome }}"
+          composer_outcome="${{ needs.vulnerability-scan.outputs.composer-outcome }}"
+          semgrep_outcome="${{ needs.vulnerability-scan.outputs.semgrep-outcome }}"
+          init_outcome=$(cat ./trivy-results-init/trivy-init-status.txt 2>/dev/null || echo "unknown")
+          php_outcome=$(cat ./trivy-results-php/trivy-php-status.txt 2>/dev/null || echo "unknown")
+          supervisord_outcome=$(cat ./trivy-results-supervisord/trivy-supervisord-status.txt 2>/dev/null || echo "unknown")
+
+          status_icon() {
+            case "$1" in
+              success) echo "✅ Passed" ;;
+              failure) echo "❌ Failed" ;;
+              *) echo "⚠️ Unknown" ;;
+            esac
+          }
+          strip_ansi() { sed 's/\x1B\[[0-9;]*[mK]//g' "$1" 2>/dev/null || echo "No output captured"; }
+
+          npm_details=$(strip_ansi ./scan-results/npm-audit.txt | head -c 4000)
+          composer_details=$(strip_ansi ./scan-results/composer-audit.txt | head -c 4000)
+          semgrep_details=$(cat ./scan-results/semgrep.txt 2>/dev/null | head -c 4000 || echo "No output captured")
+          init_details=$(cat ./trivy-results-init/trivy-init.txt 2>/dev/null | head -c 4000 || echo "No output captured")
+          php_details=$(cat ./trivy-results-php/trivy-php.txt 2>/dev/null | head -c 4000 || echo "No output captured")
+          supervisord_details=$(cat ./trivy-results-supervisord/trivy-supervisord.txt 2>/dev/null | head -c 4000 || echo "No output captured")
+
+          labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
+          outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$init_outcome" "$php_outcome" "$supervisord_outcome")
+          details=("$npm_details" "$composer_details" "$semgrep_details" "$init_details" "$php_details" "$supervisord_details")
+
+          {
+            echo "<!-- vulnerability-scan-results -->"
+            echo "## Security Scan Results"
+            echo ""
+            echo "| Scan | Status |"
+            echo "|------|--------|"
+            for i in "${!labels[@]}"; do
+              echo "| ${labels[$i]} | $(status_icon "${outcomes[$i]}") |"
+            done
+            echo ""
+            for i in "${!labels[@]}"; do
+              echo "<details><summary>${labels[$i]} details</summary>"
+              echo ""
+              echo '```'
+              printf '%s\n' "${details[$i]}"
+              echo '```'
+              echo ""
+              echo "</details>"
+              echo ""
+            done
+          } > /tmp/pr-comment.md
+
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REPO=${{ github.repository }}
+          MARKER="<!-- vulnerability-scan-results -->"
+
+          comment_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\")))] | last | .id // empty")
+
+          if [ -n "$comment_id" ]; then
+            gh api "repos/$REPO/issues/comments/$comment_id" --method PATCH --field body=@/tmp/pr-comment.md
+          else
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file /tmp/pr-comment.md
+          fi
 
   run-unit-tests:
     name: Run unit tests
