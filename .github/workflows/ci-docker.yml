@@ -486,8 +486,8 @@ jobs:
           details=("$npm_details" "$composer_details" "$semgrep_details" "$init_details" "$php_details" "$supervisord_details")
 
           {
-            echo "<!-- vulnerability-scan-results -->"
-            echo "## Security Scan Results"
+            echo "<!-- vulnerability-scan-results-${{ inputs.PROJECT_REPOSITORY_REF }} -->"
+            echo "## Security Scan Results for ${{ inputs.PROJECT_REPOSITORY_REF }}"
             echo ""
             echo "| Scan | Status |"
             echo "|------|--------|"
@@ -509,7 +509,7 @@ jobs:
 
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
-          MARKER="<!-- vulnerability-scan-results -->"
+          MARKER="<!-- vulnerability-scan-results-${{ inputs.PROJECT_REPOSITORY_REF }} -->"
 
           comment_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
             --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\")))] | last | .id // empty")
