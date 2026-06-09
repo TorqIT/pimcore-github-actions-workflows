@@ -254,25 +254,20 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          {
-            if [[ -n "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}" ]]; then
-              composer --working-dir=${{ inputs.PIMCORE_ROOT }} --global --auth http-basic.repo.pimcore.com token "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
-            fi
-            composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts
-            composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore
-          } 2>&1 | tee /tmp/composer-audit.txt
+          composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore 2>&1 | tee /tmp/composer-audit.txt
 
       - name: Run Semgrep SAST scan
         id: semgrep-scan
         continue-on-error: true
         run: |
-          set -o pipefail
-          pip install semgrep --quiet
+          pip install semgrep --quiet --break-system-packages
           semgrep scan \
             --config p/php \
             --config p/javascript \
+            --no-color \
             --error \
             . 2>&1 | tee /tmp/semgrep.txt
+          exit ${PIPESTATUS[0]}
         env:
           SEMGREP_SEND_METRICS: off
 
@@ -286,6 +281,7 @@ jobs:
 
       - name: Upload scan results artifact
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: scan-results
@@ -464,6 +460,7 @@ jobs:
             case "$1" in
               success) echo "✅ Passed" ;;
               failure) echo "❌ Failed" ;;
+              skipped) echo "⏭️ Skipped" ;;
               *) echo "⚠️ Unknown" ;;
             esac
           }
