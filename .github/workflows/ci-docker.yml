@@ -391,8 +391,6 @@ jobs:
           PUSH: false
           LOAD: true
           TAGS: "${{ matrix.name }}:ci-${{ github.run_id }}"
-          CACHE_FROM: type=gha,scope=${{ matrix.name }}
-          CACHE_TO: type=gha,mode=max,scope=${{ matrix.name }}
 
       - name: Run Trivy vulnerability scanner on image
         id: trivy-scan
