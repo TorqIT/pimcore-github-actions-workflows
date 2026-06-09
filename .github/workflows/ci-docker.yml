@@ -260,7 +260,7 @@ jobs:
               if [[ -n "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}" ]]; then
                 composer config --global http-basic.repo.pimcore.com token "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
               fi
-              composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts
+              composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts --ignore-platform-reqs
             fi
             composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore --locked
           } 2>&1 | tee /tmp/composer-audit.txt
