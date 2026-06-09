@@ -205,6 +205,7 @@ jobs:
       npm-outcome: ${{ steps.npm-scan.outcome }}
       composer-outcome: ${{ steps.composer-scan.outcome }}
       semgrep-outcome: ${{ steps.semgrep-scan.outcome }}
+      secrets-outcome: ${{ steps.secrets-scan.outcome }}
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -278,6 +279,21 @@ jobs:
         env:
           SEMGREP_SEND_METRICS: off
 
+      - name: Scan for secrets
+        id: secrets-scan
+        continue-on-error: true
+        run: |
+          GITLEAKS_VERSION="8.21.2"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar xz -C /tmp gitleaks
+          /tmp/gitleaks detect \
+            --source . \
+            --no-git \
+            --no-banner \
+            --redact \
+            2>&1 | tee /tmp/gitleaks.txt
+          exit ${PIPESTATUS[0]}
+
       - name: Upload scan results
         if: always()
         run: |
@@ -285,6 +301,7 @@ jobs:
           cp /tmp/npm-audit.txt scan-results/ 2>/dev/null || true
           cp /tmp/composer-audit.txt scan-results/ 2>/dev/null || true
           cp /tmp/semgrep.txt scan-results/ 2>/dev/null || true
+          cp /tmp/gitleaks.txt scan-results/ 2>/dev/null || true
 
       - name: Upload scan results artifact
         if: always()
@@ -299,7 +316,8 @@ jobs:
         if: >-
           steps.npm-scan.outcome == 'failure' ||
           steps.composer-scan.outcome == 'failure' ||
-          steps.semgrep-scan.outcome == 'failure'
+          steps.semgrep-scan.outcome == 'failure' ||
+          steps.secrets-scan.outcome == 'failure'
         run: |
           echo "One or more vulnerability scans found issues - see PR comment for details"
           exit 1
@@ -468,6 +486,7 @@ jobs:
           npm_outcome="${{ needs.vulnerability-scan.outputs.npm-outcome }}"
           composer_outcome="${{ needs.vulnerability-scan.outputs.composer-outcome }}"
           semgrep_outcome="${{ needs.vulnerability-scan.outputs.semgrep-outcome }}"
+          secrets_outcome="${{ needs.vulnerability-scan.outputs.secrets-outcome }}"
           init_outcome=$(cat ./trivy-results-init/trivy-init-status.txt 2>/dev/null || echo "unknown")
           php_outcome=$(cat ./trivy-results-php/trivy-php-status.txt 2>/dev/null || echo "unknown")
           supervisord_outcome=$(cat ./trivy-results-supervisord/trivy-supervisord-status.txt 2>/dev/null || echo "unknown")
@@ -485,13 +504,14 @@ jobs:
           npm_details=$(strip_ansi ./scan-results/npm-audit.txt | head -c 4000)
           composer_details=$(strip_ansi ./scan-results/composer-audit.txt | head -c 4000)
           semgrep_details=$(cat ./scan-results/semgrep.txt 2>/dev/null | head -c 4000 || echo "No output captured")
+          secrets_details=$(cat ./scan-results/gitleaks.txt 2>/dev/null | head -c 4000 || echo "No output captured")
           init_details=$(cat ./trivy-results-init/trivy-init.txt 2>/dev/null | head -c 4000 || echo "No output captured")
           php_details=$(cat ./trivy-results-php/trivy-php.txt 2>/dev/null | head -c 4000 || echo "No output captured")
           supervisord_details=$(cat ./trivy-results-supervisord/trivy-supervisord.txt 2>/dev/null | head -c 4000 || echo "No output captured")
 
-          labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
-          outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$init_outcome" "$php_outcome" "$supervisord_outcome")
-          details=("$npm_details" "$composer_details" "$semgrep_details" "$init_details" "$php_details" "$supervisord_details")
+          labels=("npm audit" "Composer audit" "Semgrep SAST" "Secret scanning (gitleaks)" "Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
+          outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$secrets_outcome" "$init_outcome" "$php_outcome" "$supervisord_outcome")
+          details=("$npm_details" "$composer_details" "$semgrep_details" "$secrets_details" "$init_details" "$php_details" "$supervisord_details")
 
           {
             echo "<!-- vulnerability-scan-results-${{ inputs.PROJECT_REPOSITORY_REF }} -->"
