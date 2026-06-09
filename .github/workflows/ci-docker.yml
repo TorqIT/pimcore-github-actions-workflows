@@ -254,7 +254,16 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore 2>&1 | tee /tmp/composer-audit.txt
+          {
+            # If no lock file, install dependencies first (enterprise auth may be needed)
+            if [ ! -f "${{ inputs.PIMCORE_ROOT }}/composer.lock" ]; then
+              if [[ -n "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}" ]]; then
+                composer config --global http-basic.repo.pimcore.com token "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
+              fi
+              composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts
+            fi
+            composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore --locked
+          } 2>&1 | tee /tmp/composer-audit.txt
 
       - name: Run Semgrep SAST scan
         id: semgrep-scan
@@ -264,7 +273,6 @@ jobs:
           semgrep scan \
             --config p/php \
             --config p/javascript \
-            --no-color \
             --error \
             . 2>&1 | tee /tmp/semgrep.txt
           exit ${PIPESTATUS[0]}
