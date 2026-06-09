@@ -327,15 +327,6 @@ jobs:
             dockerfile: ${{ inputs.SUPERVISORD_DOCKERFILE }}
             target: ${{ inputs.SUPERVISORD_TARGET }}
     steps:
-      # Free up disk space so we don't run into space issues in later steps
-      - name: Free disk space
-        timeout-minutes: 1
-        continue-on-error: true
-        run: |
-          sudo rm -rf /usr/local/lib/android & sudo rm -rf /usr/share/dotnet & sudo rm -rf /opt/ghc & sudo rm -rf /usr/local/.ghcup &
-          wait
-          df -h
-
       - name: Get workflow version
         id: workflow-version
         uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
