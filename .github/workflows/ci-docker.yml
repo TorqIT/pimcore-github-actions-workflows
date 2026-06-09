@@ -272,6 +272,7 @@ jobs:
           semgrep scan \
             --config p/php \
             --config p/javascript \
+            --config p/github-actions \
             --error \
             . 2>&1 | tee /tmp/semgrep.txt
           exit ${PIPESTATUS[0]}
