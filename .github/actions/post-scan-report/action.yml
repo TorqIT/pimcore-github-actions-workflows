@@ -69,10 +69,12 @@ runs:
             *) echo "⚠️ Unknown" ;;
           esac
         }
-        strip_ansi() { sed 's/\x1B\[[0-9;]*[mK]//g' "$1" 2>/dev/null || echo "No output captured"; }
+        strip_ansi() { sed 's/\x1B\[[0-9;]*[mK]//g' "$1" 2>/dev/null; }
 
         npm_details=$(strip_ansi ./scan-results/npm-audit.txt | head -c 4000)
+        npm_details="${npm_details:-No output captured}"
         composer_details=$(strip_ansi ./scan-results/composer-audit.txt | head -c 4000)
+        composer_details="${composer_details:-No output captured}"
         semgrep_details=$(cat ./scan-results/semgrep.txt 2>/dev/null | head -c 4000 || echo "No output captured")
         init_details=$(cat ./trivy-results-init/trivy-init.txt 2>/dev/null | head -c 4000 || echo "No output captured")
         php_details=$(cat ./trivy-results-php/trivy-php.txt 2>/dev/null | head -c 4000 || echo "No output captured")
