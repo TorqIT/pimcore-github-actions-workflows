@@ -421,8 +421,6 @@ jobs:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     needs: [vulnerability-scan, build]
     if: (success() || failure()) && github.event_name == 'pull_request'
-    permissions:
-      pull-requests: write
     steps:
       - name: Get workflow version
         id: workflow-version
