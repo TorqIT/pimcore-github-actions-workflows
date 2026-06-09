@@ -291,11 +291,15 @@ jobs:
             --no-git \
             --no-banner \
             --redact \
-            --report-format table \
-            --report-path /tmp/gitleaks.txt \
+            --report-format json \
+            --report-path /tmp/gitleaks-report.json \
             2>&1
           exit_code=$?
-          cat /tmp/gitleaks.txt 2>/dev/null || true
+          if [ -s /tmp/gitleaks-report.json ]; then
+            jq -r '.[] | "[\(.RuleID)] \(.File):\(.StartLine) — \(.Description)"' /tmp/gitleaks-report.json | tee /tmp/gitleaks.txt
+          else
+            echo "No secrets found" | tee /tmp/gitleaks.txt
+          fi
           exit $exit_code
 
       - name: Upload scan results
