@@ -255,11 +255,10 @@ jobs:
         run: |
           set -o pipefail
           {
-            # If no lock file, install dependencies first (enterprise auth may be needed)
+            if [[ -n "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}" ]]; then
+              composer config --global --auth http-basic.repo.pimcore.com token "$(cat /run/secrets/pimcore-enterprise-token)"
+            fi
             if [ ! -f "${{ inputs.PIMCORE_ROOT }}/composer.lock" ]; then
-              if [[ -n "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}" ]]; then
-                composer config --global --auth http-basic.repo.pimcore.com token "$(cat /run/secrets/pimcore-enterprise-token)"
-              fi
               composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts --ignore-platform-reqs
             fi
             composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore --locked
