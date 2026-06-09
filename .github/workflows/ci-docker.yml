@@ -271,7 +271,6 @@ jobs:
           semgrep scan \
             --config p/php \
             --config p/javascript \
-            --no-color \
             --error \
             . 2>&1 | tee /tmp/semgrep.txt
         env:
@@ -418,7 +417,7 @@ jobs:
     name: Post security scan results to PR
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     needs: [vulnerability-scan, build]
-    if: failure() && github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request'
     permissions:
       pull-requests: write
     steps:
