@@ -389,7 +389,6 @@ jobs:
           SPA_TWIG: ${{ matrix.spa_twig }}
           NPM_RUN_CMD: ${{ matrix.npm_run_cmd }}
           PUSH: false
-          LOAD: true
           TAGS: "${{ matrix.name }}:ci-${{ github.run_id }}"
 
       - name: Run Trivy vulnerability scanner on image
