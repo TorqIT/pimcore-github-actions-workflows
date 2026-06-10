@@ -278,6 +278,8 @@ jobs:
             --config p/php \
             --config p/javascript \
             --config p/github-actions \
+            --config p/typescript \
+            --config p/secrets \
             --error \
             . 2>&1 | tee /tmp/semgrep.txt
           exit ${PIPESTATUS[0]}
