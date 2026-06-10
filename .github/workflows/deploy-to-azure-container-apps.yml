@@ -354,8 +354,6 @@ jobs:
           PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
           PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
           TAGS: |
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:latest,
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:${{ github.run_id }}
