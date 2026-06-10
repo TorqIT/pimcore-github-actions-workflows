@@ -260,8 +260,13 @@ jobs:
         run: |
           set -o pipefail
           {
-            if [[ -n "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}" ]]; then
-              composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.repo.pimcore.com token "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
+            PIMCORE_ENTERPRISE_TOKEN="${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
+            if [[ -z "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
+              PIMCORE_ENTERPRISE_TOKEN=$(printf '%s' '${{ secrets.BUILD_TIME_SECRETS }}' | jq -r '."pimcore-enterprise-token" // empty' 2>/dev/null || true)
+            fi
+            if [[ -n "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
+              echo "::add-mask::$PIMCORE_ENTERPRISE_TOKEN"
+              composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.repo.pimcore.com token "$PIMCORE_ENTERPRISE_TOKEN"
             fi
             if [ ! -f "${{ inputs.PIMCORE_ROOT }}/composer.lock" ]; then
               composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts --ignore-platform-reqs
