@@ -370,6 +370,8 @@ jobs:
 
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
+        with:
+          DRIVER: docker
 
       - name: Build ${{ matrix.name }} image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
