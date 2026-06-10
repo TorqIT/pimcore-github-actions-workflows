@@ -19,7 +19,7 @@ jobs:
         include:
           - parameters-file: "./.github/ci/parameters.2025.x.json"
           - parameters-file: "./.github/ci/parameters.2025.x.json"
-    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/tear-down-azure-resources.yml@main
+    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/tear-down-azure-resources.yml@v2
     with:
       SERVICE_PRINCIPAL_ID: ${{ vars.SERVICE_PRINCIPAL_ID }}
       PARAMETERS_FILE: ${{ matrix.parameters-file }}
