@@ -129,6 +129,11 @@ on:
         type: boolean
         default: false
         description: "Whether to use a GitHub App token for checking out the project repository and submodules"
+      POST_SCAN_RESULTS_TO_PR:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to post vulnerability scan results to the associated PR"
 
     secrets:
       BUILD_TIME_SECRETS:
@@ -420,7 +425,7 @@ jobs:
     name: Post security scan results to PR
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     needs: [vulnerability-scan, build]
-    if: (success() || failure()) && github.event_name == 'pull_request'
+    if: (success() || failure()) && github.event_name == 'pull_request' && inputs.POST_SCAN_RESULTS_TO_PR
     steps:
       - name: Get workflow version
         id: workflow-version
