@@ -409,6 +409,10 @@ jobs:
           scanners: "vuln"
           severity: "CRITICAL,HIGH"
 
+      - name: Print Trivy results to log
+        if: always()
+        run: cat trivy-${{ matrix.name }}.txt 2>/dev/null || true
+
       - name: Upload Trivy results
         if: always()
         run: echo "${{ steps.trivy-scan.outcome }}" > trivy-${{ matrix.name }}-status.txt
