@@ -260,10 +260,10 @@ jobs:
         run: |
           set -o pipefail
           {
-            if [[ -n "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}" ]]; then
-              composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.repo.pimcore.com token "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
-            fi
             if [ ! -f "${{ inputs.PIMCORE_ROOT }}/composer.lock" ]; then
+              if [[ -n "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}" ]]; then
+                composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.repo.pimcore.com token "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
+              fi
               composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts --ignore-platform-reqs
             fi
             composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore --locked
