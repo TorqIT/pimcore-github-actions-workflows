@@ -87,6 +87,30 @@ runs:
           echo "No GitHub Actions workflow linting errors found"
         fi
 
+    - name: Lint Bicep files
+      id: lint-bicep
+      shell: bash
+      continue-on-error: true
+      run: |
+        BICEP_VERSION="0.36.1"
+        curl -sLo /tmp/bicep "https://github.com/Azure/bicep/releases/download/v${BICEP_VERSION}/bicep-linux-x64"
+        chmod +x /tmp/bicep
+        errors=0
+        while IFS= read -r -d '' file; do
+          if ! output=$(/tmp/bicep lint "$file" 2>&1); then
+            echo "Bicep lint error in $file:"
+            echo "$output"
+            echo "---"
+            errors=$((errors+1))
+          fi
+        done < <(find . -type f -name '*.bicep' -print0)
+        echo "errors=$errors" >> "$GITHUB_OUTPUT"
+        if [ "$errors" -ne 0 ]; then
+          echo "$errors Bicep files found with lint errors"
+        else
+          echo "No Bicep lint errors found"
+        fi
+
     - name: Report linting results
       id: report
       shell: bash
@@ -95,7 +119,8 @@ runs:
         php_errors=${{ steps.lint-php.outputs.errors }}
         xml_errors=${{ steps.lint-xml.outputs.errors }}
         actions_errors=${{ steps.lint-actions.outputs.errors || 0 }}
-        total_errors=$((json_errors + php_errors + xml_errors + actions_errors))
+        bicep_errors=${{ steps.lint-bicep.outputs.errors || 0 }}
+        total_errors=$((json_errors + php_errors + xml_errors + actions_errors + bicep_errors))
         if [ "$total_errors" -ne 0 ]; then
           echo "Linting failed with $total_errors total errors"
           exit 1
