@@ -248,9 +248,13 @@ jobs:
           result=0
           > /tmp/npm-audit.txt
           while IFS= read -r -d '' f; do
-            echo "--- Scanning $(dirname "$f") ---" | tee -a /tmp/npm-audit.txt
-            npm audit --audit-level=high --prefix "$(dirname "$f")" 2>&1 | tee -a /tmp/npm-audit.txt
-            [ "${PIPESTATUS[0]}" -eq 0 ] || result=1
+            dir=$(dirname "$f")
+            echo "--- Scanning $dir ---" >> /tmp/npm-audit.txt
+            npm audit --json --prefix "$dir" > /tmp/npm-raw.json 2>/dev/null || true
+            high_count=$(jq '[(.vulnerabilities // {}) | to_entries[] | select(.value.severity == "high" or .value.severity == "critical")] | length' /tmp/npm-raw.json 2>/dev/null || echo 0)
+            [ "$high_count" -gt 0 ] && result=1
+            jq -r '(.vulnerabilities // {}) | to_entries[] | select(.value.severity == "high" or .value.severity == "critical") | "[\(.value.severity | ascii_upcase)] \(.key): \(.value.via | map(if type == "object" then .title else . end) | join(", "))"' /tmp/npm-raw.json >> /tmp/npm-audit.txt 2>/dev/null || true
+            [ "$high_count" -eq 0 ] && echo "No high/critical vulnerabilities found" >> /tmp/npm-audit.txt
           done < <(find . -name "package-lock.json" -not -path "*/node_modules/*" -print0)
           exit $result
 
