@@ -86,27 +86,85 @@ runs:
         labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
         outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$init_outcome" "$php_outcome" "$supervisord_outcome")
         details=("$npm_details" "$composer_details" "$semgrep_details" "$init_details" "$php_details" "$supervisord_details")
+        npm_note="Only fixable HIGH or CRITICAL vulnerabilities cause this scan to fail."
+        composer_note="Advisories ignored via \`config.audit.ignore\` in composer.json appear in the output but do not cause this scan to fail."
+        trivy_note="Only fixable HIGH or CRITICAL vulnerabilities cause this scan to fail."
+        notes=("$npm_note" "$composer_note" "" "$trivy_note" "$trivy_note" "$trivy_note")
+
+        failure_count=0
+        for i in "${!outcomes[@]}"; do
+          [ "${outcomes[$i]}" = "failure" ] && failure_count=$((failure_count + 1))
+        done
 
         {
           echo "<!-- vulnerability-scan-results-${{ inputs.REF }} -->"
           echo "## Security Scan Results for ${{ inputs.REF }}"
           echo ""
+
+          if [ "$failure_count" -gt 0 ]; then
+            echo "> [!CAUTION]"
+            echo "> **$failure_count scan(s) failed** — see below for what needs to be fixed."
+          else
+            echo "> [!TIP]"
+            echo "> All scans passed — no action required."
+          fi
+          echo ""
+
           echo "| Scan | Status |"
           echo "|------|--------|"
           for i in "${!labels[@]}"; do
             echo "| ${labels[$i]} | $(status_icon "${outcomes[$i]}") |"
           done
           echo ""
-          for i in "${!labels[@]}"; do
-            echo "<details><summary>${labels[$i]} details</summary>"
+
+          if [ "$failure_count" -gt 0 ]; then
+            echo "---"
             echo ""
-            echo '```'
-            printf '%s\n' "${details[$i]}"
-            echo '```'
+            echo "### What needs to be fixed"
             echo ""
-            echo "</details>"
-            echo ""
+            for i in "${!labels[@]}"; do
+              if [ "${outcomes[$i]}" = "failure" ]; then
+                echo "#### ${labels[$i]}"
+                echo ""
+                if [ -n "${notes[$i]}" ]; then
+                  echo "> [!NOTE]"
+                  echo "> ${notes[$i]}"
+                  echo ""
+                fi
+                echo '```'
+                printf '%s\n' "${details[$i]}"
+                echo '```'
+                echo ""
+              fi
+            done
+          fi
+
+          has_non_failure=false
+          for i in "${!outcomes[@]}"; do
+            [ "${outcomes[$i]}" != "failure" ] && has_non_failure=true && break
           done
+
+          if $has_non_failure; then
+            echo "<details><summary>View passing scan details</summary>"
+            echo ""
+            for i in "${!labels[@]}"; do
+              if [ "${outcomes[$i]}" != "failure" ]; then
+                echo "**${labels[$i]}** — $(status_icon "${outcomes[$i]}")"
+                echo ""
+                if [ -n "${notes[$i]}" ]; then
+                  echo "> [!NOTE]"
+                  echo "> ${notes[$i]}"
+                  echo ""
+                fi
+                echo '```'
+                printf '%s\n' "${details[$i]}"
+                echo '```'
+                echo ""
+              fi
+            done
+            echo "</details>"
+          fi
+
         } > /tmp/pr-comment.md
 
         PR_NUMBER=${{ github.event.pull_request.number }}
