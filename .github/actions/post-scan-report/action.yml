@@ -70,17 +70,17 @@ runs:
           esac
         }
 
-        npm_details=$(head -c 4000 ./scan-results/npm-audit.txt 2>/dev/null | sed 's/\x1B\[[0-9;]*[mK]//g' 2>/dev/null || true)
+        npm_details=$(cat ./scan-results/npm-audit.txt 2>/dev/null | sed 's/\x1B\[[0-9;]*[mK]//g' 2>/dev/null || true)
         npm_details="${npm_details:-No output captured}"
-        composer_details=$(head -c 4000 ./scan-results/composer-audit.txt 2>/dev/null | sed 's/\x1B\[[0-9;]*[mK]//g' 2>/dev/null || true)
+        composer_details=$(cat ./scan-results/composer-audit.txt 2>/dev/null | sed 's/\x1B\[[0-9;]*[mK]//g' 2>/dev/null || true)
         composer_details="${composer_details:-No output captured}"
-        semgrep_details=$(head -c 4000 ./scan-results/semgrep.txt 2>/dev/null || true)
+        semgrep_details=$(cat ./scan-results/semgrep.txt 2>/dev/null || true)
         semgrep_details="${semgrep_details:-No output captured}"
-        init_details=$(head -c 4000 ./trivy-results-init/trivy-init.txt 2>/dev/null || true)
+        init_details=$(cat ./trivy-results-init/trivy-init.txt 2>/dev/null || true)
         init_details="${init_details:-No output captured}"
-        php_details=$(head -c 4000 ./trivy-results-php/trivy-php.txt 2>/dev/null || true)
+        php_details=$(cat ./trivy-results-php/trivy-php.txt 2>/dev/null || true)
         php_details="${php_details:-No output captured}"
-        supervisord_details=$(head -c 4000 ./trivy-results-supervisord/trivy-supervisord.txt 2>/dev/null || true)
+        supervisord_details=$(cat ./trivy-results-supervisord/trivy-supervisord.txt 2>/dev/null || true)
         supervisord_details="${supervisord_details:-No output captured}"
 
         labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
