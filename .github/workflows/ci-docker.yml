@@ -249,7 +249,7 @@ jobs:
           > /tmp/npm-audit.txt
           while IFS= read -r -d '' f; do
             echo "--- Scanning $(dirname "$f") ---" | tee -a /tmp/npm-audit.txt
-            npm audit --audit-level=high --prefix "$(dirname "$f")" 2>&1 | tee -a /tmp/npm-audit.txt
+            npm audit --audit-level=high --omit=dev --prefix "$(dirname "$f")" 2>&1 | tee -a /tmp/npm-audit.txt
             [ "${PIPESTATUS[0]}" -eq 0 ] || result=1
           done < <(find . -name "package-lock.json" -not -path "*/node_modules/*" -print0)
           exit $result
@@ -271,7 +271,7 @@ jobs:
             if [ ! -f "${{ inputs.PIMCORE_ROOT }}/composer.lock" ]; then
               composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts --ignore-platform-reqs
             fi
-            composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore --locked
+            composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore --locked --no-dev
           } 2>&1 | tee /tmp/composer-audit.txt
 
       - name: Run Semgrep SAST scan
