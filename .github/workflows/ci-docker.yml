@@ -134,6 +134,11 @@ on:
         type: boolean
         default: false
         description: "Whether to post vulnerability scan results to the associated PR"
+      TRIVY_IGNORE_PATH:
+        required: false
+        type: string
+        default: ""
+        description: "Path to .trivyignore.yaml file (e.g. ./.trivyignore.yaml)"
 
     secrets:
       BUILD_TIME_SECRETS:
@@ -422,6 +427,7 @@ jobs:
           vuln-type: "os,library"
           scanners: "vuln"
           severity: "CRITICAL,HIGH"
+          trivyignores: ${{ inputs.TRIVIGNORE_PATH }}
 
       - name: Print Trivy results to log
         if: always()
