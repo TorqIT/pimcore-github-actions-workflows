@@ -55,7 +55,7 @@ runs:
         GH_TOKEN: ${{ inputs.GITHUB_TOKEN }}
       run: |
         npm_outcome="${{ inputs.NPM_OUTCOME }}"
-        composer_outcome="${{ inputs.COMPOSER_OUTCOME }}"
+        composer_outcome="failure" # TODO: remove — forced failure for testing collapsed sections
         semgrep_outcome="${{ inputs.SEMGREP_OUTCOME }}"
         init_outcome=$(cat ./trivy-results-init/trivy-init-status.txt 2>/dev/null || echo "unknown")
         php_outcome=$(cat ./trivy-results-php/trivy-php-status.txt 2>/dev/null || echo "unknown")
