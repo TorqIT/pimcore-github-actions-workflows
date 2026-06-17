@@ -82,7 +82,15 @@ runs:
       shell: bash
       run: |
         set -eEuo pipefail
-        
+
+        PIMCORE_ENTERPRISE_TOKEN="${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}"
+        if [[ -z "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
+          PIMCORE_ENTERPRISE_TOKEN=$(printf '%s' '${{ inputs.BUILD_TIME_SECRETS }}' | jq -r '."pimcore-enterprise-token" // empty' 2>/dev/null || true)
+        fi
+        if [[ -n "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
+          echo "::add-mask::$PIMCORE_ENTERPRISE_TOKEN"
+        fi
+
         docker run --rm \
           --network test-network \
           -e APP_ENV=test \
@@ -90,7 +98,7 @@ runs:
           -e PIMCORE_PRODUCT_KEY='${{ inputs.PIMCORE_PRODUCT_KEY }}' \
           -e PIMCORE_INSTANCE_IDENTIFIER='${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}' \
           -e PIMCORE_ENCRYPTION_SECRET='${{ inputs.PIMCORE_ENCRYPTION_SECRET }}' \
-          -e PIMCORE_ENTERPRISE_TOKEN='${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}' \
+          -e PIMCORE_ENTERPRISE_TOKEN="$PIMCORE_ENTERPRISE_TOKEN" \
           -e PIMCORE_ADMIN_USER='admin' \
           -e PIMCORE_ADMIN_PASSWORD='pimcore' \
           -e PIMCORE_INSTALL_MYSQL_HOST_SOCKET='test-db' \

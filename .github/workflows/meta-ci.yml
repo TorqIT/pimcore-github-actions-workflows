@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   meta:
-    name: "Meta CI checks"
+    name: "Meta CI checks on workflows repo"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -20,11 +20,6 @@ jobs:
 
       - name: Lint files
         uses: ./.github/actions/lint
-
-      - name: Lint GitHub Actions workflows
-        uses: docker://rhysd/actionlint:latest@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
-        with:
-          args: -color -shellcheck=
 
   skeleton-ci:
     name: "Test CI workflow against Pimcore skeleton"
@@ -37,6 +32,7 @@ jobs:
       PROJECT_REPOSITORY_REF: ${{ matrix.branch }}
       GITHUB_APP_CHECKOUT: true
       RUN_UNIT_TESTS: ${{ matrix.branch != '2024.x' }}
+      POST_SCAN_RESULTS_TO_PR: true
     secrets:
       GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
       GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}

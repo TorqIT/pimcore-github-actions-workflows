@@ -6,6 +6,7 @@ on:
     - cron: "0 0 * * *"
   pull_request:
     types: closed
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.repository }}__${{ github.ref }}-ci-tear-down
@@ -17,11 +18,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - parameters-file: "./.github/ci/parameters.2025.x.json"
-          - parameters-file: "./.github/ci/parameters.2025.x.json"
-    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/tear-down-azure-resources.yml@support-2026.x # TODO changeme back to v2
+          - parameters-file: "./.github/ci/azure/parameters.2025.x.json"
+          - parameters-file: "./.github/ci/azure/parameters.2026.x.json"
+    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/tear-down-azure-resources.yml@main
     with:
-      SERVICE_PRINCIPAL_ID: ${{ vars.SERVICE_PRINCIPAL_ID }}
+      SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
       PARAMETERS_FILE: ${{ matrix.parameters-file }}
+      FAIL_ON_ERROR: ${{ github.event_name == 'pull_request' }}
     secrets:
-      SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+      SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}

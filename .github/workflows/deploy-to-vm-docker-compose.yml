@@ -190,16 +190,16 @@ on:
         required: false
         default: false
         description: "For legacy systems - set to true if you want the values in RUN_TIME_SECRETS to be stored as run-time env vars"
-      POST_DEPLOYMENT_COMMANDS:
-        required: false
-        type: string
-        default: ""
-        description: "Newline-delimited bash commands to run in the PHP container after deployment"
       USE_GHA_CACHE:
         required: false
         type: boolean
         default: true
         description: "Whether to use GitHub Actions cache for Docker layer caching during image builds"
+      POST_DEPLOYMENT_COMMANDS:
+        required: false
+        type: string
+        default: ""
+        description: "Newline-delimited bash commands to run in the PHP container after deployment"
       FEATURE_FLAG_DISABLE_CONFIG_COPY:
         required: false
         type: boolean

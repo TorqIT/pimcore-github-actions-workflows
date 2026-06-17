@@ -12,6 +12,7 @@
 #     permissions:
 #       contents: read
 #       actions: read
+#       pull-requests: write  # required for post-scan-report to comment on PRs
 #     secrets:
 #       BUILD_TIME_SECRETS: >
 #         {
@@ -153,16 +154,11 @@ on:
         type: boolean
         default: false
         description: "Whether to use a GitHub App token for checking out the project repository and submodules"
-      GITHUB_APP_CHECKOUT_REPOSITORIES:
+      POST_SCAN_RESULTS_TO_PR:
         required: false
-        type: string
-        default: ""
-        description: "A comma or newline-separated list of repositories to checkout with the GitHub App token - if empty, only the main project repository will be checked out"
-      PR_NUMBER:
-        required: false
-        type: string
-        default: ""
-        description: "The Pull Request number to post results to"
+        type: boolean
+        default: false
+        description: "Whether to post vulnerability scan results to the associated PR"
 
     secrets:
       BUILD_TIME_SECRETS:
@@ -238,10 +234,154 @@ jobs:
       - name: Lint all files
         uses: ./reusable-workflow/.github/actions/lint
 
-  build-init:
-    name: Build init image
-    if: ${{ inputs.INIT }}
+  vulnerability-scan:
+    name: Scan for vulnerabilities in dependencies and code (SCA and SAST)
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    outputs:
+      npm-outcome: ${{ steps.npm-scan.outcome }}
+      composer-outcome: ${{ steps.composer-scan.outcome }}
+      semgrep-outcome: ${{ steps.semgrep-scan.outcome }}
+    steps:
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: ci-docker.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Check out project repository and submodules
+        uses: ./reusable-workflow/.github/actions/checkout
+        with:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+
+      - name: Install tools for workflows/actions
+        uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Scan for npm vulnerabilities
+        id: npm-scan
+        continue-on-error: true
+        run: |
+          result=0
+          > /tmp/npm-audit.txt
+          while IFS= read -r -d '' f; do
+            dir=$(dirname "$f")
+            dir_slug=$(echo "$dir" | sed 's|^\./||;s|/|__|g')
+            echo "--- Scanning $dir ---" | tee -a /tmp/npm-audit.txt
+            npm audit --omit=dev --prefix "$dir" 2>&1 | tee -a /tmp/npm-audit.txt || true
+            npm audit --json --omit=dev --prefix "$dir" 2>/dev/null \
+              | jq --arg dir "$dir" '. + {_scannedDir: $dir}' \
+              > "/tmp/npm-raw-${dir_slug:-root}.json" || true
+            fixable_count=$(jq '[(.vulnerabilities // {}) | to_entries[] | select((.value.severity == "high" or .value.severity == "critical") and .value.fixAvailable == true)] | length' "/tmp/npm-raw-${dir_slug:-root}.json" 2>/dev/null || echo 0)
+            if [ "$fixable_count" -gt 0 ]; then
+              result=1
+            else
+              echo "No fixable high/critical vulnerabilities found" | tee -a /tmp/npm-audit.txt
+            fi
+          done < <(find . -name "package-lock.json" -not -path "*/node_modules/*" -print0)
+          exit $result
+
+      - name: Scan for composer vulnerabilities
+        id: composer-scan
+        continue-on-error: true
+        run: |
+          {
+            PIMCORE_ENTERPRISE_TOKEN="${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
+            if [[ -z "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
+              PIMCORE_ENTERPRISE_TOKEN=$(printf '%s' '${{ secrets.BUILD_TIME_SECRETS }}' | jq -r '."pimcore-enterprise-token" // empty' 2>/dev/null || true)
+            fi
+            if [[ -n "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
+              echo "::add-mask::$PIMCORE_ENTERPRISE_TOKEN"
+              composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.repo.pimcore.com token "$PIMCORE_ENTERPRISE_TOKEN"
+            fi
+            if [ ! -f "${{ inputs.PIMCORE_ROOT }}/composer.lock" ]; then
+              composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts --ignore-platform-reqs
+            fi
+            composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore --locked --no-dev --format=json > /tmp/composer-audit.json 2>/dev/null || true
+            composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore --locked --no-dev || true
+          } 2>&1 | tee /tmp/composer-audit.txt || true
+          high_critical_count=$(jq '[.advisories // {} | to_entries[] | .value[] | select(.ignored != true and (.severity == "high" or .severity == "critical"))] | length' /tmp/composer-audit.json 2>/dev/null || echo 0)
+          [ "$high_critical_count" -eq 0 ]
+
+      - name: Run Semgrep SAST scan
+        id: semgrep-scan
+        continue-on-error: true
+        run: |
+          pip install semgrep --quiet --break-system-packages
+          semgrep scan \
+            --config p/php \
+            --config p/javascript \
+            --config p/github-actions \
+            --config p/typescript \
+            --error \
+            . 2>&1 | tee /tmp/semgrep.txt
+          exit ${PIPESTATUS[0]}
+        env:
+          SEMGREP_SEND_METRICS: off
+
+      - name: Upload scan results
+        if: always()
+        run: |
+          mkdir -p scan-results
+          cp /tmp/npm-audit.txt scan-results/ 2>/dev/null || true
+          cp /tmp/npm-raw-*.json scan-results/ 2>/dev/null || true
+          cp /tmp/composer-audit.txt scan-results/ 2>/dev/null || true
+          cp /tmp/composer-audit.json scan-results/ 2>/dev/null || true
+          cp /tmp/semgrep.txt scan-results/ 2>/dev/null || true
+
+      - name: Upload scan results artifact
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scan-results
+          path: scan-results/
+          if-no-files-found: ignore
+
+      - name: Fail if any scan found issues
+        if: >-
+          steps.npm-scan.outcome == 'failure' ||
+          steps.composer-scan.outcome == 'failure' ||
+          steps.semgrep-scan.outcome == 'failure'
+        run: |
+          echo "One or more vulnerability scans found issues - see PR comment for details"
+          exit 1
+
+  build:
+    name: Build and scan ${{ matrix.name }} image
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: init
+            dockerfile: ${{ inputs.INIT_DOCKERFILE }}
+            target: ${{ inputs.INIT_DOCKER_TARGET }}
+          - name: php
+            dockerfile: ${{ inputs.PHP_DOCKERFILE }}
+            target: ${{ inputs.PHP_DOCKER_TARGET }}
+            npm_build: ${{ inputs.NPM_BUILD }}
+            npm_spa: ${{ inputs.NPM_SPA }}
+            spa_twig: ${{ inputs.SPA_TWIG }}
+            frontend_root: ${{ inputs.FRONTEND_ROOT }}
+            npm_run_cmd: ${{ inputs.NPM_RUN_CMD }}
+          - name: supervisord
+            dockerfile: ${{ inputs.SUPERVISORD_DOCKERFILE }}
+            target: ${{ inputs.SUPERVISORD_TARGET }}
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -275,12 +415,14 @@ jobs:
 
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
+        with:
+          DRIVER: docker
 
-      - name: Build init image
+      - name: Build ${{ matrix.name }} image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
-          DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
-          DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
+          DOCKERFILE_TARGET: ${{ matrix.target }}
+          DOCKERFILE_PATH: ${{ matrix.dockerfile }}
           BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
           BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
@@ -289,69 +431,58 @@ jobs:
           PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
           PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          PUSH: false
-
-  build-php:
-    name: Build PHP image
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    steps:
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: ci-docker.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
-
-      - name: Check out project repository and submodules
-        uses: ./reusable-workflow/.github/actions/checkout
-        with:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          SUBMODULES: ${{ inputs.SUBMODULES }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
-          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-
-      - name: Install tools for workflows/actions
-        uses: ./reusable-workflow/.github/actions/setup-tools
-
-      - name: Set up Docker
-        uses: ./reusable-workflow/.github/actions/setup-docker
-
-      - name: Build PHP image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
-        with:
-          DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
-          DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
-          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
-          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
-          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
-          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
-          FRONTEND_ROOT: ${{ inputs.FRONTEND_ROOT }}
-          NPM_BUILD: ${{ inputs.NPM_BUILD }}
+          FRONTEND_ROOT: ${{ matrix.frontend_root }}
+          NPM_BUILD: ${{ matrix.npm_build }}
           RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
-          NPM_SPA: ${{ inputs.NPM_SPA }}
-          SPA_TWIG: ${{ inputs.SPA_TWIG }}
-          NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
+          NPM_SPA: ${{ matrix.npm_spa }}
+          SPA_TWIG: ${{ matrix.spa_twig }}
+          NPM_RUN_CMD: ${{ matrix.npm_run_cmd }}
           PUSH: false
+          TAGS: "${{ matrix.name }}:ci-${{ github.run_id }}"
 
-  build-supervisord:
-    name: Build supervisord image
+      - name: Run Trivy vulnerability scanner on image
+        id: trivy-scan
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # v0.36.0
+        with:
+          image-ref: "${{ matrix.name }}:ci-${{ github.run_id }}"
+          format: "table"
+          output: "trivy-${{ matrix.name }}.txt"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          scanners: "vuln"
+          severity: "CRITICAL,HIGH"
+
+      - name: Print Trivy results to log
+        if: always()
+        run: cat trivy-${{ matrix.name }}.txt 2>/dev/null || true
+
+      - name: Upload Trivy results
+        if: always()
+        run: echo "${{ steps.trivy-scan.outcome }}" > trivy-${{ matrix.name }}-status.txt
+
+      - name: Upload Trivy results artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: trivy-results-${{ matrix.name }}
+          path: |
+            trivy-${{ matrix.name }}.txt
+            trivy-${{ matrix.name }}-status.txt
+          if-no-files-found: ignore
+
+      - name: Fail if Trivy found vulnerabilities
+        if: steps.trivy-scan.outcome == 'failure'
+        run: |
+          echo "Trivy found CRITICAL or HIGH vulnerabilities in the ${{ matrix.name }} image"
+          exit 1
+
+  post-scan-report:
+    name: Post security scan results to PR
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    needs: [vulnerability-scan, build]
+    if: (success() || failure()) && github.event_name == 'pull_request' && inputs.POST_SCAN_RESULTS_TO_PR
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -369,37 +500,14 @@ jobs:
           path: reusable-workflow
           fetch-depth: 1
 
-      - name: Check out project repository and submodules
-        uses: ./reusable-workflow/.github/actions/checkout
+      - name: Post security scan results
+        uses: ./reusable-workflow/.github/actions/post-scan-report
         with:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          SUBMODULES: ${{ inputs.SUBMODULES }}
+          NPM_OUTCOME: ${{ needs.vulnerability-scan.outputs.npm-outcome }}
+          COMPOSER_OUTCOME: ${{ needs.vulnerability-scan.outputs.composer-outcome }}
+          SEMGREP_OUTCOME: ${{ needs.vulnerability-scan.outputs.semgrep-outcome }}
+          REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
-          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-
-      - name: Install tools for workflows/actions
-        uses: ./reusable-workflow/.github/actions/setup-tools
-
-      - name: Set up Docker
-        uses: ./reusable-workflow/.github/actions/setup-docker
-
-      - name: Build supervisord image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
-        with:
-          DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
-          DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
-          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
-          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
-          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
-          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          PUSH: false
 
   run-unit-tests:
     name: Run unit tests
@@ -525,5 +633,5 @@ jobs:
           PHP_DOCKER_COMPOSE_SERVICE: ${{ inputs.PHP_DOCKER_COMPOSE_SERVICE }}
           E2E_DOCKER_COMPOSE_SERVICE: ${{ inputs.E2E_DOCKER_COMPOSE_SERVICE }}
           GITHUB_TOKEN: ${{ secrets.CALLER_GITHUB_TOKEN }}
-          PR_NUMBER: ${{ inputs.PR_NUMBER }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
