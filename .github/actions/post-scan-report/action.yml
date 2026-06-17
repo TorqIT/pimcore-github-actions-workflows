@@ -118,20 +118,26 @@ runs:
                 rows=$(jq -r '
                   (.vulnerabilities // {}) | to_entries[] |
                   select((.value.severity == "high" or .value.severity == "critical") and (.value.fixAvailable != false)) |
-                  [.key, (.value.severity | ascii_upcase), (if .value.fixAvailable == true then "auto" else "manual" end)] |
-                  @tsv
+                  [
+                    .key,
+                    (.value.severity | ascii_upcase),
+                    (.value.version // ""),
+                    (if (.value.fixAvailable | type) == "object" then .value.fixAvailable.version else "" end),
+                    (if .value.fixAvailable == true then "auto" else "manual" end)
+                  ] | @tsv
                 ' "$json_file" 2>/dev/null || echo "")
                 [ -z "$rows" ] && continue
                 found_any=true
                 echo "**\`$scan_dir\`**"
                 echo ""
-                echo "| Package | Severity | Command |"
-                echo "|---------|----------|---------|"
-                while IFS=$'\t' read -r pkg severity fix_type; do
+                echo "| Package | Installed | Fix version | Command |"
+                echo "|---------|-----------|-------------|---------|"
+                while IFS=$'\t' read -r pkg severity installed fix_version fix_type; do
+                  fix_ver_col="${fix_version:----}"
                   if [ "$fix_type" = "auto" ]; then
-                    echo "| \`$pkg\` | $severity | \`npm audit fix --prefix $scan_dir\` |"
+                    echo "| \`$pkg\` | \`$installed\` | $fix_ver_col | \`npm audit fix --prefix $scan_dir\` |"
                   else
-                    echo "| \`$pkg\` | $severity | \`npm audit fix --force --prefix $scan_dir\` _(may introduce breaking changes)_ |"
+                    echo "| \`$pkg\` | \`$installed\` | $fix_ver_col | \`npm audit fix --force --prefix $scan_dir\` _(may introduce breaking changes)_ |"
                   fi
                 done <<< "$rows"
                 echo ""
@@ -151,18 +157,20 @@ runs:
               echo ""
               if [ -f "./scan-results/composer-audit.json" ]; then
                 rows=$(jq -r '
+                  . as $root |
                   .advisories // {} | to_entries[] |
                   .key as $pkg |
+                  ($root.dependencies[$pkg].version // "") as $installed |
                   .value[] |
                   select(.ignored != true and (.severity == "high" or .severity == "critical")) |
-                  [$pkg, (.severity | ascii_upcase), (.advisoryId // "")] |
+                  [$pkg, (.severity | ascii_upcase), $installed, (.advisoryId // "")] |
                   @tsv
                 ' ./scan-results/composer-audit.json 2>/dev/null || echo "")
                 if [ -n "$rows" ]; then
-                  echo "| Package | Severity | Advisory | Command |"
-                  echo "|---------|----------|----------|---------|"
-                  while IFS=$'\t' read -r pkg severity advisory; do
-                    echo "| \`$pkg\` | $severity | $advisory | \`composer update $pkg\` |"
+                  echo "| Package | Installed | Severity | Advisory | Command |"
+                  echo "|---------|-----------|----------|----------|---------|"
+                  while IFS=$'\t' read -r pkg severity installed advisory; do
+                    echo "| \`$pkg\` | \`$installed\` | $severity | $advisory | \`composer update $pkg\` |"
                   done <<< "$rows"
                   echo ""
                 else
@@ -200,7 +208,7 @@ runs:
                 echo "<details>"
                 echo "<summary><strong>$label</strong></summary>"
                 echo ""
-                echo "These are OS-level package vulnerabilities. Rebuild the image — a rebuild pulls in the patched package versions."
+                echo "These may include OS-level package vulnerabilities that require an image rebuild."
                 echo ""
                 trivy_text=$(cat "./trivy-results-${name}/trivy-${name}.txt" 2>/dev/null || echo "")
                 if [ -n "$trivy_text" ]; then
