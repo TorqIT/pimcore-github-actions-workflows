@@ -134,7 +134,7 @@ on:
         type: boolean
         default: false
         description: "Whether to post vulnerability scan results to the associated PR"
-      TRIVY_IGNORE_PATH:
+      TRIVYIGNORE_PATH:
         required: false
         type: string
         default: ""
@@ -427,7 +427,7 @@ jobs:
           vuln-type: "os,library"
           scanners: "vuln"
           severity: "CRITICAL,HIGH"
-          trivyignores: ${{ inputs.TRIVIGNORE_PATH }}
+          trivyignores: ${{ inputs.TRIVYIGNORE_PATH }}
 
       - name: Print Trivy results to log
         if: always()
