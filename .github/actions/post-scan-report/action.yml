@@ -108,7 +108,8 @@ runs:
 
             if [ "$npm_outcome" = "failure" ]; then
               echo ""
-              echo "### npm audit"
+              echo "<details>"
+              echo "<summary><strong>npm audit</strong></summary>"
               echo ""
               found_any=false
               for json_file in ./scan-results/npm-raw-*.json; do
@@ -139,11 +140,14 @@ runs:
                 echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
                 echo ""
               fi
+              echo "</details>"
+              echo ""
             fi
 
             if [ "$composer_outcome" = "failure" ]; then
               echo ""
-              echo "### Composer audit"
+              echo "<details>"
+              echo "<summary><strong>Composer audit</strong></summary>"
               echo ""
               if [ -f "./scan-results/composer-audit.json" ]; then
                 rows=$(jq -r '
@@ -169,13 +173,18 @@ runs:
                 echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
                 echo ""
               fi
+              echo "</details>"
+              echo ""
             fi
 
             if [ "$semgrep_outcome" = "failure" ]; then
               echo ""
-              echo "### Semgrep SAST"
+              echo "<details>"
+              echo "<summary><strong>Semgrep SAST</strong></summary>"
               echo ""
               echo "Code-level findings require manual review — refer to the [action logs]($LOGS_URL) for the flagged patterns and file locations."
+              echo ""
+              echo "</details>"
               echo ""
             fi
 
@@ -188,7 +197,8 @@ runs:
               t_outcome="${trivy_outcomes[$j]}"
               if [ "$t_outcome" = "failure" ]; then
                 echo ""
-                echo "### $label"
+                echo "<details>"
+                echo "<summary><strong>$label</strong></summary>"
                 echo ""
                 echo "These are OS-level package vulnerabilities. Rebuild the image — a rebuild pulls in the patched package versions."
                 echo ""
@@ -199,6 +209,8 @@ runs:
                   echo '```'
                   echo ""
                 fi
+                echo "</details>"
+                echo ""
               fi
             done
           fi
