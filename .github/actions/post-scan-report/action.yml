@@ -11,6 +11,10 @@ inputs:
   SEMGREP_OUTCOME:
     required: true
     description: "Outcome of the Semgrep SAST scan (success/failure/skipped)"
+  INIT:
+    required: false
+    default: "true"
+    description: "Whether the project uses an init container (omits the init Trivy row when false)"
   REF:
     required: true
     description: "The branch/ref name used in the comment marker for deduplication"
@@ -57,7 +61,6 @@ runs:
         npm_outcome="${{ inputs.NPM_OUTCOME }}"
         composer_outcome="${{ inputs.COMPOSER_OUTCOME }}"
         semgrep_outcome="${{ inputs.SEMGREP_OUTCOME }}"
-        init_outcome=$(cat ./trivy-results-init/trivy-init-status.txt 2>/dev/null || echo "unknown")
         php_outcome=$(cat ./trivy-results-php/trivy-php-status.txt 2>/dev/null || echo "unknown")
         supervisord_outcome=$(cat ./trivy-results-supervisord/trivy-supervisord-status.txt 2>/dev/null || echo "unknown")
 
@@ -70,8 +73,14 @@ runs:
           esac
         }
 
-        labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
-        outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$init_outcome" "$php_outcome" "$supervisord_outcome")
+        if [[ "${{ inputs.INIT }}" == "true" ]]; then
+          init_outcome=$(cat ./trivy-results-init/trivy-init-status.txt 2>/dev/null || echo "unknown")
+          labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
+          outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$init_outcome" "$php_outcome" "$supervisord_outcome")
+        else
+          labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (php image)" "Trivy (supervisord image)")
+          outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$php_outcome" "$supervisord_outcome")
+        fi
 
         failure_count=0
         for i in "${!outcomes[@]}"; do
@@ -190,9 +199,15 @@ runs:
               echo ""
             fi
 
-            trivy_names=("init" "php" "supervisord")
-            trivy_labels=("Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
-            trivy_outcomes=("$init_outcome" "$php_outcome" "$supervisord_outcome")
+            if [[ "${{ inputs.INIT }}" == "true" ]]; then
+              trivy_names=("init" "php" "supervisord")
+              trivy_labels=("Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
+              trivy_outcomes=("$init_outcome" "$php_outcome" "$supervisord_outcome")
+            else
+              trivy_names=("php" "supervisord")
+              trivy_labels=("Trivy (php image)" "Trivy (supervisord image)")
+              trivy_outcomes=("$php_outcome" "$supervisord_outcome")
+            fi
             for j in "${!trivy_names[@]}"; do
               name="${trivy_names[$j]}"
               label="${trivy_labels[$j]}"

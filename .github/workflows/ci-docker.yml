@@ -367,6 +367,8 @@ jobs:
           - name: supervisord
             dockerfile: ${{ inputs.SUPERVISORD_DOCKERFILE }}
             target: ${{ inputs.SUPERVISORD_TARGET }}
+        exclude:
+          - name: ${{ inputs.INIT && 'no-match' || 'init' }}
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -492,6 +494,7 @@ jobs:
           NPM_OUTCOME: ${{ needs.vulnerability-scan.outputs.npm-outcome }}
           COMPOSER_OUTCOME: ${{ needs.vulnerability-scan.outputs.composer-outcome }}
           SEMGREP_OUTCOME: ${{ needs.vulnerability-scan.outputs.semgrep-outcome }}
+          INIT: ${{ inputs.INIT }}
           REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
