@@ -367,8 +367,6 @@ jobs:
           - name: supervisord
             dockerfile: ${{ inputs.SUPERVISORD_DOCKERFILE }}
             target: ${{ inputs.SUPERVISORD_TARGET }}
-        exclude:
-          - name: ${{ inputs.INIT && 'no-match' || 'init' }}
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -406,6 +404,7 @@ jobs:
           DRIVER: docker
 
       - name: Build ${{ matrix.name }} image
+        if: matrix.name != 'init' || inputs.INIT
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
           DOCKERFILE_TARGET: ${{ matrix.target }}
@@ -429,6 +428,7 @@ jobs:
 
       - name: Run Trivy vulnerability scanner on image
         id: trivy-scan
+        if: matrix.name != 'init' || inputs.INIT
         continue-on-error: true
         uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # v0.36.0
         with:
