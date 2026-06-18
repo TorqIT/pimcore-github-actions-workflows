@@ -155,8 +155,8 @@ runs:
             elif [ -f "/var/www/html/vendor/bin/phpunit" ]; then
               $RUN_AS /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
             else
-              echo "Error: Neither codecept nor phpunit found in vendor/bin"
-              exit 1
+              composer require --dev codeception/codeception
+              $RUN_AS /var/www/html/vendor/bin/codecept run
             fi
           '
 
