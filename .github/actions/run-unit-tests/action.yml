@@ -155,7 +155,7 @@ runs:
             elif [ -f "/var/www/html/vendor/bin/phpunit" ]; then
               $RUN_AS /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
             else
-              composer require --dev codeception/codeception
+              $RUN_AS composer require --working-dir=/var/www/html --dev codeception/codeception
               $RUN_AS /var/www/html/vendor/bin/codecept run
             fi
           '
