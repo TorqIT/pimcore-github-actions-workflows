@@ -65,7 +65,7 @@ runs:
           case "$1" in
             success) echo "✅ Passed" ;;
             failure) echo "❌ Failed" ;;
-            skipped) echo "⏭️ Skipped" ;;
+            skipped) echo "❌ Skipped" ;;
             *) echo "⚠️ Unknown" ;;
           esac
         }
@@ -75,7 +75,9 @@ runs:
 
         failure_count=0
         for i in "${!outcomes[@]}"; do
-          [ "${outcomes[$i]}" = "failure" ] && failure_count=$((failure_count + 1))
+          if [ "${outcomes[$i]}" = "failure" ] || [ "${outcomes[$i]}" = "skipped" ]; then
+            failure_count=$((failure_count + 1))
+          fi
         done
 
         LOGS_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -195,19 +197,24 @@ runs:
               name="${trivy_names[$j]}"
               label="${trivy_labels[$j]}"
               t_outcome="${trivy_outcomes[$j]}"
-              if [ "$t_outcome" = "failure" ]; then
+              if [ "$t_outcome" = "failure" ] || [ "$t_outcome" = "skipped" ]; then
                 echo ""
                 echo "<details>"
                 echo "<summary><strong>$label</strong></summary>"
                 echo ""
-                echo "These may contain OS-level package vulnerabilities that require updates (e.g. `apt update <package>`) to be added to the Dockerfile."
-                echo ""
-                trivy_text=$(cat "./trivy-results-${name}/trivy-${name}.txt" 2>/dev/null || echo "")
-                if [ -n "$trivy_text" ]; then
-                  echo '```'
-                  echo "$trivy_text"
-                  echo '```'
+                if [ "$t_outcome" = "skipped" ]; then
+                  echo "The Trivy scan was skipped, likely because the Docker image build failed. Refer to the [action logs]($LOGS_URL) for details."
                   echo ""
+                else
+                  echo "These may contain OS-level package vulnerabilities that require updates (e.g. \`apt update <package>\`) to be added to the Dockerfile."
+                  echo ""
+                  trivy_text=$(cat "./trivy-results-${name}/trivy-${name}.txt" 2>/dev/null || echo "")
+                  if [ -n "$trivy_text" ]; then
+                    echo '```'
+                    echo "$trivy_text"
+                    echo '```'
+                    echo ""
+                  fi
                 fi
                 echo "</details>"
                 echo ""
