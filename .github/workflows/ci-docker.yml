@@ -282,6 +282,17 @@ jobs:
               echo "::add-mask::$PIMCORE_ENTERPRISE_TOKEN"
               composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.repo.pimcore.com token "$PIMCORE_ENTERPRISE_TOKEN"
             fi
+            REPMAN_CLIENT_TOKEN="${{ secrets.REPMAN_CLIENT_TOKEN }}"
+            if [[ -z "$REPMAN_CLIENT_TOKEN" ]]; then
+              REPMAN_CLIENT_TOKEN=$(printf '%s' '${{ secrets.BUILD_TIME_SECRETS }}' | jq -r '."repman-client-token" // empty' 2>/dev/null || true)
+            fi
+            if [[ -n "$REPMAN_CLIENT_TOKEN" ]]; then
+              echo "::add-mask::$REPMAN_CLIENT_TOKEN"
+              REPMAN_HOST=$(jq -r '.repositories // [] | map(select(.url // "" | contains("repman.io"))) | .[0].url // "" | ltrimstr("https://") | ltrimstr("http://") | rtrimstr("/")' ${{ inputs.PIMCORE_ROOT }}/composer.json 2>/dev/null || true)
+              if [[ -n "$REPMAN_HOST" ]]; then
+                composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.$REPMAN_HOST token "$REPMAN_CLIENT_TOKEN"
+              fi
+            fi
             if [ ! -f "${{ inputs.PIMCORE_ROOT }}/composer.lock" ]; then
               composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts --ignore-platform-reqs
             fi
