@@ -401,6 +401,14 @@ jobs:
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
 
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc /usr/local/.ghcup
+          sudo swapoff -a && sudo rm -f /swapfile
+        shell: bash
+
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
         with:
