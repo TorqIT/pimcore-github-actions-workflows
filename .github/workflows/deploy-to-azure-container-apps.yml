@@ -237,6 +237,9 @@ on:
       TORQ_GITHUB_TOKEN:
         required: false
         description: (Optional) A GitHub access token used to access private GitHub repositories
+      REPMAN_CLIENT_TOKEN:
+        required: false
+        description: (Optional) A client token for authenticating with a private Repman Composer repository
       RECAPTCHA_CLIENT_KEY:
         required: false
         description: (Optional) A client key used when building NPM frontends that require ReCAPTCHA

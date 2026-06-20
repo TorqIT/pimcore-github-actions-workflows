@@ -590,8 +590,8 @@ jobs:
           NPM_RUN_CMD: ${{ matrix.npm_run_cmd }}
           PUSH: false
           TAGS: |
-            "${{ inputs.CONTAINER_REGISTRY && join(inputs.CONTAINER_REGISTRY, ':') || '' }}${{ matrix.name }}:${{ inputs.IMAGES_TAG }}",
-            "${{ inputs.CONTAINER_REGISTRY && join(inputs.CONTAINER_REGISTRY, ':') || ''  }}${{ matrix.name }}:${{ github.run_id }}"
+            "${{ inputs.CONTAINER_REGISTRY }}:${{ matrix.name }}:${{ inputs.IMAGES_TAG }}",
+            "${{ inputs.CONTAINER_REGISTRY }}:${{ matrix.name }}:${{ github.run_id }}"
 
       - name: Free disk space before Trivy scan if needed
         if: matrix.name != 'init' || inputs.INIT
@@ -609,7 +609,7 @@ jobs:
         continue-on-error: true
         uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # v0.36.0
         with:
-          image-ref: "${{ inputs.CONTAINER_REGISTRY && join(inputs.CONTAINER_REGISTRY, ':') || '' }}${{ matrix.name }}:${{ github.run_id }}"
+          image-ref: "${{ inputs.CONTAINER_REGISTRY }}:${{ matrix.name }}:${{ github.run_id }}"
           format: "table"
           output: "trivy-${{ matrix.name }}.txt"
           exit-code: "1"
