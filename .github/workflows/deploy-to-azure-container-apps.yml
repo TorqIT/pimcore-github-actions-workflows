@@ -254,6 +254,8 @@ on:
         description: The private key of the GitHub App used to generate a token for checking out the project repository and submodules
 
 jobs:
+  # TODO parse Azure parameters from parameters file - get rid of all vars references
+
   ci:
     name: CI (Build, test, verify and push images)
     uses: ./.github/workflows/ci-docker.yml
