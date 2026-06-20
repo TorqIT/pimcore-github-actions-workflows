@@ -42,6 +42,16 @@ on:
         required: true
         type: string
         description: Self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
+      PROJECT_REPOSITORY:
+        required: false
+        type: string
+        default: ${{ github.repository }}
+        description: "The repository in which the Pimcore project is located, in owner/repo format. If not provided, the value of github.repository will be used"
+      PROJECT_REPOSITORY_REF:
+        required: false
+        type: string
+        default: ${{ github.ref }}
+        description: "The branch or tag of the repository to use. If not provided, the branch that this workflow was called from will be used"
       SKIP_LINTING:
         required: false
         type: boolean
@@ -200,6 +210,11 @@ on:
         type: string
         default: ""
         description: "Newline-delimited bash commands to run in the PHP container after deployment"
+      FEATURE_FLAG_INSTALL_MISSING_BUNDLES:
+        required: false
+        type: boolean
+        default: false
+        description: "Feature flag - whether to automatically install missing required Pimcore bundles (e.g. Azure Flysystem bundle). Will be removed and assumed true in a future release."
       FEATURE_FLAG_DISABLE_CONFIG_COPY:
         required: false
         type: boolean
@@ -225,6 +240,21 @@ on:
         type: string
         default: "/"
         description: "Sub-path (relative to http://localhost, using the format /my-healthcheck) to use when checking the health of the new deployment during blue/green deployment (e.g. /health or /status) - if empty, the root path will be used"
+      TRIVYIGNORE_PATH:
+        required: false
+        type: string
+        default: ""
+        description: "Path to .trivyignore.yaml file (e.g. ./.trivyignore.yaml)"
+      RUN_UNIT_TESTS:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to run unit tests. Default: false, but will be true in future versions"
+      UNIT_TESTS_DIRECTORY:
+        required: false
+        type: string
+        default: "tests"
+        description: "The directory where unit tests are located - note this should be relative to the Pimcore root, as once inside the container the working directory is set to the Pimcore root"
 
     secrets:
       CALLER_GITHUB_TOKEN:
@@ -287,13 +317,24 @@ jobs:
       FEATURE_FLAG_DISABLE_CONFIG_COPY: ${{ inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
       AZURE_MYSQL: ${{ inputs.AZURE_MYSQL }}
       AZURE_STORAGE: ${{ inputs.AZURE_STORAGE }}
-      # AZURE_TENANT_ID: ${{ inputs.TENA }}
+      # AZURE_TENANT_ID: ${{ inputs.TENANT }}
       # AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       # AZURE_CONTAINER_REGISTRY_FIREWALL: ${{ vars.CONTAINER_REGISTRY_FIREWALL }}
     secrets:
-      inherit: true
+      BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
+      PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+      PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+      PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
+      PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
+      TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+      REPMAN_CLIENT_TOKEN: ${{ secrets.REPMAN_CLIENT_TOKEN }}
+      RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
+      GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+      GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
       CONTAINER_REGISTRY_USERNAME: ${{ inputs.CONTAINER_REGISTRY_USERNAME }}
       CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CONTAINER_REGISTRY_PASSWORD || secrets.CALLER_GITHUB_TOKEN }}
+      AZURE_SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+      AZURE_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
 
   deploy-containers:
     name: Deploy containers via Docker Compose

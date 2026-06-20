@@ -670,7 +670,7 @@ jobs:
       - name: Remove exception from Azure Container Registry firewall, if one is in place
         if: always()
         run: |
-          if [[ ${{ inputs.CONTAINER_REGISTRY_FIREWALL }} == "true" ]]; then
+          if [[ ${{ inputs.AZURE_CONTAINER_REGISTRY_FIREWALL }} == "true" ]]; then
             echo "Removing exception for this runner's IP from Container Registry firewall..."
             az acr network-rule remove -n ${{ inputs.CONTAINER_REGISTRY }} --ip-address $(curl ipinfo.io/ip)
           else
