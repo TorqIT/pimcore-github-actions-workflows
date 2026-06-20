@@ -422,7 +422,6 @@ jobs:
   run-unit-tests:
     name: Run unit tests
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    if: ${{ inputs.RUN_UNIT_TESTS }}
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -459,6 +458,7 @@ jobs:
 
       - name: Run unit tests
         uses: ./reusable-workflow/.github/actions/run-unit-tests
+        if: ${{ inputs.RUN_UNIT_TESTS }}
         with:
           DOCKERFILE: ${{ inputs.INIT && inputs.INIT_DOCKERFILE || inputs.PHP_DOCKERFILE }}
           DOCKERFILE_TARGET: ${{ inputs.INIT && inputs.INIT_DOCKER_TARGET || inputs.PHP_DOCKER_TARGET }}
