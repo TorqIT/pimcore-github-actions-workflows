@@ -44,6 +44,7 @@ on:
       CONTAINER_REGISTRY:
         required: false
         type: string
+        default: "ci"
         description: "Docker container registry to push images to - if left empty, images will not be pushed anywhere"
       NPM_BUILD:
         required: false
@@ -588,7 +589,6 @@ jobs:
           NPM_SPA: ${{ matrix.npm_spa }}
           SPA_TWIG: ${{ matrix.spa_twig }}
           NPM_RUN_CMD: ${{ matrix.npm_run_cmd }}
-          PUSH: false
           TAGS: |
             "${{ inputs.CONTAINER_REGISTRY }}:${{ matrix.name }}:${{ inputs.IMAGES_TAG }}",
             "${{ inputs.CONTAINER_REGISTRY }}:${{ matrix.name }}:${{ github.run_id }}"
@@ -662,13 +662,13 @@ jobs:
       - name: Push image
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
-          push: ${{ inputs.CONTAINER_REGISTRY != '' }}
+          push: ${{ inputs.CONTAINER_REGISTRY != 'ci' }}
           tags: |
             "${{ inputs.CONTAINER_REGISTRY }}:${{ matrix.name }}:${{ inputs.IMAGES_TAG }}",
             "${{ inputs.CONTAINER_REGISTRY }}:${{ matrix.name }}:${{ github.run_id }}"
 
       - name: Remove exception from Azure Container Registry firewall, if one is in place
-        if: always()
+        if: always() && inputs.CONTAINER_REGISTRY != 'ci'
         run: |
           if [[ ${{ inputs.AZURE_CONTAINER_REGISTRY_FIREWALL }} == "true" ]]; then
             echo "Removing exception for this runner's IP from Container Registry firewall..."
