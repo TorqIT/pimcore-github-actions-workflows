@@ -236,13 +236,51 @@ on:
         description: The private key of the GitHub App used to generate a token for checking out the project repository and submodules
 
 jobs:
-  build-and-push-images:
-    name: Build and push Pimcore Docker images
+  ci:
+    name: CI (Build, test, verify and push images)
+    uses: ./.github/workflows/ci-docker.yml
+    with:
+      RUNNER: ${{ inputs.RUNNER }}
+      PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+      PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+      SUBMODULES: ${{ inputs.SUBMODULES }}
+      CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+      NPM_BUILD: ${{ inputs.NPM_BUILD }}
+      NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
+      NPM_SPA: ${{ inputs.NPM_SPA }}
+      SPA_TWIG: ${{ inputs.SPA_TWIG }}
+      FRONTEND_ROOT: ${{ inputs.FRONTEND_ROOT }}
+      BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
+      PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+      IMAGES_TAG: "latest"
+      INIT_IMAGE: ${{ vars.INIT_IMAGE }}
+      INIT_DOCKERFILE: ${{ inputs.INIT_DOCKERFILE }}
+      INIT_DOCKER_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
+      PHP_IMAGE: ${{ vars.PHP_IMAGE }}
+      PHP_DOCKERFILE: ${{ inputs.PHP_DOCKERFILE }}
+      PHP_DOCKER_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
+      SUPERVISORD_IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
+      SUPERVISORD_DOCKERFILE: ${{ inputs.SUPERVISORD_DOCKERFILE }}
+      SUPERVISORD_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
+      RUN_UNIT_TESTS: ${{ inputs.RUN_UNIT_TESTS }}
+      UNIT_TESTS_DIRECTORY: ${{ inputs.UNIT_TESTS_DIRECTORY }}
+      GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+      TRIVYIGNORE_PATH: ${{ inputs.TRIVYIGNORE_PATH }}
+      FEATURE_FLAG_INSTALL_MISSING_BUNDLES: ${{ inputs.FEATURE_FLAG_INSTALL_MISSING_BUNDLES }}
+      FEATURE_FLAG_DISABLE_CONFIG_COPY: ${{ inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
+      AZURE_MYSQL: true
+      AZURE_STORAGE: true
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_CONTAINER_REGISTRY_FIREWALL: ${{ vars.CONTAINER_REGISTRY_FIREWALL }}
+    secrets:
+      inherit: true
+
+  apply-azure-infra-changes:
+    name: Apply Azure infrastructure changes, if parameters files have changed
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
-    outputs:
-      workflow-version: ${{ steps.workflow-version.outputs.version }}
-
+    needs: [ci]
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -271,42 +309,8 @@ jobs:
           GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
           GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
 
-      - name: Copy config files required for running with Azure Flysystem
-        uses: ./reusable-workflow/.github/actions/azure-flysystem-copy-config
-        if: ${{ !inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
-        with:
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-
-      - name: Copy config files required for running with an Azure MySQL server
-        uses: ./reusable-workflow/.github/actions/azure-mysql-copy-config
-        if: ${{ !inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
-        with:
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
-
-      - name: Lint files
-        if: ${{ inputs.SKIP_LINTING == false }}
-        uses: ./reusable-workflow/.github/actions/lint
-
-      - name: Install required bundles if not already installed
-        if: ${{ inputs.FEATURE_FLAG_INSTALL_MISSING_BUNDLES }}
-        run: |
-          set -euo pipefail
-
-          bundles=(
-            "torq/pimcore-flysystem-azure-bundle:^5.3"
-          )
-
-          for bundle in "${bundles[@]}"; do
-            if composer show --no-interaction --no-ansi "$bundle" >/dev/null 2>&1; then
-              echo "$bundle is already installed, skipping"
-            else
-              echo "$bundle not found, installing..."
-              composer require --no-interaction --no-ansi --no-scripts "$bundle"
-            fi
-          done
 
       - name: Log in to Azure
         uses: ./reusable-workflow/.github/actions/azure-login
@@ -315,20 +319,6 @@ jobs:
           SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
           TENANT: ${{ vars.AZURE_TENANT_ID }}
           SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Add exception to Azure Container Registry firewall, if one is in place
-        if: ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }}
-        run: |
-          az acr network-rule add -n ${{ vars.CONTAINER_REGISTRY }} --ip-address $(curl ipinfo.io/ip)
-          # Sleep for a few seconds to allow network rules to propagate
-          sleep 60
-
-      - name: Set up Docker
-        uses: ./reusable-workflow/.github/actions/setup-docker
-        with:
-          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          CONTAINER_REGISTRY_USERNAME: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
 
       - name: Apply Azure infrastructure changes
         uses: ./reusable-workflow/.github/actions/azure-apply-infra-changes
@@ -342,80 +332,11 @@ jobs:
           AZURE_PARAMETERS_FILE: ${{ vars.AZURE_PARAMETERS_FILE }}
           AZURE_SKIP_DB_DEPLOY: ${{ inputs.AZURE_SKIP_DB_DEPLOY }}
 
-      - name: Build and push init image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
-        with:
-          DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
-          DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          BUILD_TIME_SECRETS: ${{secrets.BUILD_TIME_SECRETS }}
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
-          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
-          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
-          TAGS: |
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:latest,
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:${{ github.run_id }}
-
-      - name: Build and push PHP image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
-        with:
-          DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
-          DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          BUILD_TIME_SECRETS: ${{secrets.BUILD_TIME_SECRETS }}
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
-          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
-          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          FRONTEND_ROOT: ${{ inputs.FRONTEND_ROOT }}
-          NPM_BUILD: ${{ inputs.NPM_BUILD }}
-          RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
-          NPM_SPA: ${{ inputs.NPM_SPA }}
-          SPA_TWIG: ${{ inputs.SPA_TWIG }}
-          NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
-          TAGS: |
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:latest,
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:${{ github.run_id }}
-
-      - name: Build and push supervisord image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
-        with:
-          DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
-          DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          BUILD_TIME_SECRETS: ${{secrets.BUILD_TIME_SECRETS }}
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
-          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
-          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          TAGS: |
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:latest,
-            ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
-
-      - name: Remove exception from Azure Container Registry firewall, if one is in place
-        if: always()
-        run: |
-          if [[ ${{ vars.CONTAINER_REGISTRY_FIREWALL || false }} == "true" ]]; then
-            echo "Removing exception for this runner's IP from Container Registry firewall..."
-            az acr network-rule remove -n ${{ vars.CONTAINER_REGISTRY }} --ip-address $(curl ipinfo.io/ip)
-          else
-            echo "Container Registry has no firewall in place, so nothing to do"
-          fi
-
   deploy-and-run-init:
     name: Deploy and run init Container App Job
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
-    outputs:
-      workflow-version: ${{ needs.build-and-push-images.outputs.workflow-version }}
-    needs:
-      - build-and-push-images
+    needs: [ci]
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -469,8 +390,7 @@ jobs:
     name: Deploy new revision of PHP Container App
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
-    needs:
-      - deploy-and-run-init
+    needs: [deploy-and-run-init]
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -524,8 +444,7 @@ jobs:
     name: Deploy new revision of supervisord Container App
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT }}
-    needs:
-      - deploy-and-run-init
+    needs: [deploy-and-run-init]
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -579,9 +498,11 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT }}
     if: failure()
     needs:
-      - deploy-and-run-init
-      - deploy-php-container-app-revision
-      - deploy-supervisord-container-app-revision
+      [
+        deploy-and-run-init,
+        deploy-php-container-app-revision,
+        deploy-supervisord-container-app-revision,
+      ]
     steps:
       - id: check-webhook-url
         # Hacky workaround to get around the fact that we cannot reference secrets in a conditional

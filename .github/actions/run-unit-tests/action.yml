@@ -62,7 +62,7 @@ runs:
             --lower-case-table-names=1
 
     - name: Build image
-      uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
+      uses: ./reusable-workflow/.github/actions/build-pimcore-image
       with:
         DOCKERFILE_PATH: ${{ inputs.DOCKERFILE }}
         DOCKERFILE_TARGET: ${{ inputs.DOCKERFILE_TARGET }}
@@ -74,7 +74,6 @@ runs:
         PIMCORE_INSTANCE_IDENTIFIER: ${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}
         PIMCORE_ENCRYPTION_SECRET: ${{ inputs.PIMCORE_ENCRYPTION_SECRET }}
         TORQ_GITHUB_TOKEN: ${{ inputs.TORQ_GITHUB_TOKEN }}
-        PUSH: "false"
         LOAD: "true"
         TAGS: "test:test"
 

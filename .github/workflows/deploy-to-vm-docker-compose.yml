@@ -253,125 +253,53 @@ on:
         description: The private key of the GitHub App used to generate a token for checking out the project repository and submodules
 
 jobs:
-  build-and-push-images:
-    name: Build and push Pimcore Docker images
-    runs-on: "ubuntu-latest"
-    environment: ${{ inputs.ENVIRONMENT }}
-
-    steps:
-      - name: Create token from GitHub App
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        if: ${{ inputs.GITHUB_APP_CHECKOUT }}
-        id: create_token
-        with:
-          app-id: ${{ secrets.GITHUB_APP_ID }}
-          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
-
-      - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          submodules: ${{ inputs.SUBMODULES }}
-          fetch-depth: 0
-          token: ${{ inputs.GITHUB_APP_CHECKOUT && steps.create_token.outputs.token || secrets.CALLER_GITHUB_TOKEN }}
-
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: deploy-to-vm-docker-compose.yml
-          github-token: ${{ secrets.CALLER_GITHUB_TOKEN }}
-
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
-
-      - name: Copy config files required for running with an Azure MySQL server
-        uses: ./reusable-workflow/.github/actions/azure-mysql-copy-config
-        if: ${{ inputs.AZURE_MYSQL && !inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
-        with:
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-
-      - name: Copy config files required for running with Flysystem bundle and Azure Storage
-        uses: ./reusable-workflow/.github/actions/azure-flysystem-copy-config
-        if: ${{ inputs.AZURE_STORAGE && !inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
-        with:
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-
-      - name: Install tools for workflows/actions
-        uses: ./reusable-workflow/.github/actions/setup-tools
-
-      - name: Lint all files
-        if: ${{ inputs.SKIP_LINTING == false }}
-        uses: ./reusable-workflow/.github/actions/lint
-
-      - name: Set up Docker
-        uses: ./reusable-workflow/.github/actions/setup-docker
-        with:
-          CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
-          CONTAINER_REGISTRY_USERNAME: ${{ inputs.CONTAINER_REGISTRY_USERNAME }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CONTAINER_REGISTRY_PASSWORD || secrets.CALLER_GITHUB_TOKEN }}
-
-      - name: Build and push init image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
-        if: ${{ inputs.INIT }}
-        with:
-          DOCKERFILE_PATH: ${{ inputs.INIT_DOCKERFILE }}
-          DOCKERFILE_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
-          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
-          CACHE_FROM: ${{ inputs.USE_GHA_CACHE && 'type=gha' || '' }}
-          CACHE_TO: ${{ inputs.USE_GHA_CACHE && 'type=gha,mode=min' || '' }}
-          TAGS: |
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE || 'init' }}:${{ inputs.IMAGES_TAG }},
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE || 'init' }}:${{ github.run_id }}
-
-      - name: Build and push PHP image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
-        with:
-          DOCKERFILE_PATH: ${{ inputs.PHP_DOCKERFILE }}
-          DOCKERFILE_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
-          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
-          FRONTEND_ROOT: ${{ inputs.FRONTEND_ROOT }}
-          NPM_BUILD: ${{ inputs.NPM_BUILD }}
-          RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
-          NPM_SPA: ${{ inputs.NPM_SPA }}
-          SPA_TWIG: ${{ inputs.SPA_TWIG }}
-          NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
-          CACHE_FROM: ${{ inputs.USE_GHA_CACHE && 'type=gha' || '' }}
-          CACHE_TO: ${{ inputs.USE_GHA_CACHE && 'type=gha,mode=min' || '' }}
-          TAGS: |
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE }}:${{ inputs.IMAGES_TAG  }},
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.PHP_IMAGE }}:${{ github.run_id }}
-
-      - name: Build and push supervisord image
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
-        with:
-          DOCKERFILE_PATH: ${{ inputs.SUPERVISORD_DOCKERFILE }}
-          DOCKERFILE_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
-          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
-          CACHE_FROM: ${{ inputs.USE_GHA_CACHE && 'type=gha' || '' }}
-          CACHE_TO: ${{ inputs.USE_GHA_CACHE && 'type=gha,mode=min' || '' }}
-          TAGS: |
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ inputs.IMAGES_TAG }},
-            ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ github.run_id }}
+  ci:
+    name: CI (Build, test, verify and push images)
+    uses: ./.github/workflows/ci-docker.yml
+    with:
+      RUNNER: ${{ inputs.RUNNER }}
+      PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+      PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+      GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+      SUBMODULES: ${{ inputs.SUBMODULES }}
+      CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+      NPM_BUILD: ${{ inputs.NPM_BUILD }}
+      NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
+      NPM_SPA: ${{ inputs.NPM_SPA }}
+      SPA_TWIG: ${{ inputs.SPA_TWIG }}
+      FRONTEND_ROOT: ${{ inputs.FRONTEND_ROOT }}
+      BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
+      PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+      IMAGES_TAG: "latest"
+      INIT_IMAGE: ${{ vars.INIT_IMAGE }}
+      INIT_DOCKERFILE: ${{ inputs.INIT_DOCKERFILE }}
+      INIT_DOCKER_TARGET: ${{ inputs.INIT_DOCKER_TARGET }}
+      PHP_IMAGE: ${{ vars.PHP_IMAGE }}
+      PHP_DOCKERFILE: ${{ inputs.PHP_DOCKERFILE }}
+      PHP_DOCKER_TARGET: ${{ inputs.PHP_DOCKER_TARGET }}
+      SUPERVISORD_IMAGE: ${{ vars.SUPERVISORD_IMAGE }}
+      SUPERVISORD_DOCKERFILE: ${{ inputs.SUPERVISORD_DOCKERFILE }}
+      SUPERVISORD_TARGET: ${{ inputs.SUPERVISORD_TARGET }}
+      RUN_UNIT_TESTS: ${{ inputs.RUN_UNIT_TESTS }}
+      UNIT_TESTS_DIRECTORY: ${{ inputs.UNIT_TESTS_DIRECTORY }}
+      TRIVYIGNORE_PATH: ${{ inputs.TRIVYIGNORE_PATH }}
+      FEATURE_FLAG_INSTALL_MISSING_BUNDLES: ${{ inputs.FEATURE_FLAG_INSTALL_MISSING_BUNDLES }}
+      FEATURE_FLAG_DISABLE_CONFIG_COPY: ${{ inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
+      AZURE_MYSQL: ${{ inputs.AZURE_MYSQL }}
+      AZURE_STORAGE: ${{ inputs.AZURE_STORAGE }}
+      # AZURE_TENANT_ID: ${{ inputs.TENA }}
+      # AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      # AZURE_CONTAINER_REGISTRY_FIREWALL: ${{ vars.CONTAINER_REGISTRY_FIREWALL }}
+    secrets:
+      inherit: true
+      CONTAINER_REGISTRY_USERNAME: ${{ inputs.CONTAINER_REGISTRY_USERNAME }}
+      CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CONTAINER_REGISTRY_PASSWORD || secrets.CALLER_GITHUB_TOKEN }}
 
   deploy-containers:
     name: Deploy containers via Docker Compose
     runs-on: ${{ inputs.RUNNER }}
     environment: ${{ inputs.ENVIRONMENT }}
-    needs:
-      - build-and-push-images
+    needs: [ci]
     steps:
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -585,9 +513,7 @@ jobs:
     runs-on: "ubuntu-latest"
     environment: ${{ inputs.ENVIRONMENT }}
     if: failure()
-    needs:
-      - build-and-push-images
-      - deploy-containers
+    needs: [ci, deploy-containers]
     steps:
       - id: check-webhook-url
         # Hacky workaround to get around the fact that we cannot reference secrets in a conditional

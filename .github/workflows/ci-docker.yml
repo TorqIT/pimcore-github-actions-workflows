@@ -41,6 +41,10 @@ on:
         default: "${{ github.head_ref }}"
         type: string
         description: "The Git reference (branch, tag, commit SHA) to checkout from the project repository"
+      CONTAINER_REGISTRY:
+        required: false
+        type: string
+        description: "Docker container registry to push images to - if left empty, images will not be pushed anywhere"
       NPM_BUILD:
         required: false
         type: boolean
@@ -79,11 +83,21 @@ on:
         type: string
         default: "."
         description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, etc)"
+      IMAGES_TAG:
+        required: false
+        type: string
+        default: latest
+        description: "Tag for built images (e.g. dev, test, prod). Images will be tagged with this as well as the run ID. If not provided, latest will be used"
       INIT:
         required: false
         type: boolean
         default: true
         description: "Whether the project uses an init container"
+      INIT_IMAGE:
+        required: false
+        type: string
+        default: "init"
+        description: "Name of the init image"
       INIT_DOCKERFILE:
         required: false
         type: string
@@ -94,6 +108,11 @@ on:
         type: string
         default: "init"
         description: "The Docker target to use when building the init image"
+      PHP_IMAGE:
+        required: false
+        type: string
+        default: "php"
+        description: "Name of the PHP Pimcore image"
       PHP_DOCKERFILE:
         required: false
         type: string
@@ -104,6 +123,11 @@ on:
         type: string
         default: "php"
         description: "The Docker target to use when building the PHP image"
+      SUPERVISORD_IMAGE:
+        required: false
+        type: string
+        default: "supervisord"
+        description: "Name of the supervisord Pimcore image"
       SUPERVISORD_DOCKERFILE:
         required: false
         type: string
@@ -139,6 +163,39 @@ on:
         type: string
         default: ""
         description: "Path to .trivyignore.yaml file (e.g. ./.trivyignore.yaml)"
+      FEATURE_FLAG_INSTALL_MISSING_BUNDLES:
+        required: false
+        type: boolean
+        default: false
+        description: "Feature flag - whether to automatically install missing required Pimcore bundles (e.g. Azure Flysystem bundle). Will be removed and assumed true in a future release."
+      FEATURE_FLAG_DISABLE_CONFIG_COPY:
+        required: false
+        type: boolean
+        default: false
+        description: "Feature flag - whether to disable copying of config files for Azure MySQL and Azure Storage. Will be removed and assumed true in a future release."
+      AZURE_MYSQL:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether the application uses an Azure MySQL server instance as its database"
+      AZURE_STORAGE:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether the application uses Azure Storage and Flysystem for its file storage"
+      AZURE_TENANT_ID:
+        required: false
+        type: string
+        description: ID of the Azure tenant to deploy to
+      AZURE_SUBSCRIPTION_ID:
+        required: false
+        type: string
+        description: ID of the Azure subscription to deploy to
+      AZURE_CONTAINER_REGISTRY_FIREWALL:
+        required: false
+        type: boolean
+        default: false
+        description: True if the Azure Container Registry has a network firewall that needs to be bypassed before pushing images.
 
     secrets:
       BUILD_TIME_SECRETS:
@@ -171,6 +228,18 @@ on:
       GITHUB_APP_PRIVATE_KEY:
         required: false
         description: The private key of the GitHub App used to generate a token for checking out the project repository and submodules
+      CONTAINER_REGISTRY_USERNAME:
+        required: false
+        description: "Container registry username - only required if CONTAINER_REGISTRY is defined"
+      CONTAINER_REGISTRY_PASSWORD:
+        required: false
+        description: "Container registry password - only required if CONTAINER_REGISTRY is defined"
+      AZURE_SERVICE_PRINCIPAL_ID:
+        required: false
+        description: The ID of the Service Principal in Azure that will be used to deploy. The Service Principal must have permission to push images to the Container Registry and to deploy new revisions to the init, PHP and supervisord Container Apps.
+      AZURE_SERVICE_PRINCIPAL_PASSWORD:
+        required: false
+        description: The password for the Service Principal in Azure
 
 jobs:
   lint:
@@ -349,168 +418,6 @@ jobs:
           echo "One or more vulnerability scans found issues - see PR comment for details"
           exit 1
 
-  build:
-    name: Build and scan ${{ matrix.name }} image
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: init
-            dockerfile: ${{ inputs.INIT_DOCKERFILE }}
-            target: ${{ inputs.INIT_DOCKER_TARGET }}
-          - name: php
-            dockerfile: ${{ inputs.PHP_DOCKERFILE }}
-            target: ${{ inputs.PHP_DOCKER_TARGET }}
-            npm_build: ${{ inputs.NPM_BUILD }}
-            npm_spa: ${{ inputs.NPM_SPA }}
-            spa_twig: ${{ inputs.SPA_TWIG }}
-            frontend_root: ${{ inputs.FRONTEND_ROOT }}
-            npm_run_cmd: ${{ inputs.NPM_RUN_CMD }}
-          - name: supervisord
-            dockerfile: ${{ inputs.SUPERVISORD_DOCKERFILE }}
-            target: ${{ inputs.SUPERVISORD_TARGET }}
-    steps:
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: ci-docker.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
-
-      - name: Check out project repository and submodules
-        uses: ./reusable-workflow/.github/actions/checkout
-        with:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          SUBMODULES: ${{ inputs.SUBMODULES }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
-          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-
-      - name: Install tools for workflows/actions
-        uses: ./reusable-workflow/.github/actions/setup-tools
-
-      - name: Set up Docker
-        uses: ./reusable-workflow/.github/actions/setup-docker
-        with:
-          DRIVER: docker
-
-      - name: Build ${{ matrix.name }} image
-        if: matrix.name != 'init' || inputs.INIT
-        uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
-        with:
-          DOCKERFILE_TARGET: ${{ matrix.target }}
-          DOCKERFILE_PATH: ${{ matrix.dockerfile }}
-          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
-          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
-          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
-          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
-          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
-          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
-          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          FRONTEND_ROOT: ${{ matrix.frontend_root }}
-          NPM_BUILD: ${{ matrix.npm_build }}
-          RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
-          NPM_SPA: ${{ matrix.npm_spa }}
-          SPA_TWIG: ${{ matrix.spa_twig }}
-          NPM_RUN_CMD: ${{ matrix.npm_run_cmd }}
-          PUSH: false
-          TAGS: "${{ matrix.name }}:ci-${{ github.run_id }}"
-
-      - name: Free disk space before Trivy scan if needed
-        if: matrix.name != 'init' || inputs.INIT
-        run: |
-          FREE_GB=$(df / --output=avail -BG | tail -1 | tr -d 'G')
-          if [ "$FREE_GB" -lt 10 ]; then
-            sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
-            sudo swapoff -a && sudo rm -f /swapfile
-          fi
-        shell: bash
-
-      - name: Run Trivy vulnerability scanner on image
-        id: trivy-scan
-        if: matrix.name != 'init' || inputs.INIT
-        continue-on-error: true
-        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # v0.36.0
-        with:
-          image-ref: "${{ matrix.name }}:ci-${{ github.run_id }}"
-          format: "table"
-          output: "trivy-${{ matrix.name }}.txt"
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          scanners: "vuln"
-          severity: "CRITICAL,HIGH"
-          trivyignores: ${{ inputs.TRIVYIGNORE_PATH }}
-
-      - name: Print Trivy results to log
-        if: always()
-        run: cat trivy-${{ matrix.name }}.txt 2>/dev/null || true
-
-      - name: Upload Trivy results
-        if: always()
-        run: echo "${{ steps.trivy-scan.outcome }}" > trivy-${{ matrix.name }}-status.txt
-
-      - name: Upload Trivy results artifact
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: trivy-results-${{ matrix.name }}
-          path: |
-            trivy-${{ matrix.name }}.txt
-            trivy-${{ matrix.name }}-status.txt
-          if-no-files-found: ignore
-
-      - name: Fail if Trivy found vulnerabilities
-        if: steps.trivy-scan.outcome == 'failure'
-        run: |
-          echo "Trivy found CRITICAL or HIGH vulnerabilities in the ${{ matrix.name }} image"
-          exit 1
-
-  post-scan-report:
-    name: Post security scan results to PR
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    needs: [vulnerability-scan, build]
-    if: (success() || failure()) && github.event_name == 'pull_request' && inputs.POST_SCAN_RESULTS_TO_PR
-    steps:
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: ci-docker.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
-
-      - name: Post security scan results
-        uses: ./reusable-workflow/.github/actions/post-scan-report
-        with:
-          NPM_OUTCOME: ${{ needs.vulnerability-scan.outputs.npm-outcome }}
-          COMPOSER_OUTCOME: ${{ needs.vulnerability-scan.outputs.composer-outcome }}
-          SEMGREP_OUTCOME: ${{ needs.vulnerability-scan.outputs.semgrep-outcome }}
-          INIT: ${{ inputs.INIT }}
-          REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   run-unit-tests:
     name: Run unit tests
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
@@ -563,3 +470,241 @@ jobs:
           PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           UNIT_TESTS_DIRECTORY: ${{ inputs.UNIT_TESTS_DIRECTORY }}
+
+  build:
+    name: Build and scan ${{ matrix.name }} image
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    needs: [lint, vulnerability-scan, run-unit-tests]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ${{ inputs.INIT_IMAGE }}
+            dockerfile: ${{ inputs.INIT_DOCKERFILE }}
+            target: ${{ inputs.INIT_DOCKER_TARGET }}
+          - name: ${{ inputs.PHP_IMAGE }}
+            dockerfile: ${{ inputs.PHP_DOCKERFILE }}
+            target: ${{ inputs.PHP_DOCKER_TARGET }}
+            npm_build: ${{ inputs.NPM_BUILD }}
+            npm_spa: ${{ inputs.NPM_SPA }}
+            spa_twig: ${{ inputs.SPA_TWIG }}
+            frontend_root: ${{ inputs.FRONTEND_ROOT }}
+            npm_run_cmd: ${{ inputs.NPM_RUN_CMD }}
+          - name: ${{ inputs.SUPERVISORD_IMAGE }}
+            dockerfile: ${{ inputs.SUPERVISORD_DOCKERFILE }}
+            target: ${{ inputs.SUPERVISORD_TARGET }}
+    steps:
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: ci-docker.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Check out project repository and submodules
+        uses: ./reusable-workflow/.github/actions/checkout
+        with:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+
+      - name: Install tools for workflows/actions
+        uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Set up Docker
+        uses: ./reusable-workflow/.github/actions/setup-docker
+        with:
+          DRIVER: docker
+          CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.CONTAINER_REGISTRY_USERNAME }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CONTAINER_REGISTRY_PASSWORD }}
+
+      - name: Copy config files required for running with Azure Flysystem
+        uses: ./reusable-workflow/.github/actions/azure-flysystem-copy-config
+        if: ${{ inputs.AZURE_STORAGE && !inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
+        with:
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+
+      - name: Copy config files required for running with an Azure MySQL server
+        uses: ./reusable-workflow/.github/actions/azure-mysql-copy-config
+        if: ${{ inputs.AZURE_STORAGE && !inputs.FEATURE_FLAG_DISABLE_CONFIG_COPY }}
+        with:
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+
+      - name: Install tools for workflows/actions
+        uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Lint files
+        uses: ./reusable-workflow/.github/actions/lint
+
+      - name: Install required bundles if not already installed
+        if: ${{ inputs.FEATURE_FLAG_INSTALL_MISSING_BUNDLES }}
+        run: |
+          set -euo pipefail
+
+          bundles=(
+            "torq/pimcore-flysystem-azure-bundle:^5.3"
+          )
+
+          for bundle in "${bundles[@]}"; do
+            if composer show --no-interaction --no-ansi "$bundle" >/dev/null 2>&1; then
+              echo "$bundle is already installed, skipping"
+            else
+              echo "$bundle not found, installing..."
+              composer require --no-interaction --no-ansi --no-scripts "$bundle"
+            fi
+          done
+
+      - name: Build ${{ matrix.name }} image
+        if: matrix.name != 'init' || inputs.INIT
+        uses: ./reusable-workflow/.github/actions/build-pimcore-image
+        with:
+          DOCKERFILE_TARGET: ${{ matrix.target }}
+          DOCKERFILE_PATH: ${{ matrix.dockerfile }}
+          BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
+          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+          PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
+          PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
+          TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          FRONTEND_ROOT: ${{ matrix.frontend_root }}
+          NPM_BUILD: ${{ matrix.npm_build }}
+          RECAPTCHA_CLIENT_KEY: ${{ secrets.RECAPTCHA_CLIENT_KEY }}
+          NPM_SPA: ${{ matrix.npm_spa }}
+          SPA_TWIG: ${{ matrix.spa_twig }}
+          NPM_RUN_CMD: ${{ matrix.npm_run_cmd }}
+          PUSH: false
+          TAGS: |
+            "${{ inputs.CONTAINER_REGISTRY && join(inputs.CONTAINER_REGISTRY, ':') || '' }}${{ matrix.name }}:${{ inputs.IMAGES_TAG }}",
+            "${{ inputs.CONTAINER_REGISTRY && join(inputs.CONTAINER_REGISTRY, ':') || ''  }}${{ matrix.name }}:${{ github.run_id }}"
+
+      - name: Free disk space before Trivy scan if needed
+        if: matrix.name != 'init' || inputs.INIT
+        run: |
+          FREE_GB=$(df / --output=avail -BG | tail -1 | tr -d 'G')
+          if [ "$FREE_GB" -lt 10 ]; then
+            sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+            sudo swapoff -a && sudo rm -f /swapfile
+          fi
+        shell: bash
+
+      - name: Run Trivy vulnerability scanner on image
+        id: trivy-scan
+        if: matrix.name != 'init' || inputs.INIT
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # v0.36.0
+        with:
+          image-ref: "${{ inputs.CONTAINER_REGISTRY && join(inputs.CONTAINER_REGISTRY, ':') || '' }}${{ matrix.name }}:${{ github.run_id }}"
+          format: "table"
+          output: "trivy-${{ matrix.name }}.txt"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          scanners: "vuln"
+          severity: "CRITICAL,HIGH"
+          trivyignores: ${{ inputs.TRIVYIGNORE_PATH }}
+
+      - name: Print Trivy results to log
+        if: always()
+        run: cat trivy-${{ matrix.name }}.txt 2>/dev/null || true
+
+      - name: Upload Trivy results
+        if: always()
+        run: echo "${{ steps.trivy-scan.outcome }}" > trivy-${{ matrix.name }}-status.txt
+
+      - name: Upload Trivy results artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: trivy-results-${{ matrix.name }}
+          path: |
+            trivy-${{ matrix.name }}.txt
+            trivy-${{ matrix.name }}-status.txt
+          if-no-files-found: ignore
+
+      - name: Fail if Trivy found vulnerabilities
+        if: steps.trivy-scan.outcome == 'failure'
+        run: |
+          echo "Trivy found CRITICAL or HIGH vulnerabilities in the ${{ matrix.name }} image"
+          exit 1
+
+      - name: Log in to Azure
+        uses: ./reusable-workflow/.github/actions/azure-login
+        if: ${{ inputs.AZURE_CONTAINER_REGISTRY_FIREWALL }}
+        with:
+          SERVICE_PRINCIPAL_ID: ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
+          TENANT: ${{ inputs.AZURE_TENANT_ID }}
+          SUBSCRIPTION: ${{ inputs.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Add exception to Azure Container Registry firewall, if one is in place
+        if: ${{ inputs.AZURE_CONTAINER_REGISTRY_FIREWALL }}
+        run: |
+          az acr network-rule add -n ${{ inputs.CONTAINER_REGISTRY }} --ip-address $(curl ipinfo.io/ip)
+          # Sleep for a few seconds to allow network rules to propagate
+          sleep 60
+
+      - name: Push image
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        with:
+          push: ${{ inputs.CONTAINER_REGISTRY != '' }}
+          tags: |
+            "${{ inputs.CONTAINER_REGISTRY }}:${{ matrix.name }}:${{ inputs.IMAGES_TAG }}",
+            "${{ inputs.CONTAINER_REGISTRY }}:${{ matrix.name }}:${{ github.run_id }}"
+
+      - name: Remove exception from Azure Container Registry firewall, if one is in place
+        if: always()
+        run: |
+          if [[ ${{ inputs.CONTAINER_REGISTRY_FIREWALL }} == "true" ]]; then
+            echo "Removing exception for this runner's IP from Container Registry firewall..."
+            az acr network-rule remove -n ${{ inputs.CONTAINER_REGISTRY }} --ip-address $(curl ipinfo.io/ip)
+          else
+            echo "Container Registry has no firewall in place, so nothing to do"
+          fi
+
+  post-scan-report:
+    name: Post security scan results to PR
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    needs: [vulnerability-scan, build]
+    if: (success() || failure()) && github.event_name == 'pull_request' && inputs.POST_SCAN_RESULTS_TO_PR
+    steps:
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: ci-docker.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Post security scan results
+        uses: ./reusable-workflow/.github/actions/post-scan-report
+        with:
+          NPM_OUTCOME: ${{ needs.vulnerability-scan.outputs.npm-outcome }}
+          COMPOSER_OUTCOME: ${{ needs.vulnerability-scan.outputs.composer-outcome }}
+          SEMGREP_OUTCOME: ${{ needs.vulnerability-scan.outputs.semgrep-outcome }}
+          INIT: ${{ inputs.INIT }}
+          REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
