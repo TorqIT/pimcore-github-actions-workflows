@@ -162,18 +162,22 @@ runs:
               echo ""
               if [ -f "./scan-results/composer-audit.json" ]; then
                 rows=$(jq -r '
+                  .packages as $pkgs |
                   .advisories // {} | to_entries[] |
                   .key as $pkg |
+                  ($pkgs | map(select(.name == $pkg)) | .[0].version // "unknown") as $current_ver |
                   .value[] |
                   select(.ignored != true and (.severity == "high" or .severity == "critical")) |
-                  [$pkg, (.severity | ascii_upcase), (.advisoryId // "")] |
+                  [$pkg, (.severity | ascii_upcase), $current_ver, (.affectedVersions // ""), (.advisoryId // "")] |
                   @tsv
                 ' ./scan-results/composer-audit.json 2>/dev/null || echo "")
                 if [ -n "$rows" ]; then
-                  echo "| Package | Severity | Advisory | Command |"
-                  echo "|---------|----------|----------|---------|"
-                  while IFS=$'\t' read -r pkg severity advisory; do
-                    echo "| \`$pkg\` | $severity | $advisory | \`composer update $pkg\` |"
+                  echo "| Package | Severity | Installed | Fix ≥ | Advisory | Command |"
+                  echo "|---------|----------|-----------|-------|----------|---------|"
+                  while IFS=$'\t' read -r pkg severity current_ver affected advisory; do
+                    fix_ver=$(echo "$affected" | grep -oE '<[0-9]+\.[0-9]+(\.[0-9]+)?' | tr -d '<' | sort -V | head -1)
+                    [ -z "$fix_ver" ] && fix_ver="$affected"
+                    echo "| \`$pkg\` | $severity | \`$current_ver\` | \`$fix_ver\` | $advisory | \`composer update $pkg\` |"
                   done <<< "$rows"
                   echo ""
                 else
