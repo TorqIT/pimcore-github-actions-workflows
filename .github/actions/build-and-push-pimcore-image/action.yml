@@ -121,6 +121,8 @@ runs:
         set -e
         JSON_INPUT='${{ inputs.BUILD_TIME_ARGS }}'
         echo "args<<EOF" >> $GITHUB_OUTPUT
+        echo "UID=$(id -u $USER)" >> $GITHUB_OUTPUT
+        echo "GID=$(id -g $USER)" >> $GITHUB_OUTPUT
         echo "$JSON_INPUT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
           echo "$key=$value" >> $GITHUB_OUTPUT
         done
