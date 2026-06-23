@@ -137,9 +137,11 @@ runs:
                     (.value.severity | ascii_upcase),
                     ($versions[.key] // "unknown"),
                     (if (.value.fixAvailable | type) == "object" then .value.fixAvailable.version
-                     else ([.value.range // "" | scan("<[0-9][^\\s]*")] | map(ltrimstr("<")) | first) // "-"
+                     else
+                       ([(.value.via // [] | .[] | select(type == "object") | .range // ""), (.value.range // "")] |
+                        join(" ") | [scan("<[0-9][^\\s]*")] | map(ltrimstr("<")) | first) // "-"
                      end),
-                    (if .value.fixAvailable == true then "auto" else "manual" end)
+                    (if (.value.fixAvailable | type) == "object" and .value.fixAvailable.isSemVerMajor then "force" else "auto" end)
                   ] |
                   @tsv
                 ' "$json_file" 2>/dev/null || echo "")
