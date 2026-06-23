@@ -136,7 +136,7 @@ runs:
                     .key,
                     (.value.severity | ascii_upcase),
                     ($versions[.key] // "unknown"),
-                    (if (.value.fixAvailable | type) == "object" then .value.fixAvailable.version else "" end),
+                    (if (.value.fixAvailable | type) == "object" then .value.fixAvailable.version else "-" end),
                     (if .value.fixAvailable == true then "auto" else "manual" end)
                   ] |
                   @tsv
@@ -153,7 +153,7 @@ runs:
                   else
                     cmd="\`npm audit fix --force --prefix $scan_dir\` _(may introduce breaking changes)_"
                   fi
-                  echo "| \`$pkg\` | $severity | \`$installed\` | \`${fix_ver:----}\` | $cmd |"
+                  echo "| \`$pkg\` | $severity | \`$installed\` | \`$fix_ver\` | $cmd |"
                 done <<< "$rows"
                 echo ""
               done
