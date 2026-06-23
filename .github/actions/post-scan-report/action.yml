@@ -241,7 +241,7 @@ runs:
                   sort_by(.extra.severity, .path, .start.line) |
                   .[] |
                   [
-                    (.check_id | split(".") | last),
+                    ("[" + (.check_id | split(".") | last) + "](https://semgrep.dev/r/" + .check_id + ")"),
                     .path,
                     (.start.line | tostring),
                     .extra.severity,
@@ -253,7 +253,7 @@ runs:
                   echo "| Rule | Location | Severity | Message |"
                   echo "|------|----------|----------|---------|"
                   while IFS=$'\t' read -r rule file line severity message; do
-                    echo "| \`$rule\` | \`$file:$line\` | $severity | $message |"
+                    echo "| $rule | \`$file:$line\` | $severity | $message |"
                   done <<< "$rows"
                   echo ""
                 else
