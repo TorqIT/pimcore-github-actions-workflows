@@ -198,8 +198,36 @@ runs:
               echo "<details>"
               echo "<summary><strong>Semgrep SAST</strong></summary>"
               echo ""
-              echo "Code-level findings require manual review — refer to the [action logs]($LOGS_URL) for the flagged patterns and file locations."
-              echo ""
+              if [ -f "./scan-results/semgrep.json" ]; then
+                rows=$(jq -r '
+                  .results // [] |
+                  map(select(.extra.severity == "ERROR" or .extra.severity == "WARNING")) |
+                  sort_by(.extra.severity, .path, .start.line) |
+                  .[] |
+                  [
+                    (.check_id | split(".") | last),
+                    .path,
+                    (.start.line | tostring),
+                    .extra.severity,
+                    (.extra.message | gsub("[\n\r\t]"; " ") | .[0:120])
+                  ] |
+                  @tsv
+                ' ./scan-results/semgrep.json 2>/dev/null || echo "")
+                if [ -n "$rows" ]; then
+                  echo "| Rule | Location | Severity | Message |"
+                  echo "|------|----------|----------|---------|"
+                  while IFS=$'\t' read -r rule file line severity message; do
+                    echo "| \`$rule\` | \`$file:$line\` | $severity | $message |"
+                  done <<< "$rows"
+                  echo ""
+                else
+                  echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL) for the flagged patterns and file locations."
+                  echo ""
+                fi
+              else
+                echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL) for the flagged patterns and file locations."
+                echo ""
+              fi
               echo "</details>"
               echo ""
             fi
