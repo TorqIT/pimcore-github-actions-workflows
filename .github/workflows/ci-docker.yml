@@ -278,35 +278,36 @@ jobs:
         id: composer-scan
         continue-on-error: true
         run: |
+          PIMCORE_ENTERPRISE_TOKEN="${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
+          if [[ -z "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
+            PIMCORE_ENTERPRISE_TOKEN=$(printf '%s' '${{ secrets.BUILD_TIME_SECRETS }}' | jq -r '."pimcore-enterprise-token" // empty' 2>/dev/null || true)
+          fi
+          if [[ -n "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
+            echo "::add-mask::$PIMCORE_ENTERPRISE_TOKEN"
+            composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.repo.pimcore.com token "$PIMCORE_ENTERPRISE_TOKEN"
+          fi
+          REPMAN_CLIENT_TOKEN="${{ secrets.REPMAN_CLIENT_TOKEN }}"
+          if [[ -z "$REPMAN_CLIENT_TOKEN" ]]; then
+            REPMAN_CLIENT_TOKEN=$(printf '%s' '${{ secrets.BUILD_TIME_SECRETS }}' | jq -r '."repman-client-token" // empty' 2>/dev/null || true)
+          fi
+          if [[ -n "$REPMAN_CLIENT_TOKEN" ]]; then
+            echo "::add-mask::$REPMAN_CLIENT_TOKEN"
+            REPMAN_HOST=$(jq -r '.repositories // [] | map(select(.url // "" | contains("repman.io"))) | .[0].url // "" | ltrimstr("https://") | ltrimstr("http://") | rtrimstr("/")' ${{ inputs.PIMCORE_ROOT }}/composer.json 2>/dev/null || true)
+            if [[ -n "$REPMAN_HOST" ]]; then
+              composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.$REPMAN_HOST token "$REPMAN_CLIENT_TOKEN"
+            fi
+          fi
+          install_exit=0
+          if [ ! -f "${{ inputs.PIMCORE_ROOT }}/composer.lock" ]; then
+            composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts --ignore-platform-reqs 2>&1 | tee /tmp/composer-install.txt || install_exit=$?
+          fi
           {
-            PIMCORE_ENTERPRISE_TOKEN="${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
-            if [[ -z "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
-              PIMCORE_ENTERPRISE_TOKEN=$(printf '%s' '${{ secrets.BUILD_TIME_SECRETS }}' | jq -r '."pimcore-enterprise-token" // empty' 2>/dev/null || true)
-            fi
-            if [[ -n "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
-              echo "::add-mask::$PIMCORE_ENTERPRISE_TOKEN"
-              composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.repo.pimcore.com token "$PIMCORE_ENTERPRISE_TOKEN"
-            fi
-            REPMAN_CLIENT_TOKEN="${{ secrets.REPMAN_CLIENT_TOKEN }}"
-            if [[ -z "$REPMAN_CLIENT_TOKEN" ]]; then
-              REPMAN_CLIENT_TOKEN=$(printf '%s' '${{ secrets.BUILD_TIME_SECRETS }}' | jq -r '."repman-client-token" // empty' 2>/dev/null || true)
-            fi
-            if [[ -n "$REPMAN_CLIENT_TOKEN" ]]; then
-              echo "::add-mask::$REPMAN_CLIENT_TOKEN"
-              REPMAN_HOST=$(jq -r '.repositories // [] | map(select(.url // "" | contains("repman.io"))) | .[0].url // "" | ltrimstr("https://") | ltrimstr("http://") | rtrimstr("/")' ${{ inputs.PIMCORE_ROOT }}/composer.json 2>/dev/null || true)
-              if [[ -n "$REPMAN_HOST" ]]; then
-                composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.$REPMAN_HOST token "$REPMAN_CLIENT_TOKEN"
-              fi
-            fi
-            install_ok=true
-            if [ ! -f "${{ inputs.PIMCORE_ROOT }}/composer.lock" ]; then
-              composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts --ignore-platform-reqs || install_ok=false
-            fi
+            cat /tmp/composer-install.txt 2>/dev/null || true
             composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore --locked --no-dev --format=json > /tmp/composer-audit.json 2>/dev/null || true
             composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore --locked --no-dev || true
             jq '[.packages[] | {name, version}]' "${{ inputs.PIMCORE_ROOT }}/composer.lock" > /tmp/composer-packages.json 2>/dev/null || echo '[]' > /tmp/composer-packages.json
-            [ "$install_ok" = "true" ]
-          } 2>&1 | tee /tmp/composer-audit.txt
+          } 2>&1 | tee /tmp/composer-audit.txt || true
+          [ "$install_exit" -eq 0 ] || exit 1
           high_critical_count=$(jq '[.advisories // {} | to_entries[] | .value[] | select(.ignored != true and (.severity == "high" or .severity == "critical"))] | length' /tmp/composer-audit.json 2>/dev/null || echo 0)
           [ "$high_critical_count" -eq 0 ]
 
