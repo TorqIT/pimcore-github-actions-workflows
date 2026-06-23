@@ -126,24 +126,34 @@ runs:
               for json_file in ./scan-results/npm-raw-*.json; do
                 [ -f "$json_file" ] || continue
                 scan_dir=$(jq -r '._scannedDir // "."' "$json_file" 2>/dev/null || echo ".")
-                rows=$(jq -r '
+                dir_slug=$(echo "$scan_dir" | sed 's|^\./||;s|/|__|g')
+                pkgs_json=$(cat "./scan-results/npm-packages-${dir_slug:-root}.json" 2>/dev/null || echo '[]')
+                rows=$(jq -r --argjson pkgs "$pkgs_json" '
+                  ($pkgs | map({(.name): .version}) | add // {}) as $versions |
                   (.vulnerabilities // {}) | to_entries[] |
                   select((.value.severity == "high" or .value.severity == "critical") and (.value.fixAvailable != false)) |
-                  [.key, (.value.severity | ascii_upcase), (if .value.fixAvailable == true then "auto" else "manual" end)] |
+                  [
+                    .key,
+                    (.value.severity | ascii_upcase),
+                    ($versions[.key] // "unknown"),
+                    (if (.value.fixAvailable | type) == "object" then .value.fixAvailable.version else "" end),
+                    (if .value.fixAvailable == true then "auto" else "manual" end)
+                  ] |
                   @tsv
                 ' "$json_file" 2>/dev/null || echo "")
                 [ -z "$rows" ] && continue
                 found_any=true
                 echo "**\`$scan_dir\`**"
                 echo ""
-                echo "| Package | Severity | Command |"
-                echo "|---------|----------|---------|"
-                while IFS=$'\t' read -r pkg severity fix_type; do
+                echo "| Package | Severity | Installed | Fix ≥ | Command |"
+                echo "|---------|----------|-----------|-------|---------|"
+                while IFS=$'\t' read -r pkg severity installed fix_ver fix_type; do
                   if [ "$fix_type" = "auto" ]; then
-                    echo "| \`$pkg\` | $severity | \`npm audit fix --prefix $scan_dir\` |"
+                    cmd="\`npm audit fix --prefix $scan_dir\`"
                   else
-                    echo "| \`$pkg\` | $severity | \`npm audit fix --force --prefix $scan_dir\` _(may introduce breaking changes)_ |"
+                    cmd="\`npm audit fix --force --prefix $scan_dir\` _(may introduce breaking changes)_"
                   fi
+                  echo "| \`$pkg\` | $severity | \`$installed\` | \`${fix_ver:----}\` | $cmd |"
                 done <<< "$rows"
                 echo ""
               done

@@ -263,6 +263,8 @@ jobs:
             npm audit --json --omit=dev --prefix "$dir" 2>/dev/null \
               | jq --arg dir "$dir" '. + {_scannedDir: $dir}' \
               > "/tmp/npm-raw-${dir_slug:-root}.json" || true
+            jq '[.packages // {} | to_entries[] | select(.key | test("^node_modules/(@[^/]+/[^/]+|[^/]+)$")) | {name: (.key | ltrimstr("node_modules/")), version: .value.version}]' \
+              "$dir/package-lock.json" > "/tmp/npm-packages-${dir_slug:-root}.json" 2>/dev/null || echo '[]' > "/tmp/npm-packages-${dir_slug:-root}.json"
             fixable_count=$(jq '[(.vulnerabilities // {}) | to_entries[] | select((.value.severity == "high" or .value.severity == "critical") and .value.fixAvailable == true)] | length' "/tmp/npm-raw-${dir_slug:-root}.json" 2>/dev/null || echo 0)
             if [ "$fixable_count" -gt 0 ]; then
               result=1
@@ -329,6 +331,7 @@ jobs:
           mkdir -p scan-results
           cp /tmp/npm-audit.txt scan-results/ 2>/dev/null || true
           cp /tmp/npm-raw-*.json scan-results/ 2>/dev/null || true
+          cp /tmp/npm-packages-*.json scan-results/ 2>/dev/null || true
           cp /tmp/composer-audit.txt scan-results/ 2>/dev/null || true
           cp /tmp/composer-audit.json scan-results/ 2>/dev/null || true
           cp /tmp/composer-packages.json scan-results/ 2>/dev/null || true
