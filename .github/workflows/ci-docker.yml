@@ -299,7 +299,11 @@ jobs:
           fi
           install_exit=0
           if [ ! -f "${{ inputs.PIMCORE_ROOT }}/composer.lock" ]; then
-            composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts --ignore-platform-reqs 2>&1 | tee /tmp/composer-install.txt || install_exit=$?
+            set +e
+            composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts --ignore-platform-reqs > /tmp/composer-install.txt 2>&1
+            install_exit=$?
+            set -e
+            cat /tmp/composer-install.txt
           fi
           {
             cat /tmp/composer-install.txt 2>/dev/null || true
