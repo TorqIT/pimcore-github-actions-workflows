@@ -219,7 +219,7 @@ runs:
                   echo ""
                 else
                   if grep -q "affected by security advisories" ./scan-results/composer-audit.txt 2>/dev/null; then
-                    echo "Composer install was blocked — one or more required packages are affected by security advisories. Update \`pimcore/pimcore\` and its dependencies, or refer to the [action logs]($LOGS_URL) for the full list of advisory IDs."
+                    echo "Composer install was blocked — one or more required packages are affected by security advisories. Refer to the [action logs]($LOGS_URL) for the full list of advisory IDs."
                   else
                     echo "No HIGH or CRITICAL advisories found — refer to the [action logs]($LOGS_URL) for lower-severity findings."
                   fi
@@ -227,7 +227,7 @@ runs:
                 fi
               else
                 if grep -q "affected by security advisories" ./scan-results/composer-audit.txt 2>/dev/null; then
-                  echo "Composer install was blocked — one or more required packages are affected by security advisories. Update \`pimcore/pimcore\` and its dependencies, or refer to the [action logs]($LOGS_URL) for the full list of advisory IDs."
+                  echo "Composer install was blocked — one or more required packages are affected by security advisories. Refer to the [action logs]($LOGS_URL) for the full list of advisory IDs."
                 else
                   echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
                 fi
