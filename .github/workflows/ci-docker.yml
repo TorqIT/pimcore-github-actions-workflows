@@ -301,6 +301,7 @@ jobs:
             fi
             composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore --locked --no-dev --format=json > /tmp/composer-audit.json 2>/dev/null || true
             composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=ignore --locked --no-dev || true
+            jq '[.packages[] | {name, version}]' "${{ inputs.PIMCORE_ROOT }}/composer.lock" > /tmp/composer-packages.json 2>/dev/null || echo '[]' > /tmp/composer-packages.json
           } 2>&1 | tee /tmp/composer-audit.txt || true
           high_critical_count=$(jq '[.advisories // {} | to_entries[] | .value[] | select(.ignored != true and (.severity == "high" or .severity == "critical"))] | length' /tmp/composer-audit.json 2>/dev/null || echo 0)
           [ "$high_critical_count" -eq 0 ]
@@ -329,6 +330,7 @@ jobs:
           cp /tmp/npm-raw-*.json scan-results/ 2>/dev/null || true
           cp /tmp/composer-audit.txt scan-results/ 2>/dev/null || true
           cp /tmp/composer-audit.json scan-results/ 2>/dev/null || true
+          cp /tmp/composer-packages.json scan-results/ 2>/dev/null || true
           cp /tmp/semgrep.txt scan-results/ 2>/dev/null || true
 
       - name: Upload scan results artifact

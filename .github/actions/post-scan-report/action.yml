@@ -161,11 +161,12 @@ runs:
               echo "<summary><strong>Composer audit</strong></summary>"
               echo ""
               if [ -f "./scan-results/composer-audit.json" ]; then
-                rows=$(jq -r '
-                  (.packages // []) as $pkgs |
+                pkgs_json=$(cat "./scan-results/composer-packages.json" 2>/dev/null || echo '[]')
+                rows=$(jq -r --argjson pkgs "$pkgs_json" '
+                  ($pkgs | map({(.name): .version}) | add // {}) as $versions |
                   .advisories // {} | to_entries[] |
                   .key as $pkg |
-                  ($pkgs | map(select(.name == $pkg)) | .[0].version // "unknown") as $current_ver |
+                  ($versions[$pkg] // "unknown") as $current_ver |
                   .value[] |
                   select(.ignored != true and (.severity == "high" or .severity == "critical")) |
                   [$pkg, (.severity | ascii_upcase), $current_ver, (.affectedVersions // ""), (.advisoryId // "")] |
