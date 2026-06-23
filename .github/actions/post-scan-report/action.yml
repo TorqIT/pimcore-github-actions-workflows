@@ -176,7 +176,14 @@ runs:
                   echo "| Package | Severity | Installed | Fix ≥ | Advisory | Command |"
                   echo "|---------|----------|-----------|-------|----------|---------|"
                   while IFS=$'\t' read -r pkg severity current_ver affected advisory; do
-                    fix_ver=$(echo "$affected" | grep -oE '<[0-9]+\.[0-9]+(\.[0-9]+)?' | tr -d '<' | sort -V | head -1 || echo "")
+                    fix_ver=$(echo "$affected" | grep -oE '<[0-9]+\.[0-9]+(\.[0-9]+)?' | tr -d '<' | sort -V | head -1)
+                    if [ -z "$fix_ver" ]; then
+                      incl=$(echo "$affected" | grep -oE '<=[0-9]+\.[0-9]+\.[0-9]+' | sed 's/^<=//' | sort -V | head -1)
+                      if [ -n "$incl" ]; then
+                        p=$(echo "$incl" | cut -d. -f3)
+                        fix_ver="$(echo "$incl" | cut -d. -f1-2).$((p + 1))"
+                      fi
+                    fi
                     [ -z "$fix_ver" ] && fix_ver="$affected"
                     echo "| \`$pkg\` | $severity | \`$current_ver\` | \`$fix_ver\` | $advisory | \`composer update $pkg\` |"
                   done <<< "$rows"
