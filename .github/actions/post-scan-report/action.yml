@@ -141,7 +141,8 @@ runs:
                        ([(.value.via // [] | .[] | select(type == "object") | .range // ""), (.value.range // "")] |
                         join(" ") | [scan("<[0-9][^\\s]*")] | map(ltrimstr("<")) | first) // "-"
                      end),
-                    (if (.value.fixAvailable | type) == "object" and .value.fixAvailable.isSemVerMajor then "force" else "auto" end)
+                    (if (.value.fixAvailable | type) == "object" and .value.fixAvailable.isSemVerMajor then "force" else "auto" end),
+                    (([.value.via // [] | .[] | select(type == "object") | .url // ""] | map(select(. != "")) | first) // "-")
                   ] |
                   @tsv
                 ' "$json_file" 2>/dev/null || echo "")
@@ -149,15 +150,21 @@ runs:
                 found_any=true
                 echo "**\`$scan_dir\`**"
                 echo ""
-                echo "| Package | Severity | Installed | Fix ≥ | Command |"
-                echo "|---------|----------|-----------|-------|---------|"
-                while IFS=$'\t' read -r pkg severity installed fix_ver fix_type; do
-                  if [ "$fix_type" = "auto" ]; then
-                    cmd="\`npm audit fix --prefix $scan_dir\`"
-                  else
+                echo "| Package | Severity | Installed | Fix ≥ | Advisory | Command |"
+                echo "|---------|----------|-----------|-------|----------|---------|"
+                while IFS=$'\t' read -r pkg severity installed fix_ver fix_type advisory_url; do
+                  if [ "$fix_type" = "force" ]; then
                     cmd="\`npm audit fix --force --prefix $scan_dir\` _(may introduce breaking changes)_"
+                  else
+                    cmd="\`npm audit fix --prefix $scan_dir\`"
                   fi
-                  echo "| \`$pkg\` | $severity | \`$installed\` | \`$fix_ver\` | $cmd |"
+                  if [ "$advisory_url" != "-" ] && [ -n "$advisory_url" ]; then
+                    advisory_id=$(basename "$advisory_url")
+                    advisory_col="[$advisory_id]($advisory_url)"
+                  else
+                    advisory_col="-"
+                  fi
+                  echo "| \`$pkg\` | $severity | \`$installed\` | \`$fix_ver\` | $advisory_col | $cmd |"
                 done <<< "$rows"
                 echo ""
               done
@@ -183,13 +190,13 @@ runs:
                   ($versions[$pkg] // "unknown") as $current_ver |
                   .value[] |
                   select(.ignored != true and (.severity == "high" or .severity == "critical")) |
-                  [$pkg, (.severity | ascii_upcase), $current_ver, (.affectedVersions // ""), (.advisoryId // "")] |
+                  [$pkg, (.severity | ascii_upcase), $current_ver, (.affectedVersions // ""), (.advisoryId // "-"), (.link // "-"), (.cve // "-")] |
                   @tsv
                 ' ./scan-results/composer-audit.json 2>/dev/null || echo "")
                 if [ -n "$rows" ]; then
                   echo "| Package | Severity | Installed | Fix ≥ | Advisory | Command |"
                   echo "|---------|----------|-----------|-------|----------|---------|"
-                  while IFS=$'\t' read -r pkg severity current_ver affected advisory; do
+                  while IFS=$'\t' read -r pkg severity current_ver affected advisory link cve; do
                     fix_ver=$(echo "$affected" | grep -oE '<[0-9]+\.[0-9]+(\.[0-9]+)?' | tr -d '<' | sort -V | head -1 || true)
                     if [ -z "$fix_ver" ]; then
                       incl=$(echo "$affected" | grep -oE '<=[0-9]+\.[0-9]+\.[0-9]+' | sed 's/^<=//' | sort -V | head -1 || true)
@@ -199,7 +206,15 @@ runs:
                       fi
                     fi
                     [ -z "$fix_ver" ] && fix_ver="$affected"
-                    echo "| \`$pkg\` | $severity | \`$current_ver\` | \`$fix_ver\` | $advisory | \`composer update $pkg\` |"
+                    if [ "$link" != "-" ] && [ -n "$link" ]; then
+                      advisory_col="[$advisory]($link)"
+                    else
+                      advisory_col="$advisory"
+                    fi
+                    if [ "$cve" != "-" ] && [ -n "$cve" ]; then
+                      advisory_col="$advisory_col / [$cve](https://nvd.nist.gov/vuln/detail/$cve)"
+                    fi
+                    echo "| \`$pkg\` | $severity | \`$current_ver\` | \`$fix_ver\` | $advisory_col | \`composer update $pkg\` |"
                   done <<< "$rows"
                   echo ""
                 else
