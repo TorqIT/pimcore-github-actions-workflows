@@ -26,7 +26,7 @@ jobs:
     uses: ./.github/workflows/ci-docker.yml
     strategy:
       matrix:
-        branch: [2024.x, 2025.x, skeleton/prepare-2026.x]
+        branch: [2024.x, vuln-test, skeleton/prepare-2026.x]
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: ${{ matrix.branch }}
