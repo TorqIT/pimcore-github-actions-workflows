@@ -138,7 +138,7 @@ runs:
                   ($entry.value.isDirect // false) as $is_direct |
                   (if $is_direct then "Direct"
                    else
-                     ([$entry.value.effects[]? | select($all_vulns[.].isDirect == true)] | unique |
+                     ([($entry.value.effects // [])[] | . as $eff | select(($all_vulns[$eff] // {}).isDirect == true)] | unique |
                       if length > 0 then "Transitive via `" + join("`, `") + "`"
                       else "Transitive"
                       end)
