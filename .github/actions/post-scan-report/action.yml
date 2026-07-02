@@ -302,8 +302,12 @@ runs:
                   echo ""
                   trivy_text=$(cat "./trivy-results-${name}/trivy-${name}.txt" 2>/dev/null || echo "")
                   if [ -n "$trivy_text" ]; then
+                    trivy_lines=$(echo "$trivy_text" | wc -l)
                     echo '```'
-                    echo "$trivy_text"
+                    echo "$trivy_text" | head -150
+                    if [ "$trivy_lines" -gt 150 ]; then
+                      echo "... $((trivy_lines - 150)) more lines — refer to the [action logs]($LOGS_URL) for the full output."
+                    fi
                     echo '```'
                     echo ""
                   fi
@@ -315,6 +319,12 @@ runs:
           fi
 
         } > /tmp/pr-comment.md
+
+        # GitHub's comment body limit is 65536 chars — hard-truncate if still over
+        if [ "$(wc -c < /tmp/pr-comment.md)" -gt 65000 ]; then
+          { head -c 64800 /tmp/pr-comment.md; printf '\n\n---\n_Output truncated — [refer to action logs](%s) for full results._\n' "$LOGS_URL"; } > /tmp/pr-comment-truncated.md
+          mv /tmp/pr-comment-truncated.md /tmp/pr-comment.md
+        fi
 
         PR_NUMBER=${{ github.event.pull_request.number }}
         REPO=${{ github.repository }}
