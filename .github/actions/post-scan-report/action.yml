@@ -304,7 +304,7 @@ runs:
                   if [ -n "$trivy_text" ]; then
                     trivy_lines=$(echo "$trivy_text" | wc -l)
                     echo '```'
-                    echo "$trivy_text" | head -150
+                    echo "$trivy_text" | head -150 || true
                     if [ "$trivy_lines" -gt 150 ]; then
                       echo "... $((trivy_lines - 150)) more lines — refer to the [action logs]($LOGS_URL) for the full output."
                     fi
