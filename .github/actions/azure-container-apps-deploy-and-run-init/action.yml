@@ -92,7 +92,24 @@ runs:
             echo "Execution $executionName succeeded!"
             exit 0
           else
-            echo "Execution $executionName has status $executionStatus - marking this job as failed"
+            echo ""
+            echo "Execution $executionName finished with status: $executionStatus"
+            if [[ "$executionStatus" == "Failed" ]]; then
+              echo "The init container exited with a non-zero exit code — check the logs above for the application error."
+            elif [[ "$executionStatus" == "TimedOut" ]]; then
+              echo "The init job timed out before completing. This is a platform-level issue with Azure Container Apps, not an application error. Consider re-running the workflow."
+            elif [[ "$executionStatus" == "Canceled" ]]; then
+              echo "The init job execution was canceled."
+            else
+              echo "The init job reported an unexpected status. This may be a transient Azure Container Apps issue. Consider re-running the workflow."
+            fi
+            echo ""
+            echo "--- Execution details ---"
+            az containerapp job execution show \
+              --resource-group ${{ inputs.RESOURCE_GROUP }} \
+              --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
+              --job-execution-name $executionName \
+              2>/dev/null || true
             exit 1
           fi
         done
