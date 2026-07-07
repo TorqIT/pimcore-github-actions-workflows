@@ -150,14 +150,16 @@ runs:
             fi
             
             echo "Running tests..."
-            REQUIRE_DEV_PACKAGES=$(jq -r ".[\"require-dev\"] // {} | keys[]" /var/www/html/composer.json 2>/dev/null || true)
-
-            if echo "$REQUIRE_DEV_PACKAGES" | grep -qx "phpunit/phpunit" || [ -f "/var/www/html/phpunit.xml" ] || [ -f "/var/www/html/phpunit.xml.dist" ]; then
-              $RUN_AS composer require --working-dir=/var/www/html --dev phpunit/phpunit
-              $RUN_AS /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
-            else
+            # Codeception cannot run at all without its config file (that produces exactly
+            # "Configuration file could not be found"), whereas PHPUnit runs fine with no config
+            # at all, so only pick Codeception when a config proves it is actually set up, and
+            # default to PHPUnit for everything else - including legacy projects with no config.
+            if [ -f "/var/www/html/codeception.yml" ] || [ -f "/var/www/html/codeception.yml.dist" ] || [ -f "/var/www/html/codeception.dist.yml" ]; then
               $RUN_AS composer require --working-dir=/var/www/html --dev codeception/codeception
               $RUN_AS /var/www/html/vendor/bin/codecept run
+            else
+              $RUN_AS composer require --working-dir=/var/www/html --dev phpunit/phpunit
+              $RUN_AS /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
             fi
           '
 
