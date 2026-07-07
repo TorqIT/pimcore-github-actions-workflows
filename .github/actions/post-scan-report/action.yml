@@ -197,13 +197,20 @@ runs:
                   echo "| Package | Severity | Installed | Fix ≥ | Advisory | Command |"
                   echo "|---------|----------|-----------|-------|----------|---------|"
                   while IFS=$'\t' read -r pkg severity current_ver affected advisory link cve; do
-                    fix_ver=$(echo "$affected" | grep -oE '<[0-9]+\.[0-9]+(\.[0-9]+)?' | tr -d '<' | sort -V | head -1 || true)
+                    clean_ver=$(echo "$current_ver" | sed 's/^v//')
+                    major=$(echo "$clean_ver" | cut -d. -f1)
+                    # Prefer the fix version from the same major version branch as installed
+                    fix_ver=$(echo "$affected" | grep -oE "<${major}\.[0-9]+(\.[0-9]+)?" | tr -d '<' | sort -V | head -1 2>/dev/null || true)
                     if [ -z "$fix_ver" ]; then
-                      incl=$(echo "$affected" | grep -oE '<=[0-9]+\.[0-9]+\.[0-9]+' | sed 's/^<=//' | sort -V | head -1 || true)
+                      incl=$(echo "$affected" | grep -oE "<=${major}\.[0-9]+\.[0-9]+" | sed 's/^<=//' | sort -V | head -1 2>/dev/null || true)
                       if [ -n "$incl" ]; then
                         p=$(echo "$incl" | cut -d. -f3)
                         fix_ver="$(echo "$incl" | cut -d. -f1-2).$((p + 1))"
                       fi
+                    fi
+                    # Fall back to the highest fix version across all branches
+                    if [ -z "$fix_ver" ]; then
+                      fix_ver=$(echo "$affected" | grep -oE '<[0-9]+\.[0-9]+(\.[0-9]+)?' | tr -d '<' | sort -V | tail -1 2>/dev/null || true)
                     fi
                     [ -z "$fix_ver" ] && fix_ver="$affected"
                     if [ "$link" != "-" ] && [ -n "$link" ]; then
@@ -253,7 +260,7 @@ runs:
                     .path,
                     (.start.line | tostring),
                     .extra.severity,
-                    (.extra.message | gsub("[\n\r\t]"; " ") | .[0:120])
+                    (.extra.message | gsub("[\n\r\t]"; " ") | .[0:300])
                   ] |
                   @tsv
                 ' ./scan-results/semgrep.json 2>/dev/null || echo "")

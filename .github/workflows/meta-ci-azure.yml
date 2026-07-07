@@ -16,11 +16,6 @@ on:
         type: string
         default: ${{ github.ref }}
         description: "The branch/tag of TorqIT/pimcore-skeleton to test against"
-      FEATURE_FLAG_INSTALL_MISSING_BUNDLES:
-        required: false
-        type: boolean
-        default: true
-        description: "Whether to automatically install missing required Pimcore bundles"
 
     secrets:
       PIMCORE_ENCRYPTION_SECRET:
@@ -60,7 +55,7 @@ jobs:
       PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
       GITHUB_APP_CHECKOUT: true
       ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
-      FEATURE_FLAG_INSTALL_MISSING_BUNDLES: ${{ inputs.FEATURE_FLAG_INSTALL_MISSING_BUNDLES }}
+      FEATURE_FLAG_INSTALL_MISSING_BUNDLES: true
     secrets:
       GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
       GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}

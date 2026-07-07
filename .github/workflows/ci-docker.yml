@@ -457,7 +457,7 @@ jobs:
         id: trivy-scan
         if: matrix.name != 'init' || inputs.INIT
         continue-on-error: true
-        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98 # v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: "${{ matrix.name }}:ci-${{ github.run_id }}"
           format: "table"
