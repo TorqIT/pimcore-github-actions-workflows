@@ -150,10 +150,6 @@ runs:
             fi
             
             echo "Running tests..."
-            # Codeception cannot run at all without its config file (that produces exactly
-            # "Configuration file could not be found"), whereas PHPUnit runs fine with no config
-            # at all, so only pick Codeception when a config proves it is actually set up, and
-            # default to PHPUnit for everything else - including legacy projects with no config.
             if [ -f "/var/www/html/codeception.yml" ] || [ -f "/var/www/html/codeception.yml.dist" ] || [ -f "/var/www/html/codeception.dist.yml" ]; then
               $RUN_AS composer require --working-dir=/var/www/html --dev codeception/codeception
               $RUN_AS /var/www/html/vendor/bin/codecept run
