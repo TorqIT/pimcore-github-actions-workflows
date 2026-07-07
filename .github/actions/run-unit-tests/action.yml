@@ -150,9 +150,10 @@ runs:
             fi
             
             echo "Running tests..."
-            if [ -f "/var/www/html/vendor/bin/codecept" ]; then
-              $RUN_AS /var/www/html/vendor/bin/codecept run
-            elif [ -f "/var/www/html/vendor/bin/phpunit" ]; then
+            REQUIRE_DEV_PACKAGES=$(jq -r '.["require-dev"] // {} | keys[]' /var/www/html/composer.json 2>/dev/null || true)
+
+            if echo "$REQUIRE_DEV_PACKAGES" | grep -qx "phpunit/phpunit" || [ -f "/var/www/html/phpunit.xml" ] || [ -f "/var/www/html/phpunit.xml.dist" ]; then
+              $RUN_AS composer require --working-dir=/var/www/html --dev phpunit/phpunit
               $RUN_AS /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
             else
               $RUN_AS composer require --working-dir=/var/www/html --dev codeception/codeception
