@@ -151,10 +151,10 @@ runs:
             
             echo "Running tests..."
             if [ -f "/var/www/html/codeception.yml" ] || [ -f "/var/www/html/codeception.yml.dist" ] || [ -f "/var/www/html/codeception.dist.yml" ]; then
-              $RUN_AS composer require --working-dir=/var/www/html --dev codeception/codeception
+              $RUN_AS composer require --working-dir=/var/www/html --dev codeception/codeception --no-scripts
               $RUN_AS /var/www/html/vendor/bin/codecept run
             else
-              $RUN_AS composer require --working-dir=/var/www/html --dev phpunit/phpunit
+              $RUN_AS composer require --working-dir=/var/www/html --dev phpunit/phpunit --no-scripts
               $RUN_AS /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
             fi
           '
