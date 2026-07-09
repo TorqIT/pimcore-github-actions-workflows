@@ -45,15 +45,15 @@ jobs:
     strategy:
       matrix:
         include:
-          - branch: 2025.x
+          - version: 2025.x
             parameters_file: "./.github/ci/azure/parameters.2025.x.json"
-            skeleton_ref: 2025.x
-          - branch: 2026.x
+            skeleton_ref: 2025.x-azure
+          - version: 2026.x
             parameters_file: "./.github/ci/azure/parameters.2026.x.json"
-            skeleton_ref: 2026.x
+            skeleton_ref: 2026.x-azure
     uses: ./.github/workflows/meta-ci-azure.yml
     with:
-      ENVIRONMENT: ${{ matrix.branch }}
+      ENVIRONMENT: ${{ matrix.version }}
       PARAMETERS_FILE: ${{ matrix.parameters_file }}
       PROJECT_REPOSITORY_REF: ${{ matrix.skeleton_ref }}
     secrets:
