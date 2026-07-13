@@ -74,7 +74,7 @@ jobs:
     steps:
       - name: Get workflow version
         id: workflow-version
-        uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
+        uses: canonical/get-workflow-version-action@ba22d0abdc1eda539aa3ac81af1cfee160b10714 # v1.0.4
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
           file-name: job-azure-mysql-backup.yml
@@ -188,7 +188,7 @@ jobs:
 
       - name: Send job status to Slack
         if: ${{ !cancelled() }}
-        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
+        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
         with:
           webhook: ${{ secrets.SLACK_BACKUPS_WEBHOOK_URL }}
           webhook-type: incoming-webhook
