@@ -447,7 +447,7 @@ jobs:
         if: matrix.name != 'init' || inputs.INIT
         run: |
           FREE_GB=$(df / --output=avail -BG | tail -1 | tr -d 'G')
-          if [ "$FREE_GB" -lt 10 ]; then
+          if [ "$FREE_GB" -lt 3 ]; then
             sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
             sudo swapoff -a && sudo rm -f /swapfile
           fi
