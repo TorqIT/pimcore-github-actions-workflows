@@ -133,69 +133,50 @@ runs:
                   [
                     (.vulnerabilities // {}) | to_entries[] |
                     select((.value.severity == "high" or .value.severity == "critical") and (.value.fixAvailable != false)) |
-                    {
-                      pkg: .key,
-                      severity: .value.severity,
-                      fix_name: (if (.value.fixAvailable | type) == "object" then .value.fixAvailable.name else .key end),
-                      fix_version: (
-                        if (.value.fixAvailable | type) == "object" then
-                          (if .value.fixAvailable.version == "0.0.0" then null else .value.fixAvailable.version end)
-                        else
-                          ([(.value.via // [] | .[] | select(type == "object") | .range // ""), (.value.range // "")] |
-                           join(" ") | [scan("<[0-9][^\\s]*")] | map(ltrimstr("<")) | first)
+                    .key as $pkg |
+                    ($versions[$pkg] // "?") as $installed |
+                    (if (.value.fixAvailable | type) == "object" then .value.fixAvailable.name else $pkg end) as $fix_name |
+                    (if (.value.fixAvailable | type) == "object" then .value.fixAvailable.version else null end) as $fa_version |
+                    ((.value.fixAvailable | type) == "object" and .value.fixAvailable.name != $pkg) as $transitive |
+                    (
+                      if (.value.fixAvailable | type) == "object" then
+                        if $fa_version == "0.0.0" then "-"
+                        elif $transitive then ($fix_name + "@" + $fa_version)
+                        else $fa_version
                         end
-                      ),
-                      fix_type: (
-                        if (.value.fixAvailable | type) == "object" and (.value.fixAvailable.isSemVerMajor == true) and (.value.fixAvailable.version != "0.0.0") then "force"
-                        elif (.value.fixAvailable | type) == "object" and (.value.fixAvailable.version == "0.0.0") then "nofix"
-                        else "auto"
-                        end
-                      ),
-                      advisory_url: (([.value.via // [] | .[] | select(type == "object") | .url // ""] | map(select(. != "")) | first) // null)
-                    }
+                      else
+                        ([(.value.via // [] | .[] | select(type == "object") | .range // ""), (.value.range // "")] |
+                         join(" ") | [scan("<[0-9][^\\s]*")] | map(ltrimstr("<")) | last) // "-"
+                      end
+                    ) as $fix_label |
+                    (
+                      if (.value.fixAvailable | type) == "object" and (.value.fixAvailable.isSemVerMajor == true) and (.value.fixAvailable.version != "0.0.0") then "force"
+                      elif (.value.fixAvailable | type) == "object" and (.value.fixAvailable.version == "0.0.0") then "nofix"
+                      else "auto"
+                      end
+                    ) as $fix_type |
+                    ([.value.via // [] | .[] | select(type == "object") | .url // ""] | map(select(. != "")) | unique | map("[" + (. | split("/") | last) + "](" + . + ")") | join(", ")) as $advisories |
+                    [$pkg, $installed, $fix_label, (.value.severity | ascii_upcase), $fix_type, $advisories]
                   ] |
-                  group_by([.fix_name, .fix_type]) |
+                  sort_by([.[4], (.[3] == "CRITICAL" | not), .[0]]) |
                   .[] |
-                  {
-                    fix_name: .[0].fix_name,
-                    fix_version: ([.[].fix_version | select(. != null)] | sort | last // "-"),
-                    max_severity: (if any(.[]; .severity == "critical") then "CRITICAL" else "HIGH" end),
-                    fix_type: .[0].fix_type,
-                    advisories: ([.[].advisory_url | select(. != null)] | unique | map("[" + (. | split("/") | last) + "](" + . + ")") | join(", "))
-                  } |
-                  [.fix_name, .fix_version, .max_severity, .fix_type, .advisories] |
                   @tsv
                 ' "$json_file" 2>/dev/null || echo "")
                 [ -z "$rows" ] && continue
                 found_any=true
                 echo "**\`$scan_dir\`**"
                 echo ""
-                prev_type=""
-                while IFS=$'\t' read -r fix_name fix_version max_severity fix_type advisories; do
-                  if [ "$fix_type" != "$prev_type" ]; then
-                    [ -n "$prev_type" ] && echo ""
-                    case "$fix_type" in
-                      auto)  echo "_Run \`npm audit fix --prefix $scan_dir\`:_" ;;
-                      force) echo "_Run \`npm audit fix --force --prefix $scan_dir\` _(may introduce breaking changes)_:_" ;;
-                      nofix) echo "_No fix currently available:_" ;;
-                    esac
-                    echo ""
-                    if [ "$fix_type" = "nofix" ]; then
-                      echo "| Package | Severity | Advisory |"
-                      echo "|---------|----------|----------|"
-                    else
-                      echo "| Package | Fix ≥ | Severity | Advisory |"
-                      echo "|---------|--------|----------|----------|"
-                    fi
-                    prev_type="$fix_type"
-                  fi
+                echo "| Package | Installed | Fix ≥ | Severity | Advisory | Command |"
+                echo "|---------|-----------|-------|----------|----------|---------|"
+                while IFS=$'\t' read -r pkg installed fix_label severity fix_type advisories; do
                   [ -z "$advisories" ] && advisories="-"
-                  if [ "$fix_type" = "nofix" ]; then
-                    echo "| \`$fix_name\` | $max_severity | $advisories |"
-                  else
-                    echo "| \`$fix_name\` | \`$fix_version\` | $max_severity | $advisories |"
-                  fi
-                done <<< "$(echo "$rows" | sort -t$'\t' -k4,4 -k1,1)"
+                  case "$fix_type" in
+                    auto)  cmd="\`npm audit fix --prefix $scan_dir\`" ;;
+                    force) cmd="\`npm audit fix --force --prefix $scan_dir\`" ;;
+                    *)     cmd="-" ;;
+                  esac
+                  echo "| \`$pkg\` | \`$installed\` | \`$fix_label\` | $severity | $advisories | $cmd |"
+                done <<< "$rows"
                 echo ""
               done
               if [ "$found_any" = false ]; then
