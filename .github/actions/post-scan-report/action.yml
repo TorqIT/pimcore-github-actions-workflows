@@ -130,42 +130,72 @@ runs:
                 pkgs_json=$(cat "./scan-results/npm-packages-${dir_slug:-root}.json" 2>/dev/null || echo '[]')
                 rows=$(jq -r --argjson pkgs "$pkgs_json" '
                   ($pkgs | map({(.name): .version}) | add // {}) as $versions |
-                  (.vulnerabilities // {}) | to_entries[] |
-                  select((.value.severity == "high" or .value.severity == "critical") and (.value.fixAvailable != false)) |
                   [
-                    .key,
-                    (.value.severity | ascii_upcase),
-                    ($versions[.key] // "unknown"),
-                    (if (.value.fixAvailable | type) == "object" then .value.fixAvailable.version
-                     else
-                       ([(.value.via // [] | .[] | select(type == "object") | .range // ""), (.value.range // "")] |
-                        join(" ") | [scan("<[0-9][^\\s]*")] | map(ltrimstr("<")) | first) // "-"
-                     end),
-                    (if (.value.fixAvailable | type) == "object" and .value.fixAvailable.isSemVerMajor then "force" else "auto" end),
-                    (([.value.via // [] | .[] | select(type == "object") | .url // ""] | map(select(. != "")) | first) // "-")
+                    (.vulnerabilities // {}) | to_entries[] |
+                    select((.value.severity == "high" or .value.severity == "critical") and (.value.fixAvailable != false)) |
+                    {
+                      pkg: .key,
+                      severity: .value.severity,
+                      fix_name: (if (.value.fixAvailable | type) == "object" then .value.fixAvailable.name else .key end),
+                      fix_version: (
+                        if (.value.fixAvailable | type) == "object" then
+                          (if .value.fixAvailable.version == "0.0.0" then null else .value.fixAvailable.version end)
+                        else
+                          ([(.value.via // [] | .[] | select(type == "object") | .range // ""), (.value.range // "")] |
+                           join(" ") | [scan("<[0-9][^\\s]*")] | map(ltrimstr("<")) | first)
+                        end
+                      ),
+                      fix_type: (
+                        if (.value.fixAvailable | type) == "object" and (.value.fixAvailable.isSemVerMajor == true) and (.value.fixAvailable.version != "0.0.0") then "force"
+                        elif (.value.fixAvailable | type) == "object" and (.value.fixAvailable.version == "0.0.0") then "nofix"
+                        else "auto"
+                        end
+                      ),
+                      advisory_url: (([.value.via // [] | .[] | select(type == "object") | .url // ""] | map(select(. != "")) | first) // null)
+                    }
                   ] |
+                  group_by([.fix_name, .fix_type]) |
+                  .[] |
+                  {
+                    fix_name: .[0].fix_name,
+                    fix_version: ([.[].fix_version | select(. != null)] | sort | last // "-"),
+                    max_severity: (if any(.[]; .severity == "critical") then "CRITICAL" else "HIGH" end),
+                    fix_type: .[0].fix_type,
+                    advisories: ([.[].advisory_url | select(. != null)] | unique | map("[" + (. | split("/") | last) + "](" + . + ")") | join(", "))
+                  } |
+                  [.fix_name, .fix_version, .max_severity, .fix_type, .advisories] |
                   @tsv
                 ' "$json_file" 2>/dev/null || echo "")
                 [ -z "$rows" ] && continue
                 found_any=true
                 echo "**\`$scan_dir\`**"
                 echo ""
-                echo "| Package | Severity | Installed | Fix ≥ | Advisory | Command |"
-                echo "|---------|----------|-----------|-------|----------|---------|"
-                while IFS=$'\t' read -r pkg severity installed fix_ver fix_type advisory_url; do
-                  if [ "$fix_type" = "force" ]; then
-                    cmd="\`npm audit fix --force --prefix $scan_dir\` _(may introduce breaking changes)_"
-                  else
-                    cmd="\`npm audit fix --prefix $scan_dir\`"
+                prev_type=""
+                while IFS=$'\t' read -r fix_name fix_version max_severity fix_type advisories; do
+                  if [ "$fix_type" != "$prev_type" ]; then
+                    [ -n "$prev_type" ] && echo ""
+                    case "$fix_type" in
+                      auto)  echo "_Run \`npm audit fix --prefix $scan_dir\`:_" ;;
+                      force) echo "_Run \`npm audit fix --force --prefix $scan_dir\` _(may introduce breaking changes)_:_" ;;
+                      nofix) echo "_No fix currently available:_" ;;
+                    esac
+                    echo ""
+                    if [ "$fix_type" = "nofix" ]; then
+                      echo "| Package | Severity | Advisory |"
+                      echo "|---------|----------|----------|"
+                    else
+                      echo "| Package | Fix ≥ | Severity | Advisory |"
+                      echo "|---------|--------|----------|----------|"
+                    fi
+                    prev_type="$fix_type"
                   fi
-                  if [ "$advisory_url" != "-" ] && [ -n "$advisory_url" ]; then
-                    advisory_id=$(basename "$advisory_url")
-                    advisory_col="[$advisory_id]($advisory_url)"
+                  [ -z "$advisories" ] && advisories="-"
+                  if [ "$fix_type" = "nofix" ]; then
+                    echo "| \`$fix_name\` | $max_severity | $advisories |"
                   else
-                    advisory_col="-"
+                    echo "| \`$fix_name\` | \`$fix_version\` | $max_severity | $advisories |"
                   fi
-                  echo "| \`$pkg\` | $severity | \`$installed\` | \`$fix_ver\` | $advisory_col | $cmd |"
-                done <<< "$rows"
+                done <<< "$(echo "$rows" | sort -t$'\t' -k4,4 -k1,1)"
                 echo ""
               done
               if [ "$found_any" = false ]; then
