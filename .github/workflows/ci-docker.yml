@@ -460,8 +460,8 @@ jobs:
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: "${{ matrix.name }}:ci-${{ github.run_id }}"
-          format: "table"
-          output: "trivy-${{ matrix.name }}.txt"
+          format: "json"
+          output: "trivy-${{ matrix.name }}.json"
           exit-code: "1"
           ignore-unfixed: true
           vuln-type: "os,library"
@@ -472,7 +472,15 @@ jobs:
 
       - name: Print Trivy results to log
         if: always()
-        run: cat trivy-${{ matrix.name }}.txt 2>/dev/null || true
+        run: |
+          jq -r '
+            .Results[]? |
+            select((.Vulnerabilities // []) | length > 0) |
+            "Target: \(.Target)",
+            (.Vulnerabilities[] |
+              "  [\(.Severity)] \(.PkgName)  \(.InstalledVersion) -> \(.FixedVersion // "no fix")  (\(.VulnerabilityID))"
+            ), ""
+          ' trivy-${{ matrix.name }}.json 2>/dev/null || true
 
       - name: Upload Trivy results
         if: always()
@@ -484,7 +492,7 @@ jobs:
         with:
           name: trivy-results-${{ matrix.name }}
           path: |
-            trivy-${{ matrix.name }}.txt
+            trivy-${{ matrix.name }}.json
             trivy-${{ matrix.name }}-status.txt
           if-no-files-found: ignore
 

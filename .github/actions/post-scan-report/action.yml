@@ -335,17 +335,61 @@ runs:
                   echo "The Trivy scan was skipped, likely because the Docker image build failed. Refer to the [action logs]($LOGS_URL) for details."
                   echo ""
                 else
-                  echo "These may contain OS-level package vulnerabilities that require updates (e.g. \`apt update <package>\`) to be added to the Dockerfile."
-                  echo ""
-                  trivy_text=$(cat "./trivy-results-${name}/trivy-${name}.txt" 2>/dev/null || echo "")
-                  if [ -n "$trivy_text" ]; then
-                    trivy_lines=$(echo "$trivy_text" | wc -l)
-                    echo '```'
-                    echo "$trivy_text" | head -150 || true
-                    if [ "$trivy_lines" -gt 150 ]; then
-                      echo "... $((trivy_lines - 150)) more lines — refer to the [action logs]($LOGS_URL) for the full output."
-                    fi
-                    echo '```'
+                  json_file="./trivy-results-${name}/trivy-${name}.json"
+                  rows=$(jq -r '
+                    [
+                      .Results[]? |
+                      .Target as $target |
+                      .Type as $type |
+                      (.Vulnerabilities // []) |
+                      .[] |
+                      (.InstalledVersion | ltrimstr("v") | split(".") | .[0] | (tonumber? // 0)) as $major |
+                      (.FixedVersion | if . == null or . == "" then ["-"] else split(", ") | map(ltrimstr("v")) end) as $fixed_list |
+                      (
+                        ($fixed_list |
+                         map(select(split(".") | .[0] | (tonumber? // -1) | . == $major)) |
+                         sort_by(split(".") | map(tonumber? // 0)) |
+                         first) //
+                        ($fixed_list | sort_by(split(".") | map(tonumber? // 0)) | first) //
+                        "-"
+                      ) as $best_fix |
+                      [$target, $type, .PkgName, .InstalledVersion, $best_fix, .Severity, .VulnerabilityID, (.PrimaryURL // "")]
+                    ] |
+                    sort_by([.[0], (.[5] == "CRITICAL" | not), .[2]]) |
+                    .[] |
+                    @tsv
+                  ' "$json_file" 2>/dev/null || echo "")
+                  if [ -n "$rows" ]; then
+                    prev_target=""
+                    while IFS=$'\t' read -r target type pkg installed fixed severity cve url; do
+                      if [ "$target" != "$prev_target" ]; then
+                        [ -n "$prev_target" ] && echo ""
+                        echo "**\`$target\`**"
+                        echo ""
+                        echo "| Package | Type | Installed | Fix ≥ | Severity | Advisory | Command |"
+                        echo "|---------|------|-----------|-------|----------|----------|---------|"
+                        prev_target="$target"
+                      fi
+                      [ -n "$url" ] && advisory_col="[$cve]($url)" || advisory_col="$cve"
+                      case "$type" in
+                        debian|ubuntu|centos|rhel|fedora|sles|wolfi|chainguard)
+                          cmd="\`RUN apt-get install -y --only-upgrade $pkg\` in Dockerfile" ;;
+                        alpine)
+                          cmd="\`RUN apk upgrade $pkg\` in Dockerfile" ;;
+                        composer|composer-vendor)
+                          cmd="\`composer update $pkg\`" ;;
+                        npm|node-pkg|yarn|pnpm)
+                          cmd="\`npm update $pkg\`" ;;
+                        pip|pip3|pipenv|poetry)
+                          cmd="\`pip install --upgrade $pkg\`" ;;
+                        *)
+                          cmd="-" ;;
+                      esac
+                      echo "| \`$pkg\` | $type | \`$installed\` | \`$fixed\` | $severity | $advisory_col | $cmd |"
+                    done <<< "$rows"
+                    echo ""
+                  else
+                    echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
                     echo ""
                   fi
                 fi
