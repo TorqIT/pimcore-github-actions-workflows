@@ -353,7 +353,7 @@ runs:
                         ($fixed_list | sort_by(split(".") | map(tonumber? // 0)) | first) //
                         "-"
                       ) as $best_fix |
-                      [$target, $type, .PkgName, .InstalledVersion, $best_fix, .Severity, .VulnerabilityID, (.PrimaryURL // "")]
+                      [$target, $type, .PkgName, .InstalledVersion, $best_fix, .Severity, .VulnerabilityID, (.PrimaryURL // ""), (.PkgPath // "")]
                     ] |
                     sort_by([.[0], (.[5] == "CRITICAL" | not), .[2]]) |
                     .[] |
@@ -361,7 +361,7 @@ runs:
                   ' "$json_file" 2>/dev/null || echo "")
                   if [ -n "$rows" ]; then
                     prev_target=""
-                    while IFS=$'\t' read -r target type pkg installed fixed severity cve url; do
+                    while IFS=$'\t' read -r target type pkg installed fixed severity cve url pkg_path; do
                       if [ "$target" != "$prev_target" ]; then
                         [ -n "$prev_target" ] && echo ""
                         echo "**\`$target\`**"
@@ -377,9 +377,23 @@ runs:
                         alpine)
                           cmd="\`RUN apk upgrade $pkg\` in Dockerfile" ;;
                         composer|composer-vendor)
-                          cmd="\`composer update $pkg\`" ;;
+                          pkg_dir=$(echo "$pkg_path" | sed 's|/vendor/composer/installed\.json$||;s|^var/www/html/*||')
+                          [ "$pkg_dir" = "$pkg_path" ] && pkg_dir=""
+                          if [ -n "$pkg_dir" ]; then
+                            cmd="\`composer update $pkg --working-dir $pkg_dir\`"
+                          else
+                            cmd="\`composer update $pkg\`"
+                          fi
+                          ;;
                         npm|node-pkg|yarn|pnpm)
-                          cmd="\`npm update $pkg\`" ;;
+                          pkg_dir=$(echo "$pkg_path" | sed 's|/node_modules/.*$||;s|^var/www/html/*||')
+                          [ "$pkg_dir" = "$pkg_path" ] && pkg_dir=""
+                          if [ -n "$pkg_dir" ]; then
+                            cmd="\`npm update $pkg --prefix $pkg_dir\`"
+                          else
+                            cmd="\`npm update $pkg\`"
+                          fi
+                          ;;
                         pip|pip3|pipenv|poetry)
                           cmd="\`pip install --upgrade $pkg\`" ;;
                         *)
