@@ -415,6 +415,12 @@ jobs:
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
 
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+          sudo swapoff -a && sudo rm -f /swapfile
+        shell: bash
+
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
         with:
@@ -443,14 +449,9 @@ jobs:
           PUSH: false
           TAGS: "${{ matrix.name }}:ci-${{ github.run_id }}"
 
-      - name: Free disk space before Trivy scan if needed
+      - name: Prune Docker build cache before Trivy scan
         if: matrix.name != 'init' || inputs.INIT
-        run: |
-          FREE_GB=$(df / --output=avail -BG | tail -1 | tr -d 'G')
-          if [ "$FREE_GB" -lt 10 ]; then
-            sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
-            sudo swapoff -a && sudo rm -f /swapfile
-          fi
+        run: docker system prune -f
         shell: bash
 
       - name: Run Trivy vulnerability scanner on image
