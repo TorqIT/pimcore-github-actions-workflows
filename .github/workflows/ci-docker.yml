@@ -446,10 +446,23 @@ jobs:
       - name: Free disk space before Trivy scan if needed
         if: matrix.name != 'init' || inputs.INIT
         run: |
+          # The buildx build cache holds a duplicate copy of every layer of the image
+          # built above, and is no longer needed once the image has been loaded into
+          # the Docker image store
+          docker builder prune --all --force
+
+          # Trivy scans a locally built image by exporting a full uncompressed copy of
+          # it to its temp directory and extracting its layers into its cache, so it
+          # can transiently need up to twice the image size in free disk space
+          IMAGE_BYTES=$(docker image inspect --format '{{.Size}}' "${{ matrix.name }}:ci-${{ github.run_id }}")
+          REQUIRED_GB=$((IMAGE_BYTES * 2 / 1024 / 1024 / 1024 + 5))
           FREE_GB=$(df / --output=avail -BG | tail -1 | tr -d 'G')
-          if [ "$FREE_GB" -lt 10 ]; then
-            sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+          echo "Free disk space: ${FREE_GB}GB; required for scan: ${REQUIRED_GB}GB"
+          if [ "$FREE_GB" -lt "$REQUIRED_GB" ]; then
+            echo "Removing pre-installed runner toolchains to free disk space..."
+            sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
             sudo swapoff -a && sudo rm -f /swapfile
+            df -h /
           fi
         shell: bash
 
@@ -491,7 +504,13 @@ jobs:
       - name: Fail if Trivy found vulnerabilities
         if: steps.trivy-scan.outcome == 'failure'
         run: |
-          echo "Trivy found CRITICAL or HIGH vulnerabilities in the ${{ matrix.name }} image"
+          # Trivy only writes its results file when the scan itself completes, so a
+          # missing or empty file means the scan errored rather than found anything
+          if [ -s "trivy-${{ matrix.name }}.txt" ]; then
+            echo "Trivy found CRITICAL or HIGH vulnerabilities in the ${{ matrix.name }} image"
+          else
+            echo "The Trivy scan of the ${{ matrix.name }} image failed to complete - see the 'Run Trivy vulnerability scanner on image' step for the error"
+          fi
           exit 1
 
   post-scan-report:
