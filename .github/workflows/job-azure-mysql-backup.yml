@@ -6,7 +6,7 @@
 #     - cron: "0 0 1 * *"
 # jobs:
 #   db-backup:
-#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-azure-mysql-backup.yml@v7
+#     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-azure-mysql-backup.yml@v8
 #     permissions:
 #       contents: read
 #       actions: read
@@ -51,6 +51,21 @@ on:
       ENVIRONMENT:
         required: true
         type: string
+      IGNORE_TABLES:
+        required: false
+        type: string
+        default: "messenger_messages,sessions"
+        description: Comma-separated list of table names to ignore during dump (e.g., "messenger_messages,sessions")
+      IGNORE_TABLE_PATTERNS:
+        required: false
+        type: string
+        default: "application_logs_archive_.*,messenger_messages_.*"
+        description: Regex pattern for table names to ignore during dump (e.g., "cache_.*,temp_.*")
+      MYDUMPER_THREADS:
+        required: false
+        type: number
+        default: 4
+        description: Number of threads to use for the mydumper operation
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -74,14 +89,14 @@ jobs:
     steps:
       - name: Get workflow version
         id: workflow-version
-        uses: canonical/get-workflow-version-action@ba22d0abdc1eda539aa3ac81af1cfee160b10714 # v1.0.4
+        uses: canonical/get-workflow-version-action@b21f2a1dad0467fd79081fa16dad4f4935fc6253 # v1.0.3
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
           file-name: job-azure-mysql-backup.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: TorqIT/pimcore-github-actions-workflows
           ref: ${{ steps.workflow-version.outputs.sha }}
@@ -90,6 +105,15 @@ jobs:
 
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Install mydumper
+        run: |
+          set -e
+          echo "Installing mydumper..."
+          MYDUMPER_VERSION="0.20.1-2"
+          wget https://github.com/mydumper/mydumper/releases/download/v${MYDUMPER_VERSION}/mydumper_${MYDUMPER_VERSION}.$(lsb_release -cs)_amd64.deb
+          sudo dpkg -i mydumper_${MYDUMPER_VERSION}.$(lsb_release -cs)_amd64.deb || sudo apt-get install -f -y
+          mydumper --version
 
       - name: Log in to Azure
         uses: ./reusable-workflow/.github/actions/azure-login
@@ -127,21 +151,80 @@ jobs:
         run: |
           set -euo pipefail
 
-          fileName="$(date -u +"%Y-%m-%dT%H:%M:%SZ").sql.gz"
+          timestamp="$(date -u +"%Y-%m-%dT%H-%M-%SZ")"
+          dumpDir="db_dump_${timestamp}"
+          fileName="${timestamp}.tar.gz"
           dbHost="${{ vars.AZURE_MYSQL_SERVER }}.mysql.database.azure.com"
           dbUser="${{ vars.AZURE_MYSQL_USERNAME || 'adminuser' }}"
           dbName="${{ vars.AZURE_MYSQL_DATABASE || 'pimcore' }}"
 
-          echo "Performing database dump..."
+          OMIT_FILE="omit_tables.txt"
+          touch "$OMIT_FILE"
+
+          # Add specific tables to exclude data
+          if [ -n "${{ inputs.IGNORE_TABLES }}" ]; then
+            IFS=',' read -ra TABLES <<< "${{ inputs.IGNORE_TABLES }}"
+            for table in "${TABLES[@]}"; do
+              table=$(echo "$table" | xargs)
+              if [ -n "$table" ]; then
+                echo "$dbName.$table" >> "$OMIT_FILE"
+                echo "Will exclude data for table: $table"
+              fi
+            done
+          fi
+
+          # Query database for tables matching patterns and add them to omit file
+          if [ -n "${{ inputs.IGNORE_TABLE_PATTERNS }}" ]; then
+            IFS=',' read -ra PATTERNS <<< "${{ inputs.IGNORE_TABLE_PATTERNS }}"
+            for pattern in "${PATTERNS[@]}"; do
+              pattern=$(echo "$pattern" | xargs)
+              if [ -n "$pattern" ]; then
+                echo "Finding tables matching pattern: $pattern"
+                
+                MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
+                  mysql \
+                  -h "${{ vars.AZURE_MYSQL_SERVER }}.mysql.database.azure.com" \
+                  -P "3306" \
+                  -u "${{ vars.AZURE_MYSQL_USERNAME || 'adminuser' }}" \
+                  --ssl-mode=PREFERRED \
+                  -N -s \
+                  -e "SELECT CONCAT('${{ vars.AZURE_MYSQL_DATABASE || 'pimcore' }}.', table_name) \
+                      FROM information_schema.tables \
+                      WHERE table_schema = '${{ vars.AZURE_MYSQL_DATABASE || 'pimcore' }}' \
+                      AND table_name REGEXP '$pattern';" \
+                  >> "$OMIT_FILE"
+              fi
+            done
+          fi
+
+          OMIT_OPTION=""
+          if [ -s "$OMIT_FILE" ]; then
+            echo "Tables to exclude data:"
+            cat "$OMIT_FILE"
+            OMIT_OPTION="--omit-from-file=$OMIT_FILE"
+          fi
+
+          echo "Performing database dump with mydumper..."
           MYSQL_PWD="${{ secrets.AZURE_MYSQL_PASSWORD }}" \
-            mysqldump \
-              -h "$dbHost" \
-              -u "$dbUser" \
-              --ssl-mode=VERIFY_CA \
-              --ssl-ca ./reusable-workflow/.azure/config/db/DigiCertGlobalRootCA.crt.pem \
-              --single-transaction --routines --triggers --add-drop-table --disable-keys --extended-insert --no-tablespaces \
-              "$dbName" \
-            | gzip -c > "$fileName"
+            mydumper \
+              --host="$dbHost" \
+              --user="$dbUser" \
+              --database="$dbName" \
+              --ssl-mode=PREFERRED \
+              --outputdir="$dumpDir" \
+              --threads=${{ inputs.MYDUMPER_THREADS }} \
+              --compress \
+              --routines \
+              --triggers \
+              --trx-tables \
+              --sync-thread-lock-mode=NO_LOCK \
+              $OMIT_OPTION \
+              --verbose=3
+
+          echo "Compressing dump directory..."
+          tar -czf "$fileName" "$dumpDir"
+          rm -rf "$dumpDir"
+
           fileSize="$(wc -c < "$fileName")"
           echo "Dumped file is $fileSize bytes (compressed)"
 
@@ -188,7 +271,7 @@ jobs:
 
       - name: Send job status to Slack
         if: ${{ !cancelled() }}
-        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
         with:
           webhook: ${{ secrets.SLACK_BACKUPS_WEBHOOK_URL }}
           webhook-type: incoming-webhook
