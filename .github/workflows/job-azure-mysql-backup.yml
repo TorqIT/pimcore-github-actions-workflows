@@ -181,7 +181,7 @@ jobs:
               if [ -n "$pattern" ]; then
                 echo "Finding tables matching pattern: $pattern"
                 
-                MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
+                MYSQL_PWD="${{ secrets.AZURE_MYSQL_PASSWORD }}" \
                   mysql \
                   -h "${{ vars.AZURE_MYSQL_SERVER }}.mysql.database.azure.com" \
                   -P "3306" \
