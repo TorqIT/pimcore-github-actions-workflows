@@ -133,10 +133,21 @@ runs:
                     (a | split(".") | map(tonumber? // 0)) as $av |
                     (b | split(".") | map(tonumber? // 0)) as $bv |
                     $av < $bv;
+                  def advisory_links(via_entry; vulns):
+                    if (via_entry | type) == "object" then
+                      if (via_entry.url // "") != "" then "[" + (via_entry.url | split("/") | last) + "](" + via_entry.url + ")"
+                      elif (via_entry.title // "") != "" then via_entry.title
+                      else empty
+                      end
+                    elif (via_entry | type) == "string" then
+                      (vulns[via_entry].via // [] | .[] | select(type == "object") | advisory_links(.; vulns))
+                    else empty
+                    end;
+                  (.vulnerabilities // {}) as $vulns |
                   ($pkgs | map({(.name): .version}) | add // {}) as $versions |
                   [
-                    (.vulnerabilities // {}) | to_entries[] |
-                    select((.value.severity == "high" or .value.severity == "critical") and (.value.fixAvailable != false)) |
+                    $vulns | to_entries[] |
+                    select((.value.severity == "high" or .value.severity == "critical") and (.value.fixAvailable != false) and ((.value.via // []) | map(type == "object") | any)) |
                     .key as $pkg |
                     ($versions[$pkg] // "?") as $installed |
                     (if (.value.fixAvailable | type) == "object" then .value.fixAvailable.name else $pkg end) as $fix_name |
@@ -149,8 +160,11 @@ runs:
                         else $fa_version
                         end
                       else
-                        ([(.value.via // [] | .[] | select(type == "object") | .range // ""), (.value.range // "")] |
-                         join(" ") | [scan("<[0-9][^\\s]*")] | map(ltrimstr("<")) | last) // "-"
+                        ([(.value.via // [] | .[] | select(type == "object") | .range // ""),
+                          (.value.range // ""),
+                          (.value.via // [] | .[] | select(type == "string") | ($vulns[.].range // ""))
+                         ] |
+                         join(" ") | [scan("<[0-9][^\\s]*")] | map(ltrimstr("<")) | first) // "-"
                       end
                     ) as $fix_label |
                     (
@@ -164,12 +178,7 @@ runs:
                       else "auto"
                       end
                     ) as $fix_type |
-                    ([.value.via // [] | .[] | select(type == "object") |
-                      if (.url // "") != "" then "[" + (.url | split("/") | last) + "](" + .url + ")"
-                      elif (.title // "") != "" then .title
-                      else empty
-                      end
-                    ] | unique | join(", ")) as $advisories |
+                    ([.value.via // [] | .[] | advisory_links(.; $vulns)] | unique | join(", ")) as $advisories |
                     [$pkg, $installed, $fix_label, (.value.severity | ascii_upcase), $fix_type, $advisories]
                   ] |
                   sort_by([.[4], (.[3] == "CRITICAL" | not), .[0]]) |
