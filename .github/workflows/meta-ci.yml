@@ -27,6 +27,7 @@ jobs:
     strategy:
       matrix:
         branch: [2024.x, 2025.x, skeleton/prepare-2026.x]
+      fail-fast: false
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: ${{ matrix.branch }}
@@ -51,6 +52,7 @@ jobs:
           - version: 2026.x
             parameters_file: "./.github/ci/azure/parameters.2026.x.json"
             skeleton_ref: 2026.x-azure
+      fail-fast: false
     uses: ./.github/workflows/meta-ci-azure.yml
     with:
       ENVIRONMENT: ${{ matrix.version }}

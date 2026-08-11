@@ -61,6 +61,7 @@ jobs:
     strategy:
       matrix:
         environment: ${{ fromJson(inputs.ENVIRONMENTS) }}
+      fail-fast: false
     environment: ${{ matrix.environment }}
 
     steps:
