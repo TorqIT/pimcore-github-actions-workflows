@@ -129,6 +129,10 @@ runs:
                 dir_slug=$(echo "$scan_dir" | sed 's|^\./||;s|/|__|g')
                 pkgs_json=$(cat "./scan-results/npm-packages-${dir_slug:-root}.json" 2>/dev/null || echo '[]')
                 rows=$(jq -r --argjson pkgs "$pkgs_json" '
+                  def semver_lt(a; b):
+                    (a | split(".") | map(tonumber? // 0)) as $av |
+                    (b | split(".") | map(tonumber? // 0)) as $bv |
+                    $av < $bv;
                   ($pkgs | map({(.name): .version}) | add // {}) as $versions |
                   [
                     (.vulnerabilities // {}) | to_entries[] |
@@ -150,12 +154,22 @@ runs:
                       end
                     ) as $fix_label |
                     (
-                      if (.value.fixAvailable | type) == "object" and (.value.fixAvailable.isSemVerMajor == true) and (.value.fixAvailable.version != "0.0.0") then "force"
-                      elif (.value.fixAvailable | type) == "object" and (.value.fixAvailable.version == "0.0.0") then "nofix"
+                      if (.value.fixAvailable | type) == "object" then
+                        (if $transitive then ($versions[$fix_name] // "?") else $installed end) as $ref_installed |
+                        if $fa_version == "0.0.0" then "nofix"
+                        elif ($ref_installed != "?" and ($fa_version | test("^[0-9]")) and ($ref_installed | test("^[0-9]")) and semver_lt($fa_version; $ref_installed)) then "downgrade"
+                        elif .value.fixAvailable.isSemVerMajor == true then "force"
+                        else "auto"
+                        end
                       else "auto"
                       end
                     ) as $fix_type |
-                    ([.value.via // [] | .[] | select(type == "object") | .url // ""] | map(select(. != "")) | unique | map("[" + (. | split("/") | last) + "](" + . + ")") | join(", ")) as $advisories |
+                    ([.value.via // [] | .[] | select(type == "object") |
+                      if (.url // "") != "" then "[" + (.url | split("/") | last) + "](" + .url + ")"
+                      elif (.title // "") != "" then .title
+                      else empty
+                      end
+                    ] | unique | join(", ")) as $advisories |
                     [$pkg, $installed, $fix_label, (.value.severity | ascii_upcase), $fix_type, $advisories]
                   ] |
                   sort_by([.[4], (.[3] == "CRITICAL" | not), .[0]]) |
@@ -171,9 +185,10 @@ runs:
                 while IFS=$'\t' read -r pkg installed fix_label severity fix_type advisories; do
                   [ -z "$advisories" ] && advisories="-"
                   case "$fix_type" in
-                    auto)  cmd="\`npm audit fix --prefix $scan_dir\`" ;;
-                    force) cmd="\`npm audit fix --force --prefix $scan_dir\`" ;;
-                    *)     cmd="-" ;;
+                    auto)      cmd="\`npm audit fix --prefix $scan_dir\`" ;;
+                    force)     cmd="\`npm audit fix --force --prefix $scan_dir\`" ;;
+                    downgrade) cmd="\`npm audit fix --force --prefix $scan_dir\` *(regression — investigate)*" ;;
+                    *)         cmd="-" ;;
                   esac
                   echo "| \`$pkg\` | \`$installed\` | \`$fix_label\` | $severity | $advisories | $cmd |"
                 done <<< "$rows"
