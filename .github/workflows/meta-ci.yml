@@ -25,6 +25,7 @@ jobs:
     name: "Test CI workflow against Pimcore skeleton"
     uses: ./.github/workflows/ci-docker.yml
     strategy:
+      fail-fast: false
       matrix:
         branch: [2024.x, 2025.x, skeleton/prepare-2026.x]
     with:
@@ -44,6 +45,7 @@ jobs:
   skeleton-ci-azure:
     name: "Test Azure CD workflow against Pimcore skeleton"
     strategy:
+      fail-fast: false
       matrix:
         include:
           - version: 2025.x

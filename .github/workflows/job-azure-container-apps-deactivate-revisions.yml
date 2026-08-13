@@ -59,6 +59,7 @@ jobs:
   deactivate-old-revisions:
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
     strategy:
+      fail-fast: false
       matrix:
         environment: ${{ fromJson(inputs.ENVIRONMENTS) }}
     environment: ${{ matrix.environment }}

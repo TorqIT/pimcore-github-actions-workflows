@@ -16,6 +16,7 @@ jobs:
   tear-down-azure-resources:
     name: Tear down CI Azure resources
     strategy:
+      fail-fast: false
       matrix:
         include:
           - parameters-file: "./.github/ci/azure/parameters.2025.x.json"
