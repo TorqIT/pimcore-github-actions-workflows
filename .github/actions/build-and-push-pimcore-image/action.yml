@@ -159,7 +159,7 @@ runs:
           torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
           ${{ steps.build-secrets.outputs.secrets }}
         push: ${{ inputs.PUSH == 'true' }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=min
+        cache-from: ${{ inputs.CACHE_FROM }}
+        cache-to: ${{ inputs.CACHE_TO }}
         tags: ${{ inputs.TAGS }}
         load: ${{ inputs.LOAD == 'true' }}
