@@ -32,6 +32,7 @@ jobs:
       PROJECT_REPOSITORY_REF: ${{ matrix.branch }}
       GITHUB_APP_CHECKOUT: true
       RUN_UNIT_TESTS: ${{ matrix.branch != '2024.x' }}
+      RUN_PHPSTAN: true
       POST_SCAN_RESULTS_TO_PR: true
     secrets:
       GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
