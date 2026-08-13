@@ -74,8 +74,8 @@ runs:
         PIMCORE_INSTANCE_IDENTIFIER: ${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}
         PIMCORE_ENCRYPTION_SECRET: ${{ inputs.PIMCORE_ENCRYPTION_SECRET }}
         TORQ_GITHUB_TOKEN: ${{ inputs.TORQ_GITHUB_TOKEN }}
-        CACHE_TO: gha
-        CACHE_FROM: gha,mode=min
+        CACHE_TO: type=gha
+        CACHE_FROM: type=gha,mode=min
         PUSH: "false"
         LOAD: "true"
         TAGS: "test:test"
