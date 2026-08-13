@@ -74,11 +74,6 @@ on:
         type: string
         default: "{}"
         description: "A JSON object containing Docker build-time args in key: value format"
-      USE_GHA_CACHE:
-        required: false
-        type: boolean
-        default: true
-        description: "Whether to use GitHub Actions cache for Docker layer caching during image builds"
       PIMCORE_ROOT:
         required: false
         type: string
@@ -456,8 +451,6 @@ jobs:
           SPA_TWIG: ${{ matrix.spa_twig }}
           NPM_RUN_CMD: ${{ matrix.npm_run_cmd }}
           PUSH: false
-          CACHE_FROM: ${{ inputs.USE_GHA_CACHE && format('type=gha,scope={0}', matrix.name) || '' }}
-          CACHE_TO: ${{ inputs.USE_GHA_CACHE && format('type=gha,mode=min,scope={0}', matrix.name) || '' }}
           TAGS: "${{ matrix.name }}:ci-${{ github.run_id }}"
 
       - name: Free disk space before Trivy scan if needed
