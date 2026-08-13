@@ -98,4 +98,6 @@ runs:
 
             echo "Running PHPStan..."
             $RUN_AS /var/www/html/vendor/bin/phpstan analyse --no-progress --error-format=github ${{ inputs.PHPSTAN_ARGS }}
+            # phpstan will exit above with a non-zero code if it finds any issues
+            echo "PHPStan found no issues!"
           '
