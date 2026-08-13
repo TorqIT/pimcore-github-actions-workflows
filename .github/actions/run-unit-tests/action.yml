@@ -137,13 +137,15 @@ runs:
             echo "Installing Pimcore..."
             pimcore_version=$(composer show "pimcore/pimcore" | sed -n "/versions/s/^[^0-9]\+\([^,]\+\).*$/\1/p")
             if [[ "$pimcore_version" =~ ^20.*$ ]]; then
-              $RUN_AS php -d display_errors=1 -d error_reporting=E_ALL /var/www/html/vendor/bin/pimcore-install \
+              $RUN_AS php -d display_errors=1 -d error_reporting=E_ALL memory_limit=-1 /var/www/html/vendor/bin/pimcore-install \
                 --install-profile "App\\Installer\\SkeletonProfile" \
                 --skip-validation \
                 --no-interaction
             else
               # Legacy pimcore-install format
-              $RUN_AS /var/www/html/vendor/bin/pimcore-install --skip-database-config --no-interaction
+              $RUN_AS php -d display_errors=1 -d error_reporting=E_ALL memory_limit=-1 /var/www/html/vendor/bin/pimcore-install \
+                --skip-database-config \
+                --no-interaction
             fi
 
             if [ ! -d "/var/www/html/var/classes/DataObject" ] || [ -z "$(ls -A /var/www/html/var/classes/DataObject 2>/dev/null)" ]; then
