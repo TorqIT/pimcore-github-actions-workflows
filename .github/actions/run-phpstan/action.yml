@@ -64,6 +64,9 @@ runs:
         set -Eeuo pipefail
 
         docker run --rm \
+          -e PIMCORE_PRODUCT_KEY='${{ inputs.PIMCORE_PRODUCT_KEY }}' \
+          -e PIMCORE_INSTANCE_IDENTIFIER='${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}' \
+          -e PIMCORE_ENCRYPTION_SECRET='${{ inputs.PIMCORE_ENCRYPTION_SECRET }}' \
           --entrypoint /bin/bash \
           phpstan:test \
           -c '
