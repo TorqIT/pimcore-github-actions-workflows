@@ -176,9 +176,15 @@ runs:
                     elif (constraint | startswith("<")) then vcmp(cur; constraint[1:]) < 0
                     else true
                     end;
+                  # An inclusive "<=X" bound means X itself is still vulnerable, so
+                  # the real fix is the next version after X, not X verbatim.
+                  def bump_last(v):
+                    (v | [scan("[0-9]+")] | map(tonumber)) as $parts |
+                    if ($parts | length) == 0 then v
+                    else ($parts[:-1] + [$parts[-1] + 1] | map(tostring) | join(".")) end;
                   def upper_bound(r):
                     r | map(select(startswith("<"))) |
-                    map(if startswith("<=") then .[2:] else .[1:] end) | first;
+                    map(if startswith("<=") then bump_last(.[2:]) else .[1:] end) | first;
                   # npm ranges OR multiple disjoint windows with " || " and AND
                   # constraints within a window with a space, e.g.
                   # "<4.17.11 || >=4.17.20 <4.17.21" (a CVE reintroduced later)
@@ -284,9 +290,15 @@ runs:
                     elif (constraint | startswith("<")) then vcmp(cur; constraint[1:]) < 0
                     else true
                     end;
+                  # An inclusive "<=X" bound means X itself is still vulnerable, so
+                  # the real fix is the next version after X, not X verbatim.
+                  def bump_last(v):
+                    (v | [scan("[0-9]+")] | map(tonumber)) as $parts |
+                    if ($parts | length) == 0 then v
+                    else ($parts[:-1] + [$parts[-1] + 1] | map(tostring) | join(".")) end;
                   def upper_bound(r):
                     r | map(select(startswith("<"))) |
-                    map(if startswith("<=") then .[2:] else .[1:] end) | first;
+                    map(if startswith("<=") then bump_last(.[2:]) else .[1:] end) | first;
                   # Pick the upper bound of whichever disjoint range (affectedVersions is
                   # "|"-separated, since a package can have separate vulnerable windows,
                   # e.g. a CVE reintroduced in a later series) the installed version falls
