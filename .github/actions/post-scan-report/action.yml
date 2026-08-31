@@ -242,7 +242,22 @@ runs:
               echo "<details>"
               echo "<summary><strong>Composer audit</strong></summary>"
               echo ""
-              if [ -f "./scan-results/composer-audit.json" ]; then
+              install_exit_code=$(cat ./scan-results/composer-install-exit.txt 2>/dev/null || echo "0")
+              if [ "$install_exit_code" != "0" ]; then
+                echo "**\`composer install\` failed before any audit could run (exit code $install_exit_code).**"
+                echo ""
+                echo "This usually means Composer's built-in \`policy.advisories.block\` protection refused to resolve a required package version because it's affected by a known security advisory, or there's an unrelated dependency conflict. The findings below (if any) reflect the last successful audit, not the versions currently required — the underlying conflict must be resolved (e.g. bump the blocked package, add an advisory ignore, or run \`composer why-not\` locally) before Composer can report what's actually vulnerable."
+                echo ""
+                echo "<details>"
+                echo "<summary>Install output</summary>"
+                echo ""
+                echo '```'
+                tail -c 4000 ./scan-results/composer-audit.txt 2>/dev/null || echo "(no output captured)"
+                echo '```'
+                echo ""
+                echo "</details>"
+                echo ""
+              elif [ -f "./scan-results/composer-audit.json" ] && jq empty ./scan-results/composer-audit.json 2>/dev/null; then
                 pkgs_json=$(cat "./scan-results/composer-packages.json" 2>/dev/null || echo '[]')
                 rows=$(jq -r --argjson pkgs "$pkgs_json" '
                   def norm(v):
@@ -307,19 +322,11 @@ runs:
                   done <<< "$rows"
                   echo ""
                 else
-                  if grep -q "affected by security advisories" ./scan-results/composer-audit.txt 2>/dev/null; then
-                    echo "Composer install was blocked — one or more required packages are affected by security advisories. Refer to the [action logs]($LOGS_URL) for the full list of advisory IDs."
-                  else
-                    echo "No HIGH or CRITICAL advisories found — refer to the [action logs]($LOGS_URL) for lower-severity findings."
-                  fi
+                  echo "No HIGH or CRITICAL advisories found — refer to the [action logs]($LOGS_URL) for lower-severity findings."
                   echo ""
                 fi
               else
-                if grep -q "affected by security advisories" ./scan-results/composer-audit.txt 2>/dev/null; then
-                  echo "Composer install was blocked — one or more required packages are affected by security advisories. Refer to the [action logs]($LOGS_URL) for the full list of advisory IDs."
-                else
-                  echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
-                fi
+                echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
                 echo ""
               fi
               echo "</details>"
