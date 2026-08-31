@@ -257,9 +257,7 @@ runs:
               echo ""
               install_exit_code=$(cat ./scan-results/composer-install-exit.txt 2>/dev/null || echo "0")
               if [ "$install_exit_code" != "0" ]; then
-                echo "**\`composer install\` failed before any audit could run (exit code $install_exit_code).**"
-                echo ""
-                echo "This usually means Composer's built-in \`policy.advisories.block\` protection refused to resolve a required package version because it's affected by a known security advisory, or there's an unrelated dependency conflict. The findings below (if any) reflect the last successful audit, not the versions currently required — the underlying conflict must be resolved (e.g. bump the blocked package, add an advisory ignore, or run \`composer why-not\` locally) before Composer can report what's actually vulnerable."
+                echo "**\`composer install\` failed — see the install output below or the [action logs]($LOGS_URL) for details.**"
                 echo ""
                 echo "<details>"
                 echo "<summary>Install output</summary>"
