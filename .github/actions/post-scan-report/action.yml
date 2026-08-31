@@ -25,38 +25,31 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Compute ref slug
-      id: ref-slug
-      shell: bash
-      env:
-        REF: ${{ inputs.REF }}
-      run: echo "slug=$(echo "$REF" | tr '/' '-')" >> "$GITHUB_OUTPUT"
-
     - name: Download scan results
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
-        name: scan-results-${{ steps.ref-slug.outputs.slug }}
+        name: scan-results
         path: ./scan-results
       continue-on-error: true
 
     - name: Download Trivy results (init)
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
-        name: trivy-results-init-${{ steps.ref-slug.outputs.slug }}
+        name: trivy-results-init
         path: ./trivy-results-init
       continue-on-error: true
 
     - name: Download Trivy results (php)
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
-        name: trivy-results-php-${{ steps.ref-slug.outputs.slug }}
+        name: trivy-results-php
         path: ./trivy-results-php
       continue-on-error: true
 
     - name: Download Trivy results (supervisord)
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
-        name: trivy-results-supervisord-${{ steps.ref-slug.outputs.slug }}
+        name: trivy-results-supervisord
         path: ./trivy-results-supervisord
       continue-on-error: true
 

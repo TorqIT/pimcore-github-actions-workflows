@@ -259,12 +259,6 @@ jobs:
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
 
-      - name: Compute ref slug
-        id: ref-slug
-        env:
-          REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
-        run: echo "slug=$(echo "$REF" | tr '/' '-')" >> "$GITHUB_OUTPUT"
-
       - name: Scan for npm vulnerabilities
         id: npm-scan
         continue-on-error: true
@@ -368,7 +362,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: scan-results-${{ steps.ref-slug.outputs.slug }}
+          name: scan-results
           path: scan-results/
           if-no-files-found: ignore
 
@@ -432,12 +426,6 @@ jobs:
 
       - name: Install tools for workflows/actions
         uses: ./reusable-workflow/.github/actions/setup-tools
-
-      - name: Compute ref slug
-        id: ref-slug
-        env:
-          REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
-        run: echo "slug=$(echo "$REF" | tr '/' '-')" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker
         uses: ./reusable-workflow/.github/actions/setup-docker
@@ -506,7 +494,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: trivy-results-${{ matrix.name }}-${{ steps.ref-slug.outputs.slug }}
+          name: trivy-results-${{ matrix.name }}
           path: |
             trivy-${{ matrix.name }}.txt
             trivy-${{ matrix.name }}-status.txt
