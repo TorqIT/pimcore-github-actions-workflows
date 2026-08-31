@@ -25,31 +25,38 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Compute ref slug
+      id: ref-slug
+      shell: bash
+      env:
+        REF: ${{ inputs.REF }}
+      run: echo "slug=$(echo "$REF" | tr '/' '-')" >> "$GITHUB_OUTPUT"
+
     - name: Download scan results
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
-        name: scan-results
+        name: scan-results-${{ steps.ref-slug.outputs.slug }}
         path: ./scan-results
       continue-on-error: true
 
     - name: Download Trivy results (init)
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
-        name: trivy-results-init
+        name: trivy-results-init-${{ steps.ref-slug.outputs.slug }}
         path: ./trivy-results-init
       continue-on-error: true
 
     - name: Download Trivy results (php)
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
-        name: trivy-results-php
+        name: trivy-results-php-${{ steps.ref-slug.outputs.slug }}
         path: ./trivy-results-php
       continue-on-error: true
 
     - name: Download Trivy results (supervisord)
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
-        name: trivy-results-supervisord
+        name: trivy-results-supervisord-${{ steps.ref-slug.outputs.slug }}
         path: ./trivy-results-supervisord
       continue-on-error: true
 
@@ -169,9 +176,15 @@ runs:
                     elif (constraint | startswith("<")) then vcmp(cur; constraint[1:]) < 0
                     else true
                     end;
+                  # An inclusive "<=X" bound means X itself is still vulnerable, so
+                  # the real fix is the next version after X, not X verbatim.
+                  def bump_last(v):
+                    (v | [scan("[0-9]+")] | map(tonumber)) as $parts |
+                    if ($parts | length) == 0 then v
+                    else ($parts[:-1] + [$parts[-1] + 1] | map(tostring) | join(".")) end;
                   def upper_bound(r):
                     r | map(select(startswith("<"))) |
-                    map(if startswith("<=") then .[2:] else .[1:] end) | first;
+                    map(if startswith("<=") then bump_last(.[2:]) else .[1:] end) | first;
                   # npm ranges OR multiple disjoint windows with " || " and AND
                   # constraints within a window with a space, e.g.
                   # "<4.17.11 || >=4.17.20 <4.17.21" (a CVE reintroduced later)
@@ -242,7 +255,20 @@ runs:
               echo "<details>"
               echo "<summary><strong>Composer audit</strong></summary>"
               echo ""
-              if [ -f "./scan-results/composer-audit.json" ]; then
+              install_exit_code=$(cat ./scan-results/composer-install-exit.txt 2>/dev/null || echo "0")
+              if [ "$install_exit_code" != "0" ]; then
+                echo "**\`composer install\` failed — see the install output below or the [action logs]($LOGS_URL) for details.**"
+                echo ""
+                echo "<details>"
+                echo "<summary>Install output</summary>"
+                echo ""
+                echo '```'
+                tail -c 4000 ./scan-results/composer-audit.txt 2>/dev/null || echo "(no output captured)"
+                echo '```'
+                echo ""
+                echo "</details>"
+                echo ""
+              elif [ -f "./scan-results/composer-audit.json" ] && jq empty ./scan-results/composer-audit.json 2>/dev/null; then
                 pkgs_json=$(cat "./scan-results/composer-packages.json" 2>/dev/null || echo '[]')
                 rows=$(jq -r --argjson pkgs "$pkgs_json" '
                   def norm(v):
@@ -262,9 +288,15 @@ runs:
                     elif (constraint | startswith("<")) then vcmp(cur; constraint[1:]) < 0
                     else true
                     end;
+                  # An inclusive "<=X" bound means X itself is still vulnerable, so
+                  # the real fix is the next version after X, not X verbatim.
+                  def bump_last(v):
+                    (v | [scan("[0-9]+")] | map(tonumber)) as $parts |
+                    if ($parts | length) == 0 then v
+                    else ($parts[:-1] + [$parts[-1] + 1] | map(tostring) | join(".")) end;
                   def upper_bound(r):
                     r | map(select(startswith("<"))) |
-                    map(if startswith("<=") then .[2:] else .[1:] end) | first;
+                    map(if startswith("<=") then bump_last(.[2:]) else .[1:] end) | first;
                   # Pick the upper bound of whichever disjoint range (affectedVersions is
                   # "|"-separated, since a package can have separate vulnerable windows,
                   # e.g. a CVE reintroduced in a later series) the installed version falls
@@ -307,19 +339,11 @@ runs:
                   done <<< "$rows"
                   echo ""
                 else
-                  if grep -q "affected by security advisories" ./scan-results/composer-audit.txt 2>/dev/null; then
-                    echo "Composer install was blocked — one or more required packages are affected by security advisories. Refer to the [action logs]($LOGS_URL) for the full list of advisory IDs."
-                  else
-                    echo "No HIGH or CRITICAL advisories found — refer to the [action logs]($LOGS_URL) for lower-severity findings."
-                  fi
+                  echo "No HIGH or CRITICAL advisories found — refer to the [action logs]($LOGS_URL) for lower-severity findings."
                   echo ""
                 fi
               else
-                if grep -q "affected by security advisories" ./scan-results/composer-audit.txt 2>/dev/null; then
-                  echo "Composer install was blocked — one or more required packages are affected by security advisories. Refer to the [action logs]($LOGS_URL) for the full list of advisory IDs."
-                else
-                  echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
-                fi
+                echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
                 echo ""
               fi
               echo "</details>"
