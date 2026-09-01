@@ -126,6 +126,7 @@ jobs:
       - name: Add temporary network rule for this runner to database server and Storage Account firewalls
         uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
         with:
+          azcliversion: "2.90.0"
           inlineScript: |
             set -e
             runnerIp=$(curl ipinfo.io/ip)
@@ -249,6 +250,7 @@ jobs:
         if: always()
         uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
         with:
+          azcliversion: "2.90.0"
           inlineScript: |
             set -e
             az mysql flexible-server firewall-rule delete \
@@ -261,6 +263,7 @@ jobs:
         if: always()
         uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
         with:
+          azcliversion: "2.90.0"
           inlineScript: |
             set -e
             runnerIp=$(curl ipinfo.io/ip)

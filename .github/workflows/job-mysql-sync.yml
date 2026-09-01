@@ -186,7 +186,7 @@ jobs:
         if: ${{ inputs.SOURCE_IS_IN_AZURE || inputs.TARGET_IS_IN_AZURE }}
         uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
         with:
-          azcliversion: latest
+          azcliversion: "2.90.0"
           inlineScript: |
             az login --service-principal \
               -u ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
@@ -198,6 +198,7 @@ jobs:
         if: ${{ inputs.SOURCE_IS_IN_AZURE }}
         uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
         with:
+          azcliversion: "2.90.0"
           inlineScript: |
             set -e
             runnerIp=$(curl ipinfo.io/ip)
@@ -215,6 +216,7 @@ jobs:
         if: ${{ inputs.TARGET_IS_IN_AZURE }}
         uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
         with:
+          azcliversion: "2.90.0"
           inlineScript: |
             set -e
             runnerIp=$(curl ipinfo.io/ip)
@@ -472,6 +474,7 @@ jobs:
         if: ${{ always() && inputs.SOURCE_IS_IN_AZURE }}
         uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
         with:
+          azcliversion: "2.90.0"
           inlineScript: |
             set -e
             az account set --subscription "${{ inputs.AZURE_SOURCE_SUBSCRIPTION_ID }}"
@@ -485,6 +488,7 @@ jobs:
         if: ${{ always() && inputs.TARGET_IS_IN_AZURE }}
         uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
         with:
+          azcliversion: "2.90.0"
           inlineScript: |
             set -e
             az account set --subscription "${{ inputs.AZURE_TARGET_SUBSCRIPTION_ID }}"
