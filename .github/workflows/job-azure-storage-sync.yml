@@ -129,7 +129,7 @@ jobs:
       - name: Log in to Azure via Service Principal
         uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
         with:
-          azcliversion: latest
+          azcliversion: "2.90.0"
           inlineScript: |
             az login --service-principal \
               -u ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
@@ -140,6 +140,7 @@ jobs:
       - name: Add temporary network rule for this runner to Storage Account firewalls
         uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
         with:
+          azcliversion: "2.90.0"
           inlineScript: |
             set -e
             runnerIp=$(curl ipinfo.io/ip)
@@ -252,6 +253,7 @@ jobs:
         if: always()
         uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
         with:
+          azcliversion: "2.90.0"
           inlineScript: |
             set -e
             runnerIp=$(curl ipinfo.io/ip)
@@ -273,6 +275,7 @@ jobs:
         if: always()
         uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
         with:
+          azcliversion: "2.90.0"
           inlineScript: |
             set -e
             runnerIp=$(curl ipinfo.io/ip)

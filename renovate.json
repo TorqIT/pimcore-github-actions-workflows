@@ -2,6 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "schedule": ["on Monday"],
   "updateNotScheduled": false,
+  "reviewers": ["evanjamesjackson"],
   "packageRules": [
     {
       "matchManagers": ["github-actions"],
@@ -12,6 +13,21 @@
       "matchManagers": ["github-actions"],
       "matchPackagePrefixes": ["TorqIT/"],
       "pinDigests": false
+    },
+    {
+      "matchDepNames": ["mcr.microsoft.com/azure-cli"],
+      "groupName": "Azure CLI",
+      "minimumReleaseAge": "7 days"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["^\\.github/workflows/.*\\.ya?ml$"],
+      "matchStrings": ["azcliversion:\\s*\"(?<currentValue>[0-9.]+)\""],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "mcr.microsoft.com/azure-cli",
+      "versioningTemplate": "semver"
     }
   ]
 }

@@ -95,6 +95,7 @@ jobs:
       - name: Deactivate revisions that have been at 0% traffic for 12 hours
         uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
         with:
+          azcliversion: "2.90.0"
           inlineScript: |
             set -e
 
