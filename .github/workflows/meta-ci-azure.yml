@@ -77,7 +77,6 @@ jobs:
       PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
       GITHUB_APP_CHECKOUT: true
       ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
-      FEATURE_FLAG_INSTALL_MISSING_BUNDLES: true
       AGENT_SERVER: ${{ inputs.AGENT_SERVER }}
     secrets:
       GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}

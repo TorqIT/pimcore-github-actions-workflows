@@ -190,11 +190,6 @@ on:
         type: boolean
         default: false
         description: "Whether database deployment steps should be skipped when applying Azure infrastructure changes"
-      FEATURE_FLAG_INSTALL_MISSING_BUNDLES:
-        required: false
-        type: boolean
-        default: false
-        description: "Feature flag - whether to automatically install missing required Pimcore bundles (e.g. Azure Flysystem bundle). Will be removed and assumed true in a future release."
       FEATURE_FLAG_DISABLE_CONFIG_COPY:
         required: false
         type: boolean
@@ -298,32 +293,6 @@ jobs:
       - name: Lint files
         if: ${{ inputs.SKIP_LINTING == false }}
         uses: ./reusable-workflow/.github/actions/lint
-
-      - name: Install required bundles if not already installed
-        if: ${{ inputs.FEATURE_FLAG_INSTALL_MISSING_BUNDLES }}
-        run: |
-          set -euo pipefail
-
-          bundles=(
-            "torq/pimcore-flysystem-azure-bundle:^5.3"
-          )
-
-          for bundle in "${bundles[@]}"; do
-            if composer show --no-interaction --no-ansi "$bundle" >/dev/null 2>&1; then
-              echo "$bundle is already installed, skipping"
-            else
-              echo "$bundle not found, installing..."
-              PIMCORE_ENTERPRISE_TOKEN="${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
-              if [[ -z "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
-                PIMCORE_ENTERPRISE_TOKEN=$(printf '%s' '${{ secrets.BUILD_TIME_SECRETS }}' | jq -r '."pimcore-enterprise-token" // empty' 2>/dev/null || true)
-              fi
-              if [[ -n "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
-                echo "::add-mask::$PIMCORE_ENTERPRISE_TOKEN"
-                composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.repo.pimcore.com token "$PIMCORE_ENTERPRISE_TOKEN"
-              fi
-              composer require --no-interaction --no-ansi --no-scripts "$bundle"
-            fi
-          done
 
       - name: Log in to Azure
         uses: ./reusable-workflow/.github/actions/azure-login
