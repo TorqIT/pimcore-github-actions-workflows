@@ -59,7 +59,7 @@ jobs:
       PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
       SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
       SKIP_IF_EXISTS: false
-      IMAGE_TAG: feature/agent-bundle
+      IMAGE_TAG: feature-agent-bundle
     secrets:
       PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
