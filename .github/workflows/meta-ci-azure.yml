@@ -53,7 +53,7 @@ on:
 jobs:
   provision:
     name: "Provision Azure environment"
-    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@v2
+    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/provision-azure-environment.yml@feature/agent-bundle
     with:
       ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
       PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
