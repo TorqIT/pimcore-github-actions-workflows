@@ -49,26 +49,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - version: 2025.x
+          - github_environment: 2025.x
             parameters_file: "./.github/ci/azure/parameters.2025.x.json"
-            project_repository: TorqIT/pimcore-skeleton
             skeleton_ref: 2025.x-azure
             agent_server: false
-          - version: 2026.x
+          - github_environment: 2026.x
             parameters_file: "./.github/ci/azure/parameters.2026.x.json"
-            project_repository: TorqIT/pimcore-skeleton
             skeleton_ref: 2026.x-azure
             agent_server: false
-          - version: agentic-skeleton
-            parameters_file: "./.github/ci/azure/parameters.agentic-skeleton.json"
-            project_repository: TorqIT/pimcore-agentic-skeleton
-            skeleton_ref: main
+          - github_environment: agentic-skeleton
+            parameters_file: "./.github/ci/azure/parameters.2026.x-agentic.json"
+            skeleton_ref: 2026.x-azure-agentic
             agent_server: true
     uses: ./.github/workflows/meta-ci-azure.yml
     with:
-      ENVIRONMENT: ${{ matrix.version }}
+      ENVIRONMENT: ${{ matrix.github_environment }}
       PARAMETERS_FILE: ${{ matrix.parameters_file }}
-      PROJECT_REPOSITORY: ${{ matrix.project_repository }}
       PROJECT_REPOSITORY_REF: ${{ matrix.skeleton_ref }}
       AGENT_SERVER: ${{ matrix.agent_server }}
     secrets:
