@@ -11,11 +11,21 @@ on:
         required: true
         type: string
         description: "Path to the Azure parameters file used when provisioning the environment"
+      PROJECT_REPOSITORY:
+        required: false
+        type: string
+        default: TorqIT/pimcore-skeleton
+        description: "The project repository to test against, in owner/repo format"
       PROJECT_REPOSITORY_REF:
         required: false
         type: string
         default: ${{ github.ref }}
-        description: "The branch/tag of TorqIT/pimcore-skeleton to test against"
+        description: "The branch/tag of PROJECT_REPOSITORY to test against"
+      AGENT_SERVER:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether PROJECT_REPOSITORY uses pimcore/pimcore-agent-bundle and its agent-server image should be built, pushed, and deployed"
 
     secrets:
       PIMCORE_ENCRYPTION_SECRET:
@@ -24,6 +34,15 @@ on:
         required: false
       PIMCORE_PRODUCT_KEY:
         required: false
+      PIMCORE_ENTERPRISE_TOKEN:
+        required: false
+        description: (Optional) Needed to resolve private repo.pimcore.com packages, e.g. pimcore/pimcore-agent-bundle when AGENT_SERVER is true
+      AGENT_SERVER_ANTHROPIC_API_KEY:
+        required: false
+        description: (Optional) Written into Key Vault as the "anthropic-api-key" secret when AGENT_SERVER is true
+      AGENT_SERVER_OPEN_AI_AUTH_TOKEN:
+        required: false
+        description: (Optional) Written into Key Vault as the "open-ai-auth-token" secret when AGENT_SERVER is true
       CI_SERVICE_PRINCIPAL_PASSWORD:
         required: true
       GH_APP_ID:
@@ -44,6 +63,8 @@ jobs:
       PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.AGENT_SERVER_ANTHROPIC_API_KEY }}
+      OPEN_AI_AUTH_TOKEN: ${{ secrets.AGENT_SERVER_OPEN_AI_AUTH_TOKEN }}
       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
 
   deploy:
@@ -51,17 +72,19 @@ jobs:
     needs: provision
     uses: ./.github/workflows/deploy-to-azure-container-apps.yml
     with:
-      PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
+      PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
       PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
       GITHUB_APP_CHECKOUT: true
       ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
       FEATURE_FLAG_INSTALL_MISSING_BUNDLES: true
+      AGENT_SERVER: ${{ inputs.AGENT_SERVER }}
     secrets:
       GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
       GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
       PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+      PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
       SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
 

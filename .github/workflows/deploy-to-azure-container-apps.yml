@@ -69,6 +69,10 @@
 #     required: false
 #     default: parameters.ENVIRONMENT.json
 #
+# When the AGENT_SERVER input is true, the agent-server Container App's name and Docker image name are
+# read directly from the AZURE_PARAMETERS_FILE (agentServerContainerAppName, agentServerContainerAppImageName)
+# rather than from separate GitHub Environment vars.
+#
 
 name: Azure Container Apps Deployment
 
@@ -166,6 +170,11 @@ on:
         type: string
         default: "supervisord"
         description: "The Docker target to use when building the supervisord image"
+      AGENT_SERVER:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether the project uses pimcore/pimcore-agent-bundle and its agent-server image should be built, pushed, and deployed. The exact version to build is read from the project's composer.json (not composer.lock, which isn't always committed)."
       AZURE_DIRECTORY:
         required: false
         type: string
@@ -341,6 +350,26 @@ jobs:
           AZURE_IMAGE_TAG: ${{ inputs.AZURE_IMAGE_TAG }}
           AZURE_PARAMETERS_FILE: ${{ vars.AZURE_PARAMETERS_FILE }}
           AZURE_SKIP_DB_DEPLOY: ${{ inputs.AZURE_SKIP_DB_DEPLOY }}
+
+      - name: Read agent-server settings from Azure parameters file
+        id: agent-server-params
+        if: ${{ inputs.AGENT_SERVER && vars.AZURE_PARAMETERS_FILE != '' }}
+        run: |
+          set -euo pipefail
+          PARAMS_FILE="${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}"
+          echo "container_app=$(jq -r '.parameters.agentServerContainerAppName.value' "$PARAMS_FILE")" >> "$GITHUB_OUTPUT"
+          echo "image=$(jq -r '.parameters.agentServerContainerAppImageName.value // "agent-server"' "$PARAMS_FILE")" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push agent-server image
+        if: ${{ inputs.AGENT_SERVER }}
+        uses: ./reusable-workflow/.github/actions/build-and-push-agent-server-image
+        with:
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          IMAGE: ${{ steps.agent-server-params.outputs.image }}
+          CACHE_FROM: type=gha
+          CACHE_TO: type=gha,mode=min
 
       - name: Build and push init image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -573,6 +602,68 @@ jobs:
           CONTAINER_APP: ${{ vars.SUPERVISORD_CONTAINER_APP }}
           IMAGE: ${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}
 
+  deploy-agent-server-container-app-revision:
+    name: Deploy new revision of agent-server Container App
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+    if: ${{ inputs.AGENT_SERVER }}
+    needs:
+      - deploy-and-run-init
+    steps:
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@ba22d0abdc1eda539aa3ac81af1cfee160b10714 # v1.0.4
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: deploy-to-azure-container-apps.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Check out project repository and submodules
+        uses: ./reusable-workflow/.github/actions/checkout
+        with:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+
+      - name: Install tools for workflows/actions
+        uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Read agent-server settings from Azure parameters file
+        id: agent-server-params
+        run: |
+          set -euo pipefail
+          PARAMS_FILE="${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}"
+          echo "container_app=$(jq -r '.parameters.agentServerContainerAppName.value' "$PARAMS_FILE")" >> "$GITHUB_OUTPUT"
+          echo "image=$(jq -r '.parameters.agentServerContainerAppImageName.value // "agent-server"' "$PARAMS_FILE")" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Azure
+        uses: ./reusable-workflow/.github/actions/azure-login
+        with:
+          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          TENANT: ${{ vars.AZURE_TENANT_ID }}
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy new revision of Container App
+        uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-revision
+        with:
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          CONTAINER_APP: ${{ steps.agent-server-params.outputs.container_app }}
+          IMAGE: ${{ steps.agent-server-params.outputs.image }}
+
   workflow-failure-notification:
     name: Send workflow failure notification to Slack channel
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
@@ -582,6 +673,7 @@ jobs:
       - deploy-and-run-init
       - deploy-php-container-app-revision
       - deploy-supervisord-container-app-revision
+      - deploy-agent-server-container-app-revision
     steps:
       - id: check-webhook-url
         # Hacky workaround to get around the fact that we cannot reference secrets in a conditional
