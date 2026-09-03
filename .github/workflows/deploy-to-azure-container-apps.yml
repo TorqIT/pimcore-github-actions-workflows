@@ -68,10 +68,12 @@
 #     description: Name of the Azure parameters file to use to deploy infrastructure changes. Will be assumed to be located in the directory defined by the AZURE_DIRECTORY input.
 #     required: false
 #     default: parameters.ENVIRONMENT.json
-#
-# When the AGENT_SERVER input is true, the agent-server Container App's name and Docker image name are
-# read directly from the AZURE_PARAMETERS_FILE (agentServerContainerAppName, agentServerContainerAppImageName)
-# rather than from separate GitHub Environment vars.
+# - AGENT_SERVER_IMAGE
+#     description: Name of the agent-server Docker image to push to the registry. Required when the AGENT_SERVER input is true.
+#     required: false
+# - AGENT_SERVER_CONTAINER_APP
+#     description: Name of the agent-server Container App. Required when the AGENT_SERVER input is true.
+#     required: false
 #
 
 name: Azure Container Apps Deployment

@@ -57,9 +57,9 @@ jobs:
             parameters_file: "./.github/ci/azure/parameters.2026.x.json"
             skeleton_ref: 2026.x-azure
             agent_server: false
-          - github_environment: agentic-skeleton
-            parameters_file: "./.github/ci/azure/parameters.2026.x-agentic.json"
-            skeleton_ref: 2026.x-azure-agentic
+          - github_environment: 2026.x-enterprise
+            parameters_file: "./.github/ci/azure/parameters.2026.x-enterprise.json"
+            skeleton_ref: 2026.x-enterprise-azure
             agent_server: true
     uses: ./.github/workflows/meta-ci-azure.yml
     with:
