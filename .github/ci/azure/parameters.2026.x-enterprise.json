@@ -75,6 +75,9 @@
     "phpContainerAppName": {
       "value": "pim-2026x-ent-gh-php-ci"
     },
+    "phpContainerAppTargetPort": {
+      "value": 8080
+    },
     "phpContainerAppMinReplicas": {
       "value": 0
     },

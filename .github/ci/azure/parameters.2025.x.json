@@ -72,6 +72,9 @@
     "phpContainerAppName": {
       "value": "pim-2025x-gh-php-ci"
     },
+    "phpContainerAppTargetPort": {
+      "value": 8080
+    },
     "phpContainerAppMinReplicas": {
       "value": 0
     },
