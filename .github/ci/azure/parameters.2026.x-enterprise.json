@@ -134,7 +134,8 @@
         "array": [
           {
             "secretNameInKeyVault": "kernel-secret",
-            "secretRefInContainerApp": "kernel-secret"
+            "secretRefInContainerApp": "kernel-secret",
+            "secretEnvVarNameInContainerApp": "KERNEL_SECRET"
           },
           {
             "secretNameInKeyVault": "pimcore-product-key",
