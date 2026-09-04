@@ -155,7 +155,7 @@ runs:
           pimcore-product-key=${{ inputs.PIMCORE_PRODUCT_KEY }}
           pimcore-instance-identifier=${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}
           pimcore-encryption-secret=${{ inputs.PIMCORE_ENCRYPTION_SECRET }}
-          pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
+          pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
           torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
           ${{ steps.build-secrets.outputs.secrets }}
         push: ${{ inputs.PUSH == 'true' }}

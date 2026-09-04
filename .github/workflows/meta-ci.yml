@@ -49,21 +49,31 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - version: 2025.x
+          - github_environment: 2025.x
             parameters_file: "./.github/ci/azure/parameters.2025.x.json"
             skeleton_ref: 2025.x-azure
-          - version: 2026.x
+            agent_server: false
+          - github_environment: 2026.x
             parameters_file: "./.github/ci/azure/parameters.2026.x.json"
             skeleton_ref: 2026.x-azure
+            agent_server: false
+          - github_environment: 2026.x-enterprise
+            parameters_file: "./.github/ci/azure/parameters.2026.x-enterprise.json"
+            skeleton_ref: 2026.x-enterprise-azure
+            agent_server: true
     uses: ./.github/workflows/meta-ci-azure.yml
     with:
-      ENVIRONMENT: ${{ matrix.version }}
+      ENVIRONMENT: ${{ matrix.github_environment }}
       PARAMETERS_FILE: ${{ matrix.parameters_file }}
       PROJECT_REPOSITORY_REF: ${{ matrix.skeleton_ref }}
+      AGENT_SERVER: ${{ matrix.agent_server }}
     secrets:
       PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
       PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+      PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+      AGENT_SERVER_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      AGENT_SERVER_OPEN_AI_AUTH_TOKEN: ${{ secrets.OPEN_AI_AUTH_TOKEN }}
       CI_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
       GH_APP_ID: ${{ secrets.GH_APP_ID }}
       GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
