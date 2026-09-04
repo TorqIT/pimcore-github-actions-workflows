@@ -51,6 +51,9 @@
     "databaseServerName": {
       "value": "pim-2025x-gh-db-ci"
     },
+    "databaseServerVersion": {
+      "value": "8.4"
+    },
     "containerAppsEnvironmentName": {
       "value": "pim-2025x-gh-cae-ci"
     },
