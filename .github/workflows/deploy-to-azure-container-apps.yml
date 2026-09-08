@@ -69,10 +69,7 @@
 #     required: false
 #     default: parameters.ENVIRONMENT.json
 # - AGENT_SERVER_IMAGE
-#     description: Name of the agent-server Docker image to push to the registry. Required when the AGENT_SERVER input is true.
-#     required: false
-# - AGENT_SERVER_CONTAINER_APP
-#     description: Name of the agent-server Container App. Required when the AGENT_SERVER input is true.
+#     description: Name of the agent-server Docker image to push to the registry. Required when the AGENT_SERVER input is true. Deployed by pulling this image onto the project's services VM via Ansible, not as a Container App.
 #     required: false
 #
 
@@ -572,60 +569,6 @@ jobs:
           CONTAINER_APP: ${{ vars.SUPERVISORD_CONTAINER_APP }}
           IMAGE: ${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}
 
-  deploy-agent-server-container-app-revision:
-    name: Deploy new revision of agent-server Container App
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
-    environment: ${{ inputs.ENVIRONMENT }}
-    if: ${{ inputs.AGENT_SERVER }}
-    needs:
-      - deploy-and-run-init
-    steps:
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@ba22d0abdc1eda539aa3ac81af1cfee160b10714 # v1.0.4
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: deploy-to-azure-container-apps.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout workflow repository to use composite actions
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
-          path: reusable-workflow
-          fetch-depth: 1
-
-      - name: Check out project repository and submodules
-        uses: ./reusable-workflow/.github/actions/checkout
-        with:
-          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
-          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
-          SUBMODULES: ${{ inputs.SUBMODULES }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
-          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-
-      - name: Install tools for workflows/actions
-        uses: ./reusable-workflow/.github/actions/setup-tools
-
-      - name: Log in to Azure
-        uses: ./reusable-workflow/.github/actions/azure-login
-        with:
-          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
-          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
-          TENANT: ${{ vars.AZURE_TENANT_ID }}
-          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Deploy new revision of Container App
-        uses: ./reusable-workflow/.github/actions/azure-container-apps-deploy-revision
-        with:
-          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
-          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          CONTAINER_APP: ${{ vars.AGENT_SERVER_CONTAINER_APP }}
-          IMAGE: ${{ vars.AGENT_SERVER_IMAGE }}
-
   workflow-failure-notification:
     name: Send workflow failure notification to Slack channel
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
@@ -635,7 +578,6 @@ jobs:
       - deploy-and-run-init
       - deploy-php-container-app-revision
       - deploy-supervisord-container-app-revision
-      - deploy-agent-server-container-app-revision
     steps:
       - id: check-webhook-url
         # Hacky workaround to get around the fact that we cannot reference secrets in a conditional

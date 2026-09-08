@@ -67,6 +67,8 @@ jobs:
       ANTHROPIC_API_KEY: ${{ secrets.AGENT_SERVER_ANTHROPIC_API_KEY }}
       OPEN_AI_AUTH_TOKEN: ${{ secrets.AGENT_SERVER_OPEN_AI_AUTH_TOKEN }}
       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
+      GH_APP_ID: ${{ secrets.GH_APP_ID }}
+      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
 
   deploy:
     name: "Test Azure CD workflow against Pimcore skeleton"

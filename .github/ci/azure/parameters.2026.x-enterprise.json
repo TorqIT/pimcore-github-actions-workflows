@@ -87,26 +87,20 @@
     "redisContainerAppName": {
       "value": "pim-2026x-ent-gh-redis-ci"
     },
-    "provisionMercure": {
+    "provisionServicesVM": {
       "value": true
     },
-    "mercureContainerAppName": {
-      "value": "pim-2026x-ent-gh-mercure-ci"
+    "servicesVmName": {
+      "value": "pim-2026x-ent-gh-services-ci"
+    },
+    "provisionMercure": {
+      "value": true
     },
     "provisionOpensearch": {
       "value": true
     },
-    "opensearchContainerAppName": {
-      "value": "pim-2026x-ent-gh-opnsrch-ci"
-    },
     "provisionAgentServer": {
       "value": true
-    },
-    "agentServerContainerAppName": {
-      "value": "pim-2026x-ent-gh-agentsrv-ci"
-    },
-    "agentServerContainerAppImageName": {
-      "value": "agent-server"
     },
     "appDebug": {
       "value": "1"
