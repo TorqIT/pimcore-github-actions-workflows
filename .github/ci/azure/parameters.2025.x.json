@@ -84,17 +84,17 @@
     "redisContainerAppName": {
       "value": "pim-2025x-gh-redis-ci"
     },
+    "provisionServicesVM": {
+      "value": true
+    },
+    "servicesVmName": {
+      "value": "pim-2025x-gh-services-ci"
+    },
     "provisionMercure": {
       "value": true
     },
-    "mercureContainerAppName": {
-      "value": "pim-2025x-gh-mercure-ci"
-    },
     "provisionOpensearch": {
       "value": true
-    },
-    "opensearchContainerAppName": {
-      "value": "pim-2025x-gh-opnsrch-ci"
     },
     "appDebug": {
       "value": "1"
