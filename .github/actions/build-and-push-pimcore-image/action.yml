@@ -164,7 +164,8 @@ runs:
         ARGS=(buildx build --file '${{ inputs.DOCKERFILE_PATH }}' --target '${{ inputs.DOCKERFILE_TARGET }}')
         while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--cache-from "$line"); done <<< '${{ inputs.CACHE_FROM }}'
         while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--cache-to "$line"); done <<< '${{ inputs.CACHE_TO }}'
-        while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--tag "$line"); done <<< '${{ inputs.TAGS }}'
+        # Tags may be comma- and/or newline-separated (e.g. "tag1,\ntag2"), so split on both.
+        while IFS= read -r line; do line="$(echo "$line" | xargs)"; [ -n "$line" ] && ARGS+=(--tag "$line"); done <<< "$(tr ',' '\n' <<< '${{ inputs.TAGS }}')"
         while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--build-arg "$line"); done <<< '${{ steps.build-args.outputs.args }}'
         while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--secret "$line"); done <<< '${{ steps.build-secrets.outputs.secrets }}'
         [ '${{ inputs.PUSH }}' = "true" ] && ARGS+=(--push)
