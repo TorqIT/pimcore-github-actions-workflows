@@ -174,13 +174,13 @@ runs:
 
         # Failures matching these patterns look like transient network/API errors, 
         # so we retry them on failure
-        TRANSIENT_PATTERN='(^|[^0-9])50[234]([^0-9]|$)|Gateway Time-?out|i/o timeout|TLS handshake timeout|connection reset by peer|context deadline exceeded|unexpected EOF|Temporary failure in name resolution|Could not resolve host|net/http: request canceled|connect: connection refused|timeout awaiting response headers'
+        TRANSIENT_FAILURE_PATTERN='(^|[^0-9])50[234]([^0-9]|$)|Gateway Time-?out|i/o timeout|TLS handshake timeout|connection reset by peer|context deadline exceeded|unexpected EOF|Temporary failure in name resolution|Could not resolve host|net/http: request canceled|connect: connection refused|timeout awaiting response headers'
         LOGFILE="${RUNNER_TEMP:-/tmp}/docker-build.log"
         for attempt in 1 2 3; do
           docker "${ARGS[@]}" 2>&1 | tee "$LOGFILE"
           status="${PIPESTATUS[0]}"
           [ "$status" -eq 0 ] && exit 0
-          if [ "$attempt" -lt 3 ] && grep -qEi "$TRANSIENT_PATTERN" "$LOGFILE"; then
+          if [ "$attempt" -lt 3 ] && grep -qEi "$TRANSIENT_FAILURE_PATTERN" "$LOGFILE"; then
             echo "Build failed with what looks like a transient error (attempt $attempt/3) — retrying..." >&2
             continue
           fi
