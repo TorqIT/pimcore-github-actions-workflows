@@ -140,26 +140,106 @@ runs:
         echo "EOF" >> $GITHUB_OUTPUT
       shell: bash
 
+    # Invoked as a raw `docker buildx build` (rather than docker/build-push-action) so that on
+    # failure we can grep the build log for signs of a transient error (e.g. GitHub API 504s hit
+    # while Composer/npm fetch dependencies) and retry, instead of failing the whole job outright.
     - name: Build and push image
-      uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-      with:
-        context: .
-        file: ${{ inputs.DOCKERFILE_PATH }}
-        target: ${{ inputs.DOCKERFILE_TARGET }}
-        build-args: |
-          ${{ steps.build-args.outputs.args }}
+      shell: bash
+      env:
+        DOCKERFILE_PATH: ${{ inputs.DOCKERFILE_PATH }}
+        DOCKERFILE_TARGET: ${{ inputs.DOCKERFILE_TARGET }}
+        IMAGE_TAGS: ${{ inputs.TAGS }}
+        CACHE_FROM: ${{ inputs.CACHE_FROM }}
+        CACHE_TO: ${{ inputs.CACHE_TO }}
+        PUSH: ${{ inputs.PUSH }}
+        LOAD: ${{ inputs.LOAD }}
+        BUILD_ARGS: ${{ steps.build-args.outputs.args }}
         # During the build, several secret values don't actually matter but still need to be present (e.g. kernel-secret),
         # so we simply add dummy values here
-        secrets: |
-          kernel-secret=secret
-          pimcore-product-key=${{ inputs.PIMCORE_PRODUCT_KEY }}
-          pimcore-instance-identifier=${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}
-          pimcore-encryption-secret=${{ inputs.PIMCORE_ENCRYPTION_SECRET }}
-          pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}            
-          torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
-          ${{ steps.build-secrets.outputs.secrets }}
-        push: ${{ inputs.PUSH == 'true' }}
-        cache-from: ${{ inputs.CACHE_FROM }}
-        cache-to: ${{ inputs.CACHE_TO }}
-        tags: ${{ inputs.TAGS }}
-        load: ${{ inputs.LOAD == 'true' }}
+        SECRET_KERNEL_SECRET: secret
+        SECRET_PIMCORE_PRODUCT_KEY: ${{ inputs.PIMCORE_PRODUCT_KEY }}
+        SECRET_PIMCORE_INSTANCE_IDENTIFIER: ${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}
+        SECRET_PIMCORE_ENCRYPTION_SECRET: ${{ inputs.PIMCORE_ENCRYPTION_SECRET }}
+        SECRET_PIMCORE_ENTERPRISE_TOKEN: ${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
+        SECRET_TORQ_GITHUB_TOKEN: ${{ inputs.TORQ_GITHUB_TOKEN }}
+        DYNAMIC_SECRETS: ${{ steps.build-secrets.outputs.secrets }}
+      run: |
+        set -uo pipefail
+
+        ARGS=(buildx build --file "$DOCKERFILE_PATH" --target "$DOCKERFILE_TARGET")
+
+        append_multiline() {
+          local flag="$1" value="$2"
+          [ -z "$value" ] && return
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            ARGS+=("$flag" "$line")
+          done <<< "$value"
+        }
+
+        append_multiline --cache-from "$CACHE_FROM"
+        append_multiline --cache-to "$CACHE_TO"
+        append_multiline --tag "$IMAGE_TAGS"
+        append_multiline --build-arg "$BUILD_ARGS"
+
+        add_secret() {
+          local id="$1" value="$2"
+          local var_name="SECRET_ENV_$(echo "$id" | tr 'a-z-' 'A-Z_')"
+          export "$var_name"="$value"
+          ARGS+=(--secret "id=$id,env=$var_name")
+        }
+
+        add_secret "kernel-secret" "$SECRET_KERNEL_SECRET"
+        add_secret "pimcore-product-key" "$SECRET_PIMCORE_PRODUCT_KEY"
+        add_secret "pimcore-instance-identifier" "$SECRET_PIMCORE_INSTANCE_IDENTIFIER"
+        add_secret "pimcore-encryption-secret" "$SECRET_PIMCORE_ENCRYPTION_SECRET"
+        add_secret "pimcore-enterprise-token" "$SECRET_PIMCORE_ENTERPRISE_TOKEN"
+        add_secret "torq-github-token" "$SECRET_TORQ_GITHUB_TOKEN"
+
+        if [ -n "$DYNAMIC_SECRETS" ]; then
+          while IFS='=' read -r key value; do
+            [ -z "$key" ] && continue
+            add_secret "$key" "$value"
+          done <<< "$DYNAMIC_SECRETS"
+        fi
+
+        [ "$PUSH" = "true" ] && ARGS+=(--push)
+        [ "$LOAD" = "true" ] && ARGS+=(--load)
+
+        ARGS+=(".")
+
+        # Failures matching these patterns look like transient network/API blips (e.g. GitHub's
+        # api.github.com returning 504s to Composer/npm mid-build) rather than a real build error,
+        # so they're worth a few retries; anything else fails fast.
+        TRANSIENT_PATTERN='(^|[^0-9])50[234]([^0-9]|$)|Gateway Time-?out|i/o timeout|TLS handshake timeout|connection reset by peer|context deadline exceeded|unexpected EOF|Temporary failure in name resolution|Could not resolve host|net/http: request canceled|connect: connection refused|timeout awaiting response headers'
+
+        MAX_ATTEMPTS=3
+        BACKOFF=(10 20)
+        LOGFILE="${RUNNER_TEMP:-/tmp}/docker-build.log"
+
+        attempt=1
+        while true; do
+          echo "::group::docker buildx build (attempt $attempt/$MAX_ATTEMPTS)"
+          docker "${ARGS[@]}" 2>&1 | tee "$LOGFILE"
+          status="${PIPESTATUS[0]}"
+          echo "::endgroup::"
+
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+
+          if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
+            echo "Build failed after $MAX_ATTEMPTS attempts." >&2
+            exit "$status"
+          fi
+
+          if grep -qEi "$TRANSIENT_PATTERN" "$LOGFILE"; then
+            delay="${BACKOFF[$((attempt - 1))]}"
+            echo "Build failed with what looks like a transient error (attempt $attempt/$MAX_ATTEMPTS) — retrying in ${delay}s..." >&2
+            sleep "$delay"
+            attempt=$((attempt + 1))
+          else
+            echo "Build failed with a non-transient-looking error — not retrying." >&2
+            exit "$status"
+          fi
+        done
