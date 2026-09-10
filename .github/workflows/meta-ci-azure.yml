@@ -94,7 +94,7 @@ jobs:
   post-url:
     name: Post Container App URL to PR
     needs: [deploy]
-    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/post-container-app-url-to-pr.yml@v2
+    uses: TorqIT/pimcore-azure-provisioning/.github/workflows/post-container-app-url-to-pr.yml@feature/agent-bundle
     with:
       ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
       PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
