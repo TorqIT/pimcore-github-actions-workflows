@@ -9,7 +9,7 @@
       "value": "6f8ae12a-9b31-4877-b46f-c0590040b1fb"
     },
     "resourceGroupName": {
-      "value": "Pim-2025x-GH-CI"
+      "value": "Pim-2026x-Ent-GH-CI"
     },
     "provisionServicePrincipal": {
       "value": false
@@ -18,7 +18,7 @@
       "value": "canadacentral"
     },
     "keyVaultName": {
-      "value": "pim-2025x-gh-kv-ci"
+      "value": "pim-2026x-ent-gh-kv-ci"
     },
     "keyVaultEnablePurgeProtection": {
       "value": false
@@ -27,16 +27,16 @@
       "value": true
     },
     "containerRegistryName": {
-      "value": "pim2025xghcrci"
+      "value": "pim2026xentghcrci"
     },
     "containerRegistrySku": {
       "value": "Basic"
     },
     "virtualNetworkName": {
-      "value": "pim-2025x-gh-vnet-ci"
+      "value": "pim-2026x-ent-gh-vnet-ci"
     },
     "storageAccountName": {
-      "value": "pim2025xghsaci"
+      "value": "pim2026xentghsaci"
     },
     "storageAccountFileShares": {
       "value": [
@@ -49,10 +49,13 @@
       "value": false
     },
     "databaseServerName": {
-      "value": "pim-2025x-gh-db-ci"
+      "value": "pim-2026x-ent-gh-db-ci"
+    },
+    "databaseServerVersion": {
+      "value": "8.4"
     },
     "containerAppsEnvironmentName": {
-      "value": "pim-2025x-gh-cae-ci"
+      "value": "pim-2026x-ent-gh-cae-ci"
     },
     "containerAppsEnvironmentUseWorkloadProfiles": {
       "value": true
@@ -61,7 +64,7 @@
       "value": true
     },
     "initContainerAppJobName": {
-      "value": "pim-2025x-gh-init-ci"
+      "value": "pim-2026x-ent-gh-init-ci"
     },
     "initContainerAppJobRunPimcoreInstall": {
       "value": true
@@ -70,7 +73,7 @@
       "value": true
     },
     "phpContainerAppName": {
-      "value": "pim-2025x-gh-php-ci"
+      "value": "pim-2026x-ent-gh-php-ci"
     },
     "phpContainerAppTargetPort": {
       "value": 8080
@@ -79,21 +82,24 @@
       "value": 0
     },
     "supervisordContainerAppName": {
-      "value": "pim-2025x-gh-svisord-ci"
+      "value": "pim-2026x-ent-gh-svisord-ci"
     },
     "redisContainerAppName": {
-      "value": "pim-2025x-gh-redis-ci"
+      "value": "pim-2026x-ent-gh-redis-ci"
     },
     "provisionServicesVM": {
       "value": true
     },
     "servicesVmName": {
-      "value": "pim-2025x-gh-services-ci"
+      "value": "pim-2026x-ent-gh-services-ci"
     },
     "provisionMercure": {
       "value": true
     },
     "provisionOpensearch": {
+      "value": true
+    },
+    "provisionAgentServer": {
       "value": true
     },
     "appDebug": {
@@ -139,6 +145,11 @@
             "secretNameInKeyVault": "pimcore-encryption-secret",
             "secretRefInContainerApp": "pimcore-encryption-secret",
             "secretEnvVarNameInContainerApp": "PIMCORE_ENCRYPTION_SECRET"
+          },
+          {
+            "secretNameInKeyVault": "pimcore-enterprise-token",
+            "secretRefInContainerApp": "pimcore-enterprise-token",
+            "secretEnvVarNameInContainerApp": "PIMCORE_ENTERPRISE_TOKEN"
           }
         ]
       }
@@ -146,7 +157,7 @@
     "additionalVolumesAndMounts": {
       "value": [
         {
-          "storageAccountName": "pim2025xghsaci",
+          "storageAccountName": "pim2026xentghsaci",
           "fileShareName": "uploads",
           "mountName": "uploads",
           "mountAccessMode": "ReadWrite",

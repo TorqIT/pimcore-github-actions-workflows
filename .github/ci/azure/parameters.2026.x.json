@@ -51,6 +51,9 @@
     "databaseServerName": {
       "value": "pim-2026x-gh-db-ci"
     },
+    "databaseServerVersion": {
+      "value": "8.4"
+    },
     "containerAppsEnvironmentName": {
       "value": "pim-2026x-gh-cae-ci"
     },
@@ -84,17 +87,17 @@
     "redisContainerAppName": {
       "value": "pim-2026x-gh-redis-ci"
     },
+    "provisionServicesVM": {
+      "value": true
+    },
+    "servicesVmName": {
+      "value": "pim-2026x-gh-services-ci"
+    },
     "provisionMercure": {
       "value": true
     },
-    "mercureContainerAppName": {
-      "value": "pim-2025x-gh-mercure-ci"
-    },
     "provisionOpensearch": {
       "value": true
-    },
-    "opensearchContainerAppName": {
-      "value": "pim-2025x-gh-opnsrch-ci"
     },
     "appDebug": {
       "value": "1"
@@ -122,19 +125,23 @@
         "array": [
           {
             "secretNameInKeyVault": "kernel-secret",
-            "secretRefInContainerApp": "kernel-secret"
+            "secretRefInContainerApp": "kernel-secret",
+            "secretEnvVarNameInContainerApp": "KERNEL_SECRET"
           },
           {
             "secretNameInKeyVault": "pimcore-product-key",
-            "secretRefInContainerApp": "pimcore-product-key"
+            "secretRefInContainerApp": "pimcore-product-key",
+            "secretEnvVarNameInContainerApp": "PIMCORE_PRODUCT_KEY"
           },
           {
             "secretNameInKeyVault": "pimcore-instance-identifier",
-            "secretRefInContainerApp": "pimcore-instance-identifier"
+            "secretRefInContainerApp": "pimcore-instance-identifier",
+            "secretEnvVarNameInContainerApp": "PIMCORE_INSTANCE_IDENTIFIER"
           },
           {
             "secretNameInKeyVault": "pimcore-encryption-secret",
-            "secretRefInContainerApp": "pimcore-encryption-secret"
+            "secretRefInContainerApp": "pimcore-encryption-secret",
+            "secretEnvVarNameInContainerApp": "PIMCORE_ENCRYPTION_SECRET"
           }
         ]
       }
