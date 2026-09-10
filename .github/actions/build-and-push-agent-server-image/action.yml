@@ -1,12 +1,12 @@
-name: "Build and Push Agent Server Image"
-description: "Resolves the pimcore/pimcore-agent-bundle version from the project's composer.json, downloads just that package, and builds/pushes its agent-server Docker image"
+name: "Build and Push Pimcore Agent Server Image"
+description: "Builds and pushes the pimcore/agent-server Docker image"
 inputs:
   PIMCORE_ROOT:
     required: true
     description: "The path (relative to the project's root) in which the Pimcore files are stored (e.g. config, src, composer.json)"
   PIMCORE_ENTERPRISE_TOKEN:
     required: true
-    description: "The value of your project's Pimcore Enterprise Token, used to authenticate against the private repo.pimcore.com Composer registry"
+    description: "The value of your project's Pimcore Enterprise Token"
   CONTAINER_REGISTRY:
     required: true
     description: "The Docker registry to push the image to"
@@ -30,7 +30,7 @@ inputs:
     description: "Whether to load the built image into the local Docker cache"
 outputs:
   VERSION:
-    description: "The pimcore/pimcore-agent-bundle version that was built, as read from composer.json"
+    description: "The pimcore/pimcore-agent-bundle version that was built"
     value: ${{ steps.agent-bundle-version.outputs.version }}
 
 runs:
@@ -41,10 +41,6 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        # Read from composer.json rather than composer.lock - not every project (e.g. pimcore-skeleton)
-        # commits a lock file, so composer.json's constraint is the only reliably-present source.
-        # This bundle is always required pinned to an exact version, so the constraint is directly
-        # usable as-is.
         version=$(jq -r '.require["pimcore/pimcore-agent-bundle"] // empty' ${{ inputs.PIMCORE_ROOT }}/composer.json)
         if [ -z "$version" ]; then
           echo "::error::pimcore/pimcore-agent-bundle was not found in ${{ inputs.PIMCORE_ROOT }}/composer.json"
@@ -53,13 +49,13 @@ runs:
         echo "Found pimcore/pimcore-agent-bundle $version in composer.json"
         echo "version=$version" >> "$GITHUB_OUTPUT"
 
-    - name: Download pimcore-agent-bundle at the version required in composer.json
+    - name: Download pimcore-agent-bundle
       shell: bash
       run: |
         set -euo pipefail
         composer config --global --auth http-basic.repo.pimcore.com token "${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}"
         mkdir -p agent-bundle-fetch
-        composer init --working-dir=agent-bundle-fetch --no-interaction --name=torq/agent-bundle-fetch --stability=beta
+        composer init --working-dir=agent-bundle-fetch --no-interaction --stability=beta
         composer config --working-dir=agent-bundle-fetch repositories.torq-it composer https://repo.pimcore.com/307-torq-it
         composer require --working-dir=agent-bundle-fetch --no-interaction --no-progress --no-scripts --ignore-platform-reqs \
           "pimcore/pimcore-agent-bundle:${{ steps.agent-bundle-version.outputs.version }}"
