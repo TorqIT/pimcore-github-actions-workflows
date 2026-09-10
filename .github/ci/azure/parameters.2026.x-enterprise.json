@@ -145,6 +145,11 @@
             "secretNameInKeyVault": "pimcore-encryption-secret",
             "secretRefInContainerApp": "pimcore-encryption-secret",
             "secretEnvVarNameInContainerApp": "PIMCORE_ENCRYPTION_SECRET"
+          },
+          {
+            "secretNameInKeyVault": "pimcore-enterprise-token",
+            "secretRefInContainerApp": "pimcore-enterprise-token",
+            "secretEnvVarNameInContainerApp": "PIMCORE_ENTERPRISE_TOKEN"
           }
         ]
       }
