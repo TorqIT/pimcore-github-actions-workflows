@@ -131,35 +131,59 @@ runs:
       id: build-secrets
       run: |
         set -e
-        JSON_INPUT='${{ inputs.BUILD_TIME_SECRETS }}'
         echo "secrets<<EOF" >> $GITHUB_OUTPUT
+
+        add_secret() {
+          local key="$1" value="$2"
+          local var_name="SECRET_$(echo "$key" | tr 'a-z-' 'A-Z_')"
+          echo "$var_name=$value" >> $GITHUB_ENV
+          echo "id=$key,env=$var_name" >> $GITHUB_OUTPUT
+        }
+
+        add_secret "kernel-secret" "secret"
+        add_secret "pimcore-product-key" "${{ inputs.PIMCORE_PRODUCT_KEY }}"
+        add_secret "pimcore-instance-identifier" "${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}"
+        add_secret "pimcore-encryption-secret" "${{ inputs.PIMCORE_ENCRYPTION_SECRET }}"
+        add_secret "pimcore-enterprise-token" "${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}"
+        add_secret "torq-github-token" "${{ inputs.TORQ_GITHUB_TOKEN }}"
+
+        JSON_INPUT='${{ inputs.BUILD_TIME_SECRETS }}'
         echo "$JSON_INPUT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
           echo "::add-mask::$value"   # Mask the value from logs
-          echo "$key=$value" >> $GITHUB_OUTPUT
+          add_secret "$key" "$value"
         done
+
         echo "EOF" >> $GITHUB_OUTPUT
       shell: bash
 
     - name: Build and push image
-      uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-      with:
-        context: .
-        file: ${{ inputs.DOCKERFILE_PATH }}
-        target: ${{ inputs.DOCKERFILE_TARGET }}
-        build-args: |
-          ${{ steps.build-args.outputs.args }}
-        # During the build, several secret values don't actually matter but still need to be present (e.g. kernel-secret),
-        # so we simply add dummy values here
-        secrets: |
-          kernel-secret=secret
-          pimcore-product-key=${{ inputs.PIMCORE_PRODUCT_KEY }}
-          pimcore-instance-identifier=${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}
-          pimcore-encryption-secret=${{ inputs.PIMCORE_ENCRYPTION_SECRET }}
-          pimcore-enterprise-token=${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
-          torq-github-token=${{ inputs.TORQ_GITHUB_TOKEN }}
-          ${{ steps.build-secrets.outputs.secrets }}
-        push: ${{ inputs.PUSH == 'true' }}
-        cache-from: ${{ inputs.CACHE_FROM }}
-        cache-to: ${{ inputs.CACHE_TO }}
-        tags: ${{ inputs.TAGS }}
-        load: ${{ inputs.LOAD == 'true' }}
+      shell: bash
+      run: |
+        set -uo pipefail
+
+        ARGS=(buildx build --file '${{ inputs.DOCKERFILE_PATH }}' --target '${{ inputs.DOCKERFILE_TARGET }}')
+        while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--cache-from "$line"); done <<< '${{ inputs.CACHE_FROM }}'
+        while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--cache-to "$line"); done <<< '${{ inputs.CACHE_TO }}'
+        # Tags may be comma- and/or newline-separated (e.g. "tag1,\ntag2"), so split on both.
+        while IFS= read -r line; do line="$(echo "$line" | xargs)"; [ -n "$line" ] && ARGS+=(--tag "$line"); done <<< "$(tr ',' '\n' <<< '${{ inputs.TAGS }}')"
+        while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--build-arg "$line"); done <<< '${{ steps.build-args.outputs.args }}'
+        while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--secret "$line"); done <<< '${{ steps.build-secrets.outputs.secrets }}'
+        [ '${{ inputs.PUSH }}' = "true" ] && ARGS+=(--push)
+        [ '${{ inputs.LOAD }}' = "true" ] && ARGS+=(--load)
+        ARGS+=(".")
+
+        # Failures matching these patterns look like transient network/API errors, 
+        # so we retry them on failure
+        TRANSIENT_FAILURE_PATTERN='(^|[^0-9])50[234]([^0-9]|$)|Gateway Time-?out|i/o timeout|TLS handshake timeout|connection reset by peer|context deadline exceeded|unexpected EOF|Temporary failure in name resolution|Could not resolve host|net/http: request canceled|connect: connection refused|timeout awaiting response headers'
+        LOGFILE="${RUNNER_TEMP:-/tmp}/docker-build.log"
+        for attempt in 1 2 3; do
+          docker "${ARGS[@]}" 2>&1 | tee "$LOGFILE"
+          status="${PIPESTATUS[0]}"
+          [ "$status" -eq 0 ] && exit 0
+          if [ "$attempt" -lt 3 ] && grep -qEi "$TRANSIENT_FAILURE_PATTERN" "$LOGFILE"; then
+            echo "Build failed with what looks like a transient error (attempt $attempt/3) — retrying..." >&2
+            continue
+          fi
+
+          exit "$status"
+        done
