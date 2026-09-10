@@ -72,7 +72,7 @@ jobs:
       GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
 
   deploy:
-    name: "Test Azure CD workflow against Pimcore skeleton"
+    name: "Deploy to Azure"
     needs: provision
     uses: ./.github/workflows/deploy-to-azure-container-apps.yml
     with:

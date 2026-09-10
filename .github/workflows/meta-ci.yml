@@ -22,7 +22,7 @@ jobs:
         uses: ./.github/actions/lint
 
   skeleton-ci:
-    name: "Test CI workflow against Pimcore skeleton"
+    name: "Test CI against skeleton"
     uses: ./.github/workflows/ci-docker.yml
     strategy:
       fail-fast: false
@@ -44,7 +44,7 @@ jobs:
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
 
   skeleton-ci-azure:
-    name: "Test Azure CD workflow against Pimcore skeleton"
+    name: "Test Azure CD against skeleton"
     strategy:
       fail-fast: false
       matrix:
