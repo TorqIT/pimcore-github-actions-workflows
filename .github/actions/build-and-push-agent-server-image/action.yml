@@ -49,6 +49,22 @@ runs:
         echo "Found pimcore/pimcore-agent-bundle $version in composer.json"
         echo "version=$version" >> "$GITHUB_OUTPUT"
 
+    - name: Determine repo.pimcore.com repository from composer.json
+      id: agent-bundle-repository
+      shell: bash
+      run: |
+        set -euo pipefail
+        repo_json=$(jq -c '(.repositories // {}) | to_entries[] | select(.value.url // "" | contains("repo.pimcore.com")) | {key, url: .value.url}' ${{ inputs.PIMCORE_ROOT }}/composer.json | head -n1)
+        if [ -z "$repo_json" ]; then
+          echo "::error::No repo.pimcore.com repository was found in ${{ inputs.PIMCORE_ROOT }}/composer.json"
+          exit 1
+        fi
+        repo_key=$(echo "$repo_json" | jq -r '.key')
+        repo_url=$(echo "$repo_json" | jq -r '.url')
+        echo "Found repo.pimcore.com repository '$repo_key' -> $repo_url in composer.json"
+        echo "key=$repo_key" >> "$GITHUB_OUTPUT"
+        echo "url=$repo_url" >> "$GITHUB_OUTPUT"
+
     - name: Download pimcore-agent-bundle
       shell: bash
       run: |
@@ -56,7 +72,7 @@ runs:
         composer config --global --auth http-basic.repo.pimcore.com token "${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}"
         mkdir -p agent-bundle-fetch
         composer init --working-dir=agent-bundle-fetch --no-interaction --stability=beta
-        composer config --working-dir=agent-bundle-fetch repositories.torq-it composer https://repo.pimcore.com/307-torq-it
+        composer config --working-dir=agent-bundle-fetch repositories.${{ steps.agent-bundle-repository.outputs.key }} composer ${{ steps.agent-bundle-repository.outputs.url }}
         composer require --working-dir=agent-bundle-fetch --no-interaction --no-progress --no-scripts --ignore-platform-reqs \
           "pimcore/pimcore-agent-bundle:${{ steps.agent-bundle-version.outputs.version }}"
 
