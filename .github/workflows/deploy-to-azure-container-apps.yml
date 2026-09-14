@@ -426,11 +426,19 @@ jobs:
     needs:
       - build-and-push-images
     steps:
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@ba22d0abdc1eda539aa3ac81af1cfee160b10714 # v1.0.4
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: deploy-to-azure-container-apps.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Checkout workflow repository to use composite actions
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ job.workflow_sha }}
+          ref: ${{ steps.workflow-version.outputs.sha }}
           path: reusable-workflow
           fetch-depth: 1
 
