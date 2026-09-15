@@ -349,7 +349,7 @@ jobs:
           PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          IMAGE: ${{ vars.AGENT_SERVER_IMAGE }}
+          IMAGE: ${{ vars.AGENT_SERVER_IMAGE || 'agent-server' }}
           CACHE_FROM: type=gha
           CACHE_TO: type=gha,mode=min
 
