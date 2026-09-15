@@ -27,7 +27,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        branch: [2024.x, 2025.x, 2026.x]
+        branch:
+          [
+            2024.x,
+            2025.x,
+            2025.x-enterprise,
+            2025.x-azure,
+            2025.x-enterprise-azure,
+            2026.x,
+            2026.x-enterprise,
+            2026.x-azure,
+            2026.x-enterprise-azure,
+          ]
     with:
       PROJECT_REPOSITORY: TorqIT/pimcore-skeleton
       PROJECT_REPOSITORY_REF: ${{ matrix.branch }}
