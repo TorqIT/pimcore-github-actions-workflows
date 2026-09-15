@@ -90,13 +90,7 @@
     "servicesVmName": {
       "value": "pim-2025x-ent-gh-services-ci"
     },
-    "provisionMercure": {
-      "value": true
-    },
     "provisionOpensearch": {
-      "value": true
-    },
-    "provisionAgentServer": {
       "value": true
     },
     "appDebug": {
@@ -138,6 +132,14 @@
         {
           "name": "AGENT_SERVER_AVAILABLE_MODELS",
           "value": "claude-sonnet-4-20250514,claude-haiku-4-5-20251001"
+        },
+        {
+          "name": "MERCURE_URL_SERVER",
+          "value": "http://pim-2025x-ent-gh-services-ci.internal.cloudapp.net:80/.well-known/mercure"
+        },
+        {
+          "name": "AGENT_SERVER_URL",
+          "value": "http://pim-2025x-ent-gh-services-ci.internal.cloudapp.net:3032"
         }
       ]
     },
@@ -168,6 +170,16 @@
             "secretNameInKeyVault": "pimcore-enterprise-token",
             "secretRefInContainerApp": "pimcore-enterprise-token",
             "secretEnvVarNameInContainerApp": "PIMCORE_ENTERPRISE_TOKEN"
+          },
+          {
+            "secretNameInKeyVault": "mercure-jwt",
+            "secretRefInContainerApp": "mercure-jwt",
+            "secretEnvVarNameInContainerApp": "MERCURE_JWT_KEY"
+          },
+          {
+            "secretNameInKeyVault": "agent-server-admin-token",
+            "secretRefInContainerApp": "agent-server-admin-token",
+            "secretEnvVarNameInContainerApp": "AGENT_SERVER_ADMIN_TOKEN"
           }
         ]
       }
