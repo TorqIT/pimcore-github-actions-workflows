@@ -76,9 +76,17 @@ runs:
         composer require --working-dir=agent-bundle-fetch --no-interaction --no-progress --no-scripts --ignore-platform-reqs \
           "pimcore/pimcore-agent-bundle:${{ steps.agent-bundle-version.outputs.version }}"
 
-    - name: Patch agent-server Dockerfile
+    - name: Patch agent-server Dockerfile, if provided
       shell: bash
-      run: cp "${{ inputs.PIMCORE_ROOT }}/.docker/agent-server/Dockerfile.patch" agent-bundle-fetch/vendor/pimcore/pimcore-agent-bundle/agent-server/Dockerfile
+      run: |
+        set -euo pipefail
+        patch_file="${{ inputs.PIMCORE_ROOT }}/.docker/agent-server/Dockerfile.patch"
+        if [ -f "$patch_file" ]; then
+          echo "Found $patch_file - patching agent-server Dockerfile"
+          cp "$patch_file" agent-bundle-fetch/vendor/pimcore/pimcore-agent-bundle/agent-server/Dockerfile
+        else
+          echo "No $patch_file found - using agent-server Dockerfile as-is"
+        fi
 
     - name: Build and push image
       uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
