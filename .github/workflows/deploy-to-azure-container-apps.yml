@@ -68,6 +68,9 @@
 #     description: Name of the Azure parameters file to use to deploy infrastructure changes. Will be assumed to be located in the directory defined by the AZURE_DIRECTORY input.
 #     required: false
 #     default: parameters.ENVIRONMENT.json
+# - AGENT_SERVER_IMAGE
+#     description: Name of the agent-server Docker image to push to the registry. Required when the AGENT_SERVER input is true. Deployed by pulling this image onto the project's services VM via Ansible, not as a Container App.
+#     required: false
 #
 
 name: Azure Container Apps Deployment
@@ -166,6 +169,26 @@ on:
         type: string
         default: "supervisord"
         description: "The Docker target to use when building the supervisord image"
+      AGENT_SERVER:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether the project uses pimcore/pimcore-agent-bundle and its agent-server image should be built, pushed, and deployed. The exact version to build is read from the project's composer.json (not composer.lock, which isn't always committed)."
+      ANSIBLE_DIRECTORY:
+        required: false
+        type: string
+        default: ".ansible"
+        description: "The path (relative to the project's root) of the directory containing the project's Ansible inventory file"
+      ANSIBLE_INVENTORY_FILE:
+        required: false
+        type: string
+        default: "hosts.yml"
+        description: "The name of the Ansible inventory file (relative to ANSIBLE_DIRECTORY) defining the hosts to run the ansible playbook against. If this file does not exist, the Ansible job is skipped"
+      ANSIBLE_IMAGE_TAG:
+        required: false
+        type: string
+        default: "0"
+        description: "Tag to use when pulling the Ansible provisioning image (https://github.com/TorqIT/ansible-provisioning)"
       AZURE_DIRECTORY:
         required: false
         type: string
@@ -181,11 +204,6 @@ on:
         type: boolean
         default: false
         description: "Whether database deployment steps should be skipped when applying Azure infrastructure changes"
-      FEATURE_FLAG_INSTALL_MISSING_BUNDLES:
-        required: false
-        type: boolean
-        default: false
-        description: "Feature flag - whether to automatically install missing required Pimcore bundles (e.g. Azure Flysystem bundle). Will be removed and assumed true in a future release."
       FEATURE_FLAG_DISABLE_CONFIG_COPY:
         required: false
         type: boolean
@@ -290,24 +308,6 @@ jobs:
         if: ${{ inputs.SKIP_LINTING == false }}
         uses: ./reusable-workflow/.github/actions/lint
 
-      - name: Install required bundles if not already installed
-        if: ${{ inputs.FEATURE_FLAG_INSTALL_MISSING_BUNDLES }}
-        run: |
-          set -euo pipefail
-
-          bundles=(
-            "torq/pimcore-flysystem-azure-bundle:^5.3"
-          )
-
-          for bundle in "${bundles[@]}"; do
-            if composer show --no-interaction --no-ansi "$bundle" >/dev/null 2>&1; then
-              echo "$bundle is already installed, skipping"
-            else
-              echo "$bundle not found, installing..."
-              composer require --no-interaction --no-ansi --no-scripts "$bundle"
-            fi
-          done
-
       - name: Log in to Azure
         uses: ./reusable-workflow/.github/actions/azure-login
         with:
@@ -341,6 +341,17 @@ jobs:
           AZURE_IMAGE_TAG: ${{ inputs.AZURE_IMAGE_TAG }}
           AZURE_PARAMETERS_FILE: ${{ vars.AZURE_PARAMETERS_FILE }}
           AZURE_SKIP_DB_DEPLOY: ${{ inputs.AZURE_SKIP_DB_DEPLOY }}
+
+      - name: Build and push agent-server image
+        if: ${{ inputs.AGENT_SERVER }}
+        uses: ./reusable-workflow/.github/actions/build-and-push-agent-server-image
+        with:
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          IMAGE: ${{ vars.AGENT_SERVER_IMAGE || 'agent-server' }}
+          CACHE_FROM: type=gha
+          CACHE_TO: type=gha,mode=min
 
       - name: Build and push init image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -408,6 +419,93 @@ jobs:
             echo "Container Registry has no firewall in place, so nothing to do"
           fi
 
+  run-ansible-playbooks:
+    name: Run Ansible playbooks
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+    needs:
+      - build-and-push-images
+    steps:
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@ba22d0abdc1eda539aa3ac81af1cfee160b10714 # v1.0.4
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: deploy-to-azure-container-apps.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Check out project repository and submodules
+        uses: ./reusable-workflow/.github/actions/checkout
+        with:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+
+      - name: Check for Ansible inventory file
+        id: check-ansible-inventory
+        run: |
+          if [ -f "${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.ANSIBLE_INVENTORY_FILE }}" ]; then
+            echo "Found ${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.ANSIBLE_INVENTORY_FILE }}!"
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.ANSIBLE_INVENTORY_FILE }} not found, skipping Ansible"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install tools for workflows/actions
+        if: ${{ steps.check-ansible-inventory.outputs.found == 'true' }}
+        uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Read services VM and Key Vault names from Azure parameters file
+        id: azure-parameters
+        if: ${{ steps.check-ansible-inventory.outputs.found == 'true' }}
+        run: |
+          parametersFile="${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}"
+          servicesVmName=$(jq -r '.parameters.servicesVmName.value' "$parametersFile")
+          keyVaultName=$(jq -r '.parameters.keyVaultName.value' "$parametersFile")
+          keyVaultResourceGroup=$(jq -r --arg RESOURCE_GROUP "${{ vars.RESOURCE_GROUP }}" '.parameters.keyVaultResourceGroupName.value // $RESOURCE_GROUP' "$parametersFile")
+          additionalEnvVars=$(jq -c '.parameters.additionalEnvVars.value // []' "$parametersFile")
+          echo "services-vm-name=$servicesVmName" >> "$GITHUB_OUTPUT"
+          echo "key-vault-name=$keyVaultName" >> "$GITHUB_OUTPUT"
+          echo "key-vault-resource-group=$keyVaultResourceGroup" >> "$GITHUB_OUTPUT"
+          echo "additional-env-vars=$additionalEnvVars" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Azure
+        if: ${{ steps.check-ansible-inventory.outputs.found == 'true' }}
+        uses: ./reusable-workflow/.github/actions/azure-login
+        with:
+          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          TENANT: ${{ vars.AZURE_TENANT_ID }}
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run Ansible playbook
+        if: ${{ steps.check-ansible-inventory.outputs.found == 'true' }}
+        uses: ./reusable-workflow/.github/actions/run-ansible-playbooks
+        with:
+          ANSIBLE_DIRECTORY: ${{ inputs.ANSIBLE_DIRECTORY }}
+          INVENTORY_FILE: ${{ inputs.ANSIBLE_INVENTORY_FILE }}
+          ANSIBLE_IMAGE_TAG: ${{ inputs.ANSIBLE_IMAGE_TAG }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          SERVICES_VM_NAME: ${{ steps.azure-parameters.outputs.services-vm-name }}
+          KEY_VAULT_NAME: ${{ steps.azure-parameters.outputs.key-vault-name }}
+          KEY_VAULT_RESOURCE_GROUP: ${{ steps.azure-parameters.outputs.key-vault-resource-group }}
+          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+          PHP_CONTAINER_APP: ${{ vars.PHP_CONTAINER_APP }}
+          ADDITIONAL_ENV_VARS: ${{ steps.azure-parameters.outputs.additional-env-vars }}
+
   deploy-and-run-init:
     name: Deploy and run init Container App Job
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
@@ -416,6 +514,7 @@ jobs:
       workflow-version: ${{ needs.build-and-push-images.outputs.workflow-version }}
     needs:
       - build-and-push-images
+      - run-ansible-playbooks
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -579,6 +678,7 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT }}
     if: failure()
     needs:
+      - run-ansible-playbooks
       - deploy-and-run-init
       - deploy-php-container-app-revision
       - deploy-supervisord-container-app-revision

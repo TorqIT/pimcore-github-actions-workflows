@@ -1,0 +1,166 @@
+name: "Run Ansible Playbook"
+description: "Pulls the Ansible provisioning image and runs its playbook against the hosts defined in the project's Ansible inventory file"
+inputs:
+  ANSIBLE_DIRECTORY:
+    required: true
+    description: "The path (relative to the project's root) of the directory containing the project's Ansible inventory file"
+  INVENTORY_FILE:
+    required: true
+    description: "The name of the Ansible inventory file (relative to ANSIBLE_DIRECTORY) defining the hosts to run the playbook against"
+  ANSIBLE_IMAGE_TAG:
+    required: false
+    default: "1"
+    description: "Tag to use when pulling the Ansible provisioning image (https://github.com/TorqIT/ansible-provisioning)"
+  RESOURCE_GROUP:
+    required: true
+    description: "The Azure Resource Group containing the services VM"
+  SERVICES_VM_NAME:
+    required: true
+    description: "The name of the services VM (used to derive its Network Security Group name, <name>-nsg, to temporarily allow SSH from this runner)"
+  KEY_VAULT_NAME:
+    required: true
+    description: "The name of the Azure Key Vault containing the secrets the playbook needs (services-vm-private-key, and - depending on which host groups are present in the inventory file - mercure-jwt, agent-server-admin-token, anthropic-api-key, open-ai-auth-token)"
+  KEY_VAULT_RESOURCE_GROUP:
+    required: true
+    description: "The Azure Resource Group containing the Key Vault"
+  CONTAINER_REGISTRY:
+    required: true
+    description: "The fully-qualified Azure Container Registry name (e.g. myregistry.azurecr.io). Only used (to generate a short-lived ACR access token) if the inventory file has a pimcore_agent_server group"
+  PHP_CONTAINER_APP:
+    required: true
+    description: "The name of the PHP Container App. Only used (to look up its public FQDN) if the inventory file has a pimcore_agent_server group"
+  ADDITIONAL_ENV_VARS:
+    required: false
+    default: "[]"
+    description: "JSON array of {name, value} objects (e.g. from the project's Azure parameters file additionalEnvVars) to pass through as non-secret env vars. Only used if the inventory file has a pimcore_agent_server group"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Open firewalls on Key Vaults and VMs
+      id: open-access
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        runnerIp=$(curl -s ipinfo.io/ip)
+        servicesVmNsgName="${{ inputs.SERVICES_VM_NAME }}-nsg"
+
+        echo "Temporarily allowing this runner ($runnerIp) through the Key Vault and services VM firewalls..."
+        az keyvault network-rule add \
+          --name "${{ inputs.KEY_VAULT_NAME }}" \
+          --resource-group "${{ inputs.KEY_VAULT_RESOURCE_GROUP }}" \
+          --ip-address "$runnerIp" \
+          --output none
+        az network nsg rule create \
+          --resource-group "${{ inputs.RESOURCE_GROUP }}" \
+          --nsg-name "$servicesVmNsgName" \
+          --name AllowCiRunnerSsh \
+          --priority 100 \
+          --direction Inbound \
+          --access Allow \
+          --protocol Tcp \
+          --destination-port-ranges 22 \
+          --source-address-prefixes "$runnerIp" \
+          --output none
+
+        echo "runner-ip=$runnerIp" >> "$GITHUB_OUTPUT"
+        echo "services-vm-nsg-name=$servicesVmNsgName" >> "$GITHUB_OUTPUT"
+
+    - name: Pull and start Ansible provisioning container
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Pulling and starting Ansible container..."
+        mkdir -p /tmp/ansible-run
+        az keyvault secret show --vault-name "${{ inputs.KEY_VAULT_NAME }}" --name services-vm-private-key --query value --output tsv > /tmp/ansible-run/ssh_key
+        chmod 600 /tmp/ansible-run/ssh_key
+        docker run \
+          --name ansible-provisioning \
+          -d \
+          -v "$(realpath "${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.INVENTORY_FILE }}")":/ansible-run/hosts.yml:ro \
+          -v /tmp/ansible-run/ssh_key:/ansible-run/ssh_key:ro \
+          ghcr.io/torqit/ansible-provisioning:${{ inputs.ANSIBLE_IMAGE_TAG }}
+
+    - name: Determine which host groups are present in the inventory
+      id: inventory-groups
+      shell: bash
+      run: |
+        set -euo pipefail
+        inventory=$(docker exec ansible-provisioning ansible-inventory -i /ansible-run/hosts.yml --list)
+        hasGroup() {
+          echo "$inventory" | jq -e --arg group "$1" 'has($group)' > /dev/null
+        }
+        if hasGroup mercure || hasGroup pimcore_agent_server; then
+          echo "needs-mercure-jwt=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "needs-mercure-jwt=false" >> "$GITHUB_OUTPUT"
+        fi
+        if hasGroup pimcore_agent_server; then
+          echo "needs-agent-server-vars=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "needs-agent-server-vars=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Fetch secrets and run playbook
+      shell: bash
+      env:
+        CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
+      run: |
+        set -euo pipefail
+
+        extraVars=()
+
+        if [ "${{ steps.inventory-groups.outputs.needs-mercure-jwt }}" == "true" ]; then
+          mercureJwtKey=$(az keyvault secret show --vault-name "${{ inputs.KEY_VAULT_NAME }}" --name mercure-jwt --query value --output tsv)
+          echo "::add-mask::$mercureJwtKey"
+          extraVars+=(--extra-vars "mercure_jwt_key=$mercureJwtKey")
+        fi
+
+        if [ "${{ steps.inventory-groups.outputs.needs-agent-server-vars }}" == "true" ]; then
+          agentServerAdminToken=$(az keyvault secret show --vault-name "${{ inputs.KEY_VAULT_NAME }}" --name agent-server-admin-token --query value --output tsv)
+          anthropicApiKey=$(az keyvault secret show --vault-name "${{ inputs.KEY_VAULT_NAME }}" --name anthropic-api-key --query value --output tsv 2>/dev/null || echo "")
+          openAiAuthToken=$(az keyvault secret show --vault-name "${{ inputs.KEY_VAULT_NAME }}" --name open-ai-auth-token --query value --output tsv 2>/dev/null || echo "")
+          phpFqdn=$(az containerapp show --resource-group "${{ inputs.RESOURCE_GROUP }}" --name "${{ inputs.PHP_CONTAINER_APP }}" --query "properties.configuration.ingress.fqdn" --output tsv)
+          containerRegistryName="${CONTAINER_REGISTRY%%.azurecr.io}"
+          acrToken=$(az acr login --name "$containerRegistryName" --expose-token --output tsv --query accessToken)
+
+          echo "::add-mask::$agentServerAdminToken"
+          echo "::add-mask::$anthropicApiKey"
+          echo "::add-mask::$openAiAuthToken"
+          echo "::add-mask::$acrToken"
+
+          extraVars+=(
+            --extra-vars "agent_server_admin_token=$agentServerAdminToken"
+            --extra-vars "anthropic_api_key=$anthropicApiKey"
+            --extra-vars "open_ai_auth_token=$openAiAuthToken"
+            --extra-vars "pimcore_internal_url=https://$phpFqdn"
+            --extra-vars "acr_registry_url=$CONTAINER_REGISTRY"
+            --extra-vars "acr_username=00000000-0000-0000-0000-000000000000"
+            --extra-vars "acr_password=$acrToken"
+            --extra-vars "{\"additional_env_vars\": ${{ inputs.ADDITIONAL_ENV_VARS }}}"
+          )
+        fi
+
+        echo "Running Ansible playbook against hosts in ${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.INVENTORY_FILE }}..."
+        docker exec ansible-provisioning ansible-playbook \
+          -i /ansible-run/hosts.yml \
+          --private-key /ansible-run/ssh_key \
+          "${extraVars[@]}" \
+          playbook.yml
+
+    - name: Clean up ansible-provisioning container
+      shell: bash
+      if: always()
+      run: docker rm --force ansible-provisioning
+
+    - name: Close firewall access
+      shell: bash
+      if: always() && steps.open-access.outcome == 'success'
+      continue-on-error: true
+      env:
+        RUNNER_IP: ${{ steps.open-access.outputs.runner-ip }}
+        SERVICES_VM_NSG_NAME: ${{ steps.open-access.outputs.services-vm-nsg-name }}
+      run: |
+        az keyvault network-rule remove --name "${{ inputs.KEY_VAULT_NAME }}" --resource-group "${{ inputs.KEY_VAULT_RESOURCE_GROUP }}" --ip-address "$RUNNER_IP" --output none
+        az network nsg rule delete --resource-group "${{ inputs.RESOURCE_GROUP }}" --nsg-name "$SERVICES_VM_NSG_NAME" --name AllowCiRunnerSsh --output none
