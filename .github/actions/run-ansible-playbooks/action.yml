@@ -29,6 +29,10 @@ inputs:
   PHP_CONTAINER_APP:
     required: true
     description: "The name of the PHP Container App. Only used (to look up its public FQDN) if the inventory file has a pimcore_agent_server group"
+  ADDITIONAL_ENV_VARS:
+    required: false
+    default: "[]"
+    description: "JSON array of {name, value} objects (e.g. from the project's Azure parameters file additionalEnvVars) to pass through as non-secret env vars. Only used if the inventory file has a pimcore_agent_server group"
 
 runs:
   using: "composite"
@@ -134,6 +138,7 @@ runs:
             --extra-vars "acr_registry_url=$CONTAINER_REGISTRY"
             --extra-vars "acr_username=00000000-0000-0000-0000-000000000000"
             --extra-vars "acr_password=$acrToken"
+            --extra-vars "{\"additional_env_vars\": ${{ inputs.ADDITIONAL_ENV_VARS }}}"
           )
         fi
 

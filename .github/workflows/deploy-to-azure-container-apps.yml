@@ -476,9 +476,11 @@ jobs:
           servicesVmName=$(jq -r '.parameters.servicesVmName.value' "$parametersFile")
           keyVaultName=$(jq -r '.parameters.keyVaultName.value' "$parametersFile")
           keyVaultResourceGroup=$(jq -r --arg RESOURCE_GROUP "${{ vars.RESOURCE_GROUP }}" '.parameters.keyVaultResourceGroupName.value // $RESOURCE_GROUP' "$parametersFile")
+          additionalEnvVars=$(jq -c '.parameters.additionalEnvVars.value // []' "$parametersFile")
           echo "services-vm-name=$servicesVmName" >> "$GITHUB_OUTPUT"
           echo "key-vault-name=$keyVaultName" >> "$GITHUB_OUTPUT"
           echo "key-vault-resource-group=$keyVaultResourceGroup" >> "$GITHUB_OUTPUT"
+          echo "additional-env-vars=$additionalEnvVars" >> "$GITHUB_OUTPUT"
 
       - name: Log in to Azure
         if: ${{ steps.check-ansible-inventory.outputs.found == 'true' }}
@@ -502,6 +504,7 @@ jobs:
           KEY_VAULT_RESOURCE_GROUP: ${{ steps.azure-parameters.outputs.key-vault-resource-group }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           PHP_CONTAINER_APP: ${{ vars.PHP_CONTAINER_APP }}
+          ADDITIONAL_ENV_VARS: ${{ steps.azure-parameters.outputs.additional-env-vars }}
 
   deploy-and-run-init:
     name: Deploy and run init Container App Job

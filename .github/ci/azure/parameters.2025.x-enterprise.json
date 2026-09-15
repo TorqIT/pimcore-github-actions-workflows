@@ -118,7 +118,28 @@
       "value": "14"
     },
     "additionalEnvVars": {
-      "value": []
+      "value": [
+        {
+          "name": "AGENT_SERVER_COPILOT_AUTH_MODE",
+          "value": "byok"
+        },
+        {
+          "name": "AGENT_SERVER_COPILOT_PROVIDER",
+          "value": "anthropic"
+        },
+        {
+          "name": "AGENT_SERVER_COPILOT_MODEL",
+          "value": "claude-sonnet-4-20250514"
+        },
+        {
+          "name": "AGENT_SERVER_TITLE_MODEL",
+          "value": "claude-haiku-4-5-20251001"
+        },
+        {
+          "name": "AGENT_SERVER_AVAILABLE_MODELS",
+          "value": "claude-sonnet-4-20250514,claude-haiku-4-5-20251001"
+        }
+      ]
     },
     "additionalSecrets": {
       "value": {
