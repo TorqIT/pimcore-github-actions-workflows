@@ -90,6 +90,9 @@
     "servicesVmName": {
       "value": "pim-2025x-ent-gh-services-ci"
     },
+    "servicesVmSize": {
+      "value": "Standard_A2_v2"
+    },
     "provisionOpensearch": {
       "value": true
     },
