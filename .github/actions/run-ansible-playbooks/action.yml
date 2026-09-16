@@ -17,6 +17,9 @@ inputs:
   PARAMETERS_FILE:
     required: true
     description: "Path to the Azure parameters file"
+  LIMIT:
+    required: false
+    description: "Optional Ansible --limit pattern, to scope the playbook run to specific host(s)/group(s) when the inventory file defines more than one environment"
 
 runs:
   using: "composite"
@@ -185,10 +188,15 @@ runs:
       shell: bash
       run: |
         echo "Running Ansible playbook against hosts in ${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.INVENTORY_FILE }}..."
+        limitArgs=()
+        if [ -n "${{ inputs.LIMIT }}" ]; then
+          limitArgs=(--limit "${{ inputs.LIMIT }}")
+        fi
         docker exec ansible-provisioning ansible-playbook \
           -i /ansible-run/hosts.yml \
           --private-key /ansible-run/ssh_key \
           --extra-vars "@/ansible-run/extra-vars.json" \
+          "${limitArgs[@]}" \
           playbook.yml
 
     - name: Clean up ansible-provisioning container

@@ -184,6 +184,11 @@ on:
         type: string
         default: "hosts.yml"
         description: "The name of the Ansible inventory file (relative to ANSIBLE_DIRECTORY) defining the hosts to run the ansible playbook against. If this file does not exist, the Ansible job is skipped"
+      ANSIBLE_LIMIT:
+        required: false
+        type: string
+        default: ""
+        description: "Optional Ansible --limit pattern, to scope the playbook run to specific host(s)/group(s) when the inventory file defines more than one environment"
       ANSIBLE_IMAGE_TAG:
         required: false
         type: string
@@ -484,6 +489,7 @@ jobs:
           ANSIBLE_DIRECTORY: ${{ inputs.ANSIBLE_DIRECTORY }}
           INVENTORY_FILE: ${{ inputs.ANSIBLE_INVENTORY_FILE }}
           ANSIBLE_IMAGE_TAG: ${{ inputs.ANSIBLE_IMAGE_TAG }}
+          LIMIT: ${{ inputs.ANSIBLE_LIMIT }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           PARAMETERS_FILE: ${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}
 
