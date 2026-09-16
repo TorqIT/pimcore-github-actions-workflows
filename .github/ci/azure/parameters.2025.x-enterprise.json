@@ -180,6 +180,16 @@
             "secretNameInKeyVault": "agent-server-admin-token",
             "secretRefInContainerApp": "agent-server-admin-token",
             "secretEnvVarNameInContainerApp": "AGENT_SERVER_ADMIN_TOKEN"
+          },
+          {
+            "secretNameInKeyVault": "anthropic-api-key",
+            "secretRefInContainerApp": "anthropic-api-key",
+            "secretEnvVarNameInContainerApp": "ANTHROPIC_API_KEY"
+          },
+          {
+            "secretNameInKeyVault": "open-ai-auth-token",
+            "secretRefInContainerApp": "open-ai-auth-token",
+            "secretEnvVarNameInContainerApp": "OPEN_AI_AUTH_TOKEN"
           }
         ]
       }

@@ -14,29 +14,22 @@ inputs:
   RESOURCE_GROUP:
     required: true
     description: "The Azure Resource Group containing the services VM"
-  SERVICES_VM_NAME:
+  PARAMETERS_FILE:
     required: true
-    description: "The name of the services VM (used to derive its Network Security Group name, <name>-nsg, to temporarily allow SSH from this runner)"
-  KEY_VAULT_NAME:
-    required: true
-    description: "The name of the Azure Key Vault containing the secrets the playbook needs (services-vm-private-key, and - depending on which host groups are present in the inventory file - mercure-jwt, agent-server-admin-token, anthropic-api-key, open-ai-auth-token)"
-  KEY_VAULT_RESOURCE_GROUP:
-    required: true
-    description: "The Azure Resource Group containing the Key Vault"
-  CONTAINER_REGISTRY:
-    required: true
-    description: "The fully-qualified Azure Container Registry name (e.g. myregistry.azurecr.io). Only used (to generate a short-lived ACR access token) if the inventory file has a pimcore_agent_server group"
-  PHP_CONTAINER_APP:
-    required: true
-    description: "The name of the PHP Container App. Only used (to look up its public FQDN) if the inventory file has a pimcore_agent_server group"
-  ADDITIONAL_ENV_VARS:
-    required: false
-    default: "[]"
-    description: "JSON array of {name, value} objects (e.g. from the project's Azure parameters file additionalEnvVars) to pass through as non-secret env vars. Only used if the inventory file has a pimcore_agent_server group"
+    description: "Path to the Azure parameters file"
 
 runs:
   using: "composite"
   steps:
+    - name: Resolve parameters
+      id: params
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "key-vault-name=$(jq -r '.parameters.keyVaultName.value' "${{ inputs.PARAMETERS_FILE }}")" >> "$GITHUB_OUTPUT"
+        echo "key-vault-resource-group=$(jq -r --arg RESOURCE_GROUP "${{ inputs.RESOURCE_GROUP }}" '.parameters.keyVaultResourceGroupName.value // $RESOURCE_GROUP' "${{ inputs.PARAMETERS_FILE }}")" >> "$GITHUB_OUTPUT"
+        echo "services-vm-name=$(jq -r '.parameters.servicesVmName.value' "${{ inputs.PARAMETERS_FILE }}")" >> "$GITHUB_OUTPUT"
+
     - name: Open firewalls on Key Vaults and VMs
       id: open-access
       shell: bash
@@ -44,12 +37,12 @@ runs:
         set -euo pipefail
 
         runnerIp=$(curl -s ipinfo.io/ip)
-        servicesVmNsgName="${{ inputs.SERVICES_VM_NAME }}-nsg"
+        servicesVmNsgName="${{ steps.params.outputs.services-vm-name }}-nsg"
 
         echo "Temporarily allowing this runner ($runnerIp) through the Key Vault and services VM firewalls..."
         az keyvault network-rule add \
-          --name "${{ inputs.KEY_VAULT_NAME }}" \
-          --resource-group "${{ inputs.KEY_VAULT_RESOURCE_GROUP }}" \
+          --name "${{ steps.params.outputs.key-vault-name }}" \
+          --resource-group "${{ steps.params.outputs.key-vault-resource-group }}" \
           --ip-address "$runnerIp" \
           --output none
         az network nsg rule create \
@@ -73,13 +66,13 @@ runs:
         set -euo pipefail
         echo "Pulling and starting Ansible container..."
         mkdir -p /tmp/ansible-run
-        az keyvault secret show --vault-name "${{ inputs.KEY_VAULT_NAME }}" --name services-vm-private-key --query value --output tsv > /tmp/ansible-run/ssh_key
+        cp "${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.INVENTORY_FILE }}" /tmp/ansible-run/hosts.yml
+        az keyvault secret show --vault-name "${{ steps.params.outputs.key-vault-name }}" --name services-vm-private-key --query value --output tsv > /tmp/ansible-run/ssh_key
         chmod 600 /tmp/ansible-run/ssh_key
         docker run \
           --name ansible-provisioning \
           -d \
-          -v "$(realpath "${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.INVENTORY_FILE }}")":/ansible-run/hosts.yml:ro \
-          -v /tmp/ansible-run/ssh_key:/ansible-run/ssh_key:ro \
+          -v /tmp/ansible-run:/ansible-run \
           ghcr.io/torqit/ansible-provisioning:${{ inputs.ANSIBLE_IMAGE_TAG }}
 
     - name: Determine which host groups are present in the inventory
@@ -102,51 +95,100 @@ runs:
           echo "needs-agent-server-vars=false" >> "$GITHUB_OUTPUT"
         fi
 
-    - name: Fetch secrets and run playbook
+    - name: Resolve PHP Container App FQDN
+      id: php-fqdn
+      if: steps.inventory-groups.outputs.needs-agent-server-vars == 'true'
       shell: bash
-      env:
-        CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
+      run: |
+        set -euo pipefail
+        phpContainerApp=$(jq -r '.parameters.phpContainerAppName.value' "${{ inputs.PARAMETERS_FILE }}")
+        echo "fqdn=$(az containerapp show --resource-group "${{ inputs.RESOURCE_GROUP }}" --name "$phpContainerApp" --query "properties.configuration.ingress.fqdn" --output tsv)" >> "$GITHUB_OUTPUT"
+
+    - name: Get ACR access token
+      id: acr-token
+      if: steps.inventory-groups.outputs.needs-agent-server-vars == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        containerRegistryName=$(jq -r '.parameters.containerRegistryName.value' "${{ inputs.PARAMETERS_FILE }}")
+        token=$(az acr login --name "$containerRegistryName" --expose-token --output tsv --query accessToken)
+        echo "::add-mask::$token"
+        echo "registry=$containerRegistryName.azurecr.io" >> "$GITHUB_OUTPUT"
+        echo "token=$token" >> "$GITHUB_OUTPUT"
+
+    - name: Fetch secrets and env vars
+      shell: bash
       run: |
         set -euo pipefail
 
-        extraVars=()
+        findSecretName() {
+          jq -r --arg envVar "$1" '.parameters.additionalSecrets.value.array // [] | map(select(.secretEnvVarNameInContainerApp == $envVar)) | .[0].secretNameInKeyVault // empty' "${{ inputs.PARAMETERS_FILE }}"
+        }
+
+        extraVars='{}'
 
         if [ "${{ steps.inventory-groups.outputs.needs-mercure-jwt }}" == "true" ]; then
-          mercureJwtKey=$(az keyvault secret show --vault-name "${{ inputs.KEY_VAULT_NAME }}" --name mercure-jwt --query value --output tsv)
+          mercureJwtKey=$(az keyvault secret show --vault-name "${{ steps.params.outputs.key-vault-name }}" --name "$(findSecretName MERCURE_JWT_KEY)" --query value --output tsv)
           echo "::add-mask::$mercureJwtKey"
-          extraVars+=(--extra-vars "mercure_jwt_key=$mercureJwtKey")
+          extraVars=$(echo "$extraVars" | jq --arg v "$mercureJwtKey" '. + {mercure_jwt_key: $v}')
         fi
 
         if [ "${{ steps.inventory-groups.outputs.needs-agent-server-vars }}" == "true" ]; then
-          agentServerAdminToken=$(az keyvault secret show --vault-name "${{ inputs.KEY_VAULT_NAME }}" --name agent-server-admin-token --query value --output tsv)
-          anthropicApiKey=$(az keyvault secret show --vault-name "${{ inputs.KEY_VAULT_NAME }}" --name anthropic-api-key --query value --output tsv 2>/dev/null || echo "")
-          openAiAuthToken=$(az keyvault secret show --vault-name "${{ inputs.KEY_VAULT_NAME }}" --name open-ai-auth-token --query value --output tsv 2>/dev/null || echo "")
-          phpFqdn=$(az containerapp show --resource-group "${{ inputs.RESOURCE_GROUP }}" --name "${{ inputs.PHP_CONTAINER_APP }}" --query "properties.configuration.ingress.fqdn" --output tsv)
-          containerRegistryName="${CONTAINER_REGISTRY%%.azurecr.io}"
-          acrToken=$(az acr login --name "$containerRegistryName" --expose-token --output tsv --query accessToken)
+          agentServerAdminToken=$(az keyvault secret show --vault-name "${{ steps.params.outputs.key-vault-name }}" --name "$(findSecretName AGENT_SERVER_ADMIN_TOKEN)" --query value --output tsv)
+
+          anthropicApiKey=""
+          anthropicSecretName=$(findSecretName ANTHROPIC_API_KEY)
+          if [ -n "$anthropicSecretName" ]; then
+            anthropicApiKey=$(az keyvault secret show --vault-name "${{ steps.params.outputs.key-vault-name }}" --name "$anthropicSecretName" --query value --output tsv)
+          fi
+
+          openAiAuthToken=""
+          openAiSecretName=$(findSecretName OPEN_AI_AUTH_TOKEN)
+          if [ -n "$openAiSecretName" ]; then
+            openAiAuthToken=$(az keyvault secret show --vault-name "${{ steps.params.outputs.key-vault-name }}" --name "$openAiSecretName" --query value --output tsv)
+          fi
 
           echo "::add-mask::$agentServerAdminToken"
           echo "::add-mask::$anthropicApiKey"
           echo "::add-mask::$openAiAuthToken"
-          echo "::add-mask::$acrToken"
 
-          extraVars+=(
-            --extra-vars "agent_server_admin_token=$agentServerAdminToken"
-            --extra-vars "anthropic_api_key=$anthropicApiKey"
-            --extra-vars "open_ai_auth_token=$openAiAuthToken"
-            --extra-vars "pimcore_internal_url=https://$phpFqdn"
-            --extra-vars "acr_registry_url=$CONTAINER_REGISTRY"
-            --extra-vars "acr_username=00000000-0000-0000-0000-000000000000"
-            --extra-vars "acr_password=$acrToken"
-            --extra-vars "{\"additional_env_vars\": ${{ inputs.ADDITIONAL_ENV_VARS }}}"
-          )
+          extraVars=$(jq -c '.parameters.additionalEnvVars.value // []' "${{ inputs.PARAMETERS_FILE }}" | jq \
+            --arg adminToken "$agentServerAdminToken" \
+            --arg anthropicKey "$anthropicApiKey" \
+            --arg openAiToken "$openAiAuthToken" \
+            --arg fqdn "${{ steps.php-fqdn.outputs.fqdn }}" \
+            --arg registry "${{ steps.acr-token.outputs.registry }}" \
+            --arg acrToken "${{ steps.acr-token.outputs.token }}" \
+            --argjson base "$extraVars" '
+              (map({(.name): .value}) | add // {}) as $envVars
+              | $base + {
+                  agent_server_admin_token: $adminToken,
+                  anthropic_api_key: $anthropicKey,
+                  open_ai_auth_token: $openAiToken,
+                  pimcore_internal_url: ("https://" + $fqdn),
+                  acr_registry_url: $registry,
+                  acr_username: "00000000-0000-0000-0000-000000000000",
+                  acr_password: $acrToken,
+                  agent_server_copilot_auth_mode: $envVars.AGENT_SERVER_COPILOT_AUTH_MODE,
+                  agent_server_copilot_provider: $envVars.AGENT_SERVER_COPILOT_PROVIDER,
+                  agent_server_copilot_api_key: (if $envVars.AGENT_SERVER_COPILOT_PROVIDER == "openai" then $openAiToken else $anthropicKey end),
+                  agent_server_copilot_model: $envVars.AGENT_SERVER_COPILOT_MODEL,
+                  agent_server_title_model: $envVars.AGENT_SERVER_TITLE_MODEL,
+                  agent_server_available_models: $envVars.AGENT_SERVER_AVAILABLE_MODELS
+                } | with_entries(select(.value != null))
+          ')
         fi
 
+        echo "$extraVars" > /tmp/ansible-run/extra-vars.json
+
+    - name: Run Ansible playbook
+      shell: bash
+      run: |
         echo "Running Ansible playbook against hosts in ${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.INVENTORY_FILE }}..."
         docker exec ansible-provisioning ansible-playbook \
           -i /ansible-run/hosts.yml \
           --private-key /ansible-run/ssh_key \
-          "${extraVars[@]}" \
+          --extra-vars "@/ansible-run/extra-vars.json" \
           playbook.yml
 
     - name: Clean up ansible-provisioning container
@@ -162,5 +204,5 @@ runs:
         RUNNER_IP: ${{ steps.open-access.outputs.runner-ip }}
         SERVICES_VM_NSG_NAME: ${{ steps.open-access.outputs.services-vm-nsg-name }}
       run: |
-        az keyvault network-rule remove --name "${{ inputs.KEY_VAULT_NAME }}" --resource-group "${{ inputs.KEY_VAULT_RESOURCE_GROUP }}" --ip-address "$RUNNER_IP" --output none
+        az keyvault network-rule remove --name "${{ steps.params.outputs.key-vault-name }}" --resource-group "${{ steps.params.outputs.key-vault-resource-group }}" --ip-address "$RUNNER_IP" --output none
         az network nsg rule delete --resource-group "${{ inputs.RESOURCE_GROUP }}" --nsg-name "$SERVICES_VM_NSG_NAME" --name AllowCiRunnerSsh --output none

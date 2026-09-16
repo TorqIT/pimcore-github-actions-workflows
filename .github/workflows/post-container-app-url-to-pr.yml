@@ -1,0 +1,110 @@
+name: Post Container App URL to PR
+description: Use the given Azure parameters file to determine the FQDN of the PHP Container App, and post it to the event's PR as a comment
+
+on:
+  workflow_call:
+    inputs:
+      ENVIRONMENT:
+        required: true
+        type: string
+        description: "The GitHub environment to use for deployment"
+      PARAMETERS_FILE:
+        required: true
+        type: string
+        description: "Path to the parameters file containing the necessary parameters for provisioning the Azure environment"
+      SERVICE_PRINCIPAL_ID:
+        required: true
+        type: string
+        description: "Azure Service Principal ID with permissions to deploy resources to the target subscription and resource group"
+      BUILD_IMAGE:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to build the provisioning Docker image before starting the container. Will attempt to use Dockerfile at the root of the project."
+      IMAGE_TAG:
+        required: false
+        type: string
+        description: "The image tag to use - if BUILD_IMAGE is false, this is the tag that will be pulled"
+        default: "2"
+
+    secrets:
+      SERVICE_PRINCIPAL_PASSWORD:
+        required: true
+        description: "Azure Service Principal password"
+      PIMCORE_ENCRYPTION_SECRET:
+        required: true
+        description: "Secret value for Pimcore encryption, which will be stored in Azure Key Vault"
+      PIMCORE_PRODUCT_KEY:
+        required: true
+        description: "Pimcore product key, which will be stored in Azure Key Vault"
+      PIMCORE_INSTANCE_IDENTIFIER:
+        required: true
+        description: "Pimcore instance identifier, which will be stored in Azure Key Vault"
+
+jobs:
+  post-container-app-url:
+    name: Post Container App URL to PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@ba22d0abdc1eda539aa3ac81af1cfee160b10714 # v1.0.4
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: post-container-app-url-to-pr.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Build and start container, and log in to Azure
+        uses: ./reusable-workflow/.github/actions/start-azure-provisioning
+        with:
+          SERVICE_PRINCIPAL_ID: ${{ inputs.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE}}
+          BUILD_IMAGE: "${{ inputs.BUILD_IMAGE }}"
+          IMAGE_TAG: ${{ inputs.IMAGE_TAG }}
+
+      - name: Get container app URL
+        id: get-url
+        run: |
+          URL=$(docker exec azure bash -c '
+            az containerapp show \
+              --name $(jq -r ".parameters.phpContainerAppName.value" parameters.json) \
+              --resource-group $(jq -r ".parameters.resourceGroupName.value" parameters.json) \
+              --query properties.configuration.ingress.fqdn -o tsv
+          ')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Find Comment
+        uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad # v4
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: "github-actions[bot]"
+          body-includes: (${{ inputs.ENVIRONMENT }}) Preview available at
+
+      - name: Add or update PR comment with preview URL
+        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          body: |
+            (${{ inputs.ENVIRONMENT }}) Preview available at: [https://${{ steps.get-url.outputs.url }}/pimcore-studio](https://${{ steps.get-url.outputs.url }}/pimcore-studio)
+          edit-mode: replace
+
+      - name: Clean up Docker artifacts
+        if: always()
+        continue-on-error: true
+        run: |
+          docker rm -f azure
+          docker image prune -af

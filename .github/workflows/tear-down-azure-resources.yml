@@ -1,0 +1,85 @@
+name: Tear down Azure resources based on a given parameters file
+
+on:
+  workflow_call:
+    inputs:
+      SERVICE_PRINCIPAL_ID:
+        required: true
+        type: string
+        description: "Azure Service Principal ID with permissions to deploy resources to the target subscription and resource group"
+      PARAMETERS_FILE:
+        required: true
+        type: string
+        description: "Path to the parameters file containing the necessary parameters for provisioning the Azure environment"
+      BUILD_IMAGE:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to build the Azure Docker image. Defaults to false"
+      IMAGE_TAG:
+        required: false
+        type: string
+        description: "The image tag to use - if BUILD_IMAGE is false, this is the tag that will be pulled"
+        default: "2"
+      FAIL_ON_ERROR:
+        required: false
+        type: boolean
+        default: true
+        description: "Whether to fail the workflow if there are errors during the Azure tear-down"
+    secrets:
+      SERVICE_PRINCIPAL_PASSWORD:
+        required: true
+        description: "Azure Service Principal password"
+
+concurrency:
+  group: ${{ github.repository }}__${{ github.ref }}-${{ inputs.PARAMETERS_FILE }}-tear-down
+  cancel-in-progress: true
+
+jobs:
+  tear-down-azure-resources:
+    name: Tear down CI Azure resources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@ba22d0abdc1eda539aa3ac81af1cfee160b10714 # v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: tear-down-azure-resources.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Build and start container, and log in to Azure
+        uses: ./reusable-workflow/.github/actions/start-azure-provisioning
+        with:
+          BUILD_IMAGE: "${{ inputs.BUILD_IMAGE }}"
+          SERVICE_PRINCIPAL_ID: ${{ inputs.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
+          IMAGE_TAG: ${{ inputs.IMAGE_TAG }}
+
+      - name: Delete Resource Group
+        continue-on-error: ${{ !inputs.FAIL_ON_ERROR }}
+        run: |
+          docker exec azure bash -c '
+              az group delete \
+                --name $(jq -r ".parameters.resourceGroupName.value" /azure/parameters.json) \
+                --yes
+          '
+
+      - name: Purge Key Vault
+        continue-on-error: ${{ !inputs.FAIL_ON_ERROR }}
+        run: |
+          docker exec azure bash -c '
+              az keyvault purge \
+                --name $(jq -r ".parameters.keyVaultName.value" /azure/parameters.json)
+          '

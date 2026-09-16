@@ -1,0 +1,54 @@
+name: 'Start Azure Provisioning Container'
+description: 'Starts (first, builds if BUILD_IMAGE is set to true) the Azure provisioning image, and logs into it via Service Principal'
+inputs:
+  BUILD_IMAGE:
+    required: false
+    description: "Whether to build the image first"
+    default: "false"
+  IMAGE_TAG:
+    required: false
+    description: "The image tag to use - if BUILD_IMAGE is false, this is the tag that will be pulled"
+    default: "2"
+  PARAMETERS_FILE:
+    required: true
+    description: "Path to the parameters file containing parameters for provisioning the Azure environment"
+  SERVICE_PRINCIPAL_ID:
+    required: true
+    description: "Azure Service Principal ID with permissions to deploy resources to the target subscription and resource group"
+  SERVICE_PRINCIPAL_PASSWORD:
+    required: true
+    description: "Azure Service Principal password"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Build image
+      if: inputs.BUILD_IMAGE == 'true'
+      shell: bash
+      run: |
+        current_dir=$(pwd)
+        cd ${{ github.workspace }}
+        docker build \
+          -t ghcr.io/torqit/pimcore-azure-provisioning:${{ inputs.IMAGE_TAG }} \
+          .
+        cd $current_dir
+
+    - name: Start container
+      shell: bash
+      run: |
+        parameters_file=$(realpath "${{ inputs.PARAMETERS_FILE }}")
+        docker run -d \
+          --name azure \
+          --volume "$parameters_file":/azure/parameters.json \
+          --volume /var/run/docker.sock:/var/run/docker.sock:ro \
+          ghcr.io/torqit/pimcore-azure-provisioning:${{ inputs.IMAGE_TAG }}
+
+    - name: Log in to Azure via service principal
+      shell: bash
+      run: |
+        docker exec azure bash -c '
+          az login --tenant $(jq -r ".parameters.tenantId.value" /azure/parameters.json) \
+            --service-principal \
+              --username ${{ inputs.SERVICE_PRINCIPAL_ID }} \
+              --password ${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}
+        '

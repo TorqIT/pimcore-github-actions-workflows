@@ -468,20 +468,6 @@ jobs:
         if: ${{ steps.check-ansible-inventory.outputs.found == 'true' }}
         uses: ./reusable-workflow/.github/actions/setup-tools
 
-      - name: Read services VM and Key Vault names from Azure parameters file
-        id: azure-parameters
-        if: ${{ steps.check-ansible-inventory.outputs.found == 'true' }}
-        run: |
-          parametersFile="${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}"
-          servicesVmName=$(jq -r '.parameters.servicesVmName.value' "$parametersFile")
-          keyVaultName=$(jq -r '.parameters.keyVaultName.value' "$parametersFile")
-          keyVaultResourceGroup=$(jq -r --arg RESOURCE_GROUP "${{ vars.RESOURCE_GROUP }}" '.parameters.keyVaultResourceGroupName.value // $RESOURCE_GROUP' "$parametersFile")
-          additionalEnvVars=$(jq -c '.parameters.additionalEnvVars.value // []' "$parametersFile")
-          echo "services-vm-name=$servicesVmName" >> "$GITHUB_OUTPUT"
-          echo "key-vault-name=$keyVaultName" >> "$GITHUB_OUTPUT"
-          echo "key-vault-resource-group=$keyVaultResourceGroup" >> "$GITHUB_OUTPUT"
-          echo "additional-env-vars=$additionalEnvVars" >> "$GITHUB_OUTPUT"
-
       - name: Log in to Azure
         if: ${{ steps.check-ansible-inventory.outputs.found == 'true' }}
         uses: ./reusable-workflow/.github/actions/azure-login
@@ -499,12 +485,7 @@ jobs:
           INVENTORY_FILE: ${{ inputs.ANSIBLE_INVENTORY_FILE }}
           ANSIBLE_IMAGE_TAG: ${{ inputs.ANSIBLE_IMAGE_TAG }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
-          SERVICES_VM_NAME: ${{ steps.azure-parameters.outputs.services-vm-name }}
-          KEY_VAULT_NAME: ${{ steps.azure-parameters.outputs.key-vault-name }}
-          KEY_VAULT_RESOURCE_GROUP: ${{ steps.azure-parameters.outputs.key-vault-resource-group }}
-          CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
-          PHP_CONTAINER_APP: ${{ vars.PHP_CONTAINER_APP }}
-          ADDITIONAL_ENV_VARS: ${{ steps.azure-parameters.outputs.additional-env-vars }}
+          PARAMETERS_FILE: ${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}
 
   deploy-and-run-init:
     name: Deploy and run init Container App Job
