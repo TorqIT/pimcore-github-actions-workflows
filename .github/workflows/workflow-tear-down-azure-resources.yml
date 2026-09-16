@@ -47,7 +47,7 @@ jobs:
         uses: canonical/get-workflow-version-action@ba22d0abdc1eda539aa3ac81af1cfee160b10714 # v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: tear-down-azure-resources.yml
+          file-name: workflow-tear-down-azure-resources.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions

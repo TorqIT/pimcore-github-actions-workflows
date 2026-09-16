@@ -53,7 +53,7 @@ jobs:
         uses: canonical/get-workflow-version-action@ba22d0abdc1eda539aa3ac81af1cfee160b10714 # v1.0.4
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: post-container-app-url-to-pr.yml
+          file-name: workflow-post-container-app-url-to-pr.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions

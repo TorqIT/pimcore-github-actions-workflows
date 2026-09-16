@@ -23,7 +23,7 @@ jobs:
           - parameters-file: "./.github/ci/azure/parameters.2025.x-enterprise.json"
           - parameters-file: "./.github/ci/azure/parameters.2026.x.json"
           - parameters-file: "./.github/ci/azure/parameters.2026.x-enterprise.json"
-    uses: ./.github/workflows/tear-down-azure-resources.yml
+    uses: ./.github/workflows/workflow-tear-down-azure-resources.yml
     with:
       SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
       PARAMETERS_FILE: ${{ matrix.parameters-file }}

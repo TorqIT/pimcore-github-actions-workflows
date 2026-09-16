@@ -35,6 +35,21 @@ on:
         type: string
         default: "0"
         description: "The tag to use when pulling the Ansible provisioning image (https://github.com/TorqIT/ansible-provisioning), used to configure the services VM"
+      PROJECT_REPOSITORY:
+        required: false
+        type: string
+        default: ${{ github.repository }}
+        description: "The repository in which the Pimcore project is located, in owner/repo format. Only used to build the agent-server image when the environment configures AGENT_SERVER_URL."
+      PROJECT_REPOSITORY_REF:
+        required: false
+        type: string
+        default: ${{ github.ref }}
+        description: "The branch, tag, or commit of PROJECT_REPOSITORY to check out when building the agent-server image"
+      GITHUB_APP_CHECKOUT:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to use a GitHub App token for checking out PROJECT_REPOSITORY"
     secrets:
       SERVICE_PRINCIPAL_PASSWORD:
         required: true
@@ -50,6 +65,10 @@ on:
         required: false
       OPEN_AI_AUTH_TOKEN:
         required: false
+      GITHUB_APP_ID:
+        required: false
+      GITHUB_APP_PRIVATE_KEY:
+        required: false
 
 jobs:
   provision:
@@ -64,7 +83,7 @@ jobs:
         uses: canonical/get-workflow-version-action@ba22d0abdc1eda539aa3ac81af1cfee160b10714 # v1
         with:
           repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: provision-ci-environment.yml
+          file-name: workflow-provision-ci-environment.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout workflow repository to use composite actions
@@ -198,6 +217,41 @@ jobs:
             echo "public-ip=$publicIp" >> "$GITHUB_OUTPUT"
             echo "provision-agent-server=$(jq -r '.parameters.additionalEnvVars.value // [] | any(.name == "AGENT_SERVER_URL")' ${{ inputs.PARAMETERS_FILE }})" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Resolve Container Registry
+        if: steps.services-vm.outputs.provision-agent-server == 'true'
+        id: container-registry
+        run: echo "name=$(jq -r '.parameters.containerRegistryName.value' ${{ inputs.PARAMETERS_FILE }})" >> "$GITHUB_OUTPUT"
+
+      - name: Check out project repository
+        if: steps.services-vm.outputs.provision-agent-server == 'true'
+        uses: ./reusable-workflow/.github/actions/checkout
+        with:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+          PATH: project-repo
+
+      - name: Log in to Container Registry
+        if: steps.services-vm.outputs.provision-agent-server == 'true'
+        uses: ./reusable-workflow/.github/actions/setup-docker
+        with:
+          CONTAINER_REGISTRY: ${{ steps.container-registry.outputs.name }}.azurecr.io
+          CONTAINER_REGISTRY_USERNAME: ${{ inputs.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+
+      - name: Build and push agent-server image
+        if: steps.services-vm.outputs.provision-agent-server == 'true'
+        uses: ./reusable-workflow/.github/actions/build-and-push-agent-server-image
+        with:
+          PIMCORE_ROOT: project-repo
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          CONTAINER_REGISTRY: ${{ steps.container-registry.outputs.name }}.azurecr.io
+          CACHE_FROM: type=gha
+          CACHE_TO: type=gha,mode=min
 
       - name: Build Ansible inventory
         if: steps.services-vm.outputs.provisioned == 'true'
