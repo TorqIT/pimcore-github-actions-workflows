@@ -317,5 +317,3 @@ jobs:
         run: |
           docker rm -f azure
           docker image prune -af
-
-          
