@@ -60,6 +60,9 @@ runs:
           --source-address-prefixes "$runnerIp" \
           --output none
 
+        echo "Waiting for the NSG rule to propagate..."
+        sleep 60
+
         echo "runner-ip=$runnerIp" >> "$GITHUB_OUTPUT"
         echo "services-vm-nsg-name=$servicesVmNsgName" >> "$GITHUB_OUTPUT"
 
