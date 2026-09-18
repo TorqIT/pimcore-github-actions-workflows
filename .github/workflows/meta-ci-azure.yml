@@ -59,7 +59,6 @@ jobs:
       PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
       SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
       SKIP_IF_EXISTS: false
-      IMAGE_TAG: feature-agent-bundle
       PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
       PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
       GITHUB_APP_CHECKOUT: true
