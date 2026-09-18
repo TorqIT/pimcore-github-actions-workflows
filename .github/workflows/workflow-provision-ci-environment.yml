@@ -1,0 +1,319 @@
+name: Provision Azure Environment for Pimcore
+
+on:
+  workflow_call:
+    inputs:
+      ENVIRONMENT:
+        required: true
+        type: string
+        description: "The GitHub environment to use for deployment"
+      PARAMETERS_FILE:
+        required: true
+        type: string
+        description: "Path to the parameters file containing the necessary parameters for provisioning the Azure environment"
+      SERVICE_PRINCIPAL_ID:
+        required: true
+        type: string
+        description: "Azure Service Principal ID with permissions to deploy resources to the target subscription and resource group"
+      SKIP_IF_EXISTS:
+        required: false
+        type: boolean
+        default: true
+        description: "Whether to skip provisioning if the Azure environment already exists"
+      BUILD_IMAGE:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to build the provisioning Docker image before starting the container. Will attempt to use Dockerfile at the root of the project."
+      IMAGE_TAG:
+        required: false
+        type: string
+        default: "2"
+        description: "The tag to use for the Azure provisioning image"
+      ANSIBLE_IMAGE_TAG:
+        required: false
+        type: string
+        default: "0"
+        description: "The tag to use when pulling the Ansible provisioning image (https://github.com/TorqIT/ansible-provisioning), used to configure the services VM"
+      PROJECT_REPOSITORY:
+        required: false
+        type: string
+        default: ${{ github.repository }}
+        description: "The repository in which the Pimcore project is located, in owner/repo format. Only used to build the agent-server image when the environment configures AGENT_SERVER_URL."
+      PROJECT_REPOSITORY_REF:
+        required: false
+        type: string
+        default: ${{ github.ref }}
+        description: "The branch, tag, or commit of PROJECT_REPOSITORY to check out when building the agent-server image"
+      GITHUB_APP_CHECKOUT:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether to use a GitHub App token for checking out PROJECT_REPOSITORY"
+    secrets:
+      SERVICE_PRINCIPAL_PASSWORD:
+        required: true
+      PIMCORE_ENCRYPTION_SECRET:
+        required: true
+      PIMCORE_PRODUCT_KEY:
+        required: true
+      PIMCORE_INSTANCE_IDENTIFIER:
+        required: true
+      PIMCORE_ENTERPRISE_TOKEN:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+      OPEN_AI_AUTH_TOKEN:
+        required: false
+      GITHUB_APP_ID:
+        required: false
+      GITHUB_APP_PRIVATE_KEY:
+        required: false
+
+jobs:
+  provision:
+    name: Provision Azure environment
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.ENVIRONMENT }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@ba22d0abdc1eda539aa3ac81af1cfee160b10714 # v1
+        with:
+          repository-name: TorqIT/pimcore-github-actions-workflows
+          file-name: workflow-provision-ci-environment.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: TorqIT/pimcore-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Build and start container, and log in to Azure
+        uses: ./reusable-workflow/.github/actions/start-azure-provisioning
+        with:
+          SERVICE_PRINCIPAL_ID: ${{ inputs.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
+          BUILD_IMAGE: "${{ inputs.BUILD_IMAGE }}"
+          IMAGE_TAG: ${{ inputs.IMAGE_TAG }}
+
+      # TODO this should ideally be a script in the container itself
+      - name: Provision the Azure environment
+        id: deploy
+        run: |
+          docker exec azure bash -c '
+            set -e
+
+            resourceGroup=$(jq -r ".parameters.resourceGroupName.value" parameters.json)
+
+            if [ $(az group exists --name $resourceGroup) == 'true' ] &&
+                [ ${{ inputs.SKIP_IF_EXISTS }} == 'true' ]; then
+              echo "Resource Group $resourceGroup already exists, skipping provisioning as SKIP_IF_EXISTS is set to true."
+            else
+              echo "Creating Resource Group $resourceGroup..."
+              location=$(jq -r ".parameters.location.value" parameters.json)
+              az group create --name $resourceGroup --location $location
+
+              echo "Creating Key Vault..."
+              ./provisioning-scripts/provision-key-vault.sh parameters.json
+
+              echo "Setting required Pimcore secrets in Key Vault..."
+              keyVaultName=$(jq -r ".parameters.keyVaultName.value" parameters.json)
+              keyVaultResourceGroupName=$(jq -r --arg RESOURCE_GROUP "$resourceGroup" ".parameters.keyVaultResourceGroupName.value // \$RESOURCE_GROUP" parameters.json)
+              az keyvault network-rule add \
+                --name $keyVaultName \
+                --resource-group $keyVaultResourceGroupName \
+                --ip-address $(curl ipinfo.io/ip)
+              az keyvault secret set \
+                --vault-name $keyVaultName \
+                --name "pimcore-encryption-secret" \
+                --value "${{ secrets.PIMCORE_ENCRYPTION_SECRET }}"
+              az keyvault secret set \
+                --vault-name $keyVaultName \
+                --name "pimcore-product-key" \
+                --value "${{ secrets.PIMCORE_PRODUCT_KEY }}"
+              az keyvault secret set \
+                --vault-name $keyVaultName \
+                --name "pimcore-instance-identifier" \
+                --value "${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}"
+              az keyvault secret set \
+                --vault-name $keyVaultName \
+                --name "pimcore-admin-password" \
+                --value "pimcore"
+              if [ -n "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}" ]; then
+                az keyvault secret set \
+                  --vault-name $keyVaultName \
+                  --name "pimcore-enterprise-token" \
+                  --value "${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
+              fi
+              if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+                az keyvault secret set \
+                  --vault-name $keyVaultName \
+                  --name "anthropic-api-key" \
+                  --value "${{ secrets.ANTHROPIC_API_KEY }}"
+              fi
+              if [ -n "${{ secrets.OPEN_AI_AUTH_TOKEN }}" ]; then
+                az keyvault secret set \
+                  --vault-name $keyVaultName \
+                  --name "open-ai-auth-token" \
+                  --value "${{ secrets.OPEN_AI_AUTH_TOKEN }}"
+              fi
+              az keyvault network-rule remove \
+                --name $keyVaultName \
+                --resource-group $keyVaultResourceGroupName \
+                --ip-address $(curl ipinfo.io/ip)
+
+              ./provision.sh parameters.json
+            fi
+          '
+
+      - name: Patch Mercure client URL onto the PHP Container App
+        if: steps.deploy.outcome == 'success'
+        run: |
+          hasMercure=$(jq -r '.parameters.additionalEnvVars.value // [] | any(.name == "MERCURE_URL_SERVER")' ${{ inputs.PARAMETERS_FILE }})
+          if [ "$hasMercure" != "true" ]; then
+            echo "Mercure not configured for this environment, nothing to patch."
+            exit 0
+          fi
+
+          resourceGroup=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.PARAMETERS_FILE }})
+          phpContainerAppName=$(jq -r '.parameters.phpContainerAppName.value' ${{ inputs.PARAMETERS_FILE }})
+          phpCustomDomains=$(jq -c '.parameters.phpContainerAppCustomDomains.value // []' ${{ inputs.PARAMETERS_FILE }})
+
+          if [ "$(echo "$phpCustomDomains" | jq 'length')" -gt 0 ]; then
+            phpFqdn=$(echo "$phpCustomDomains" | jq -r '.[0].domainName')
+          else
+            phpFqdn=$(docker exec azure az containerapp show --resource-group $resourceGroup --name $phpContainerAppName --query "properties.configuration.ingress.fqdn" --output tsv)
+          fi
+
+          echo "Setting MERCURE_URL_CLIENT=https://$phpFqdn/hub on $phpContainerAppName..."
+          docker exec azure az containerapp update \
+            --resource-group $resourceGroup \
+            --name $phpContainerAppName \
+            --set-env-vars "MERCURE_URL_CLIENT=https://$phpFqdn/hub" \
+            --output none
+
+      - name: Check whether the services VM is provisioned
+        id: services-vm
+        if: steps.deploy.outcome == 'success'
+        run: |
+          provisionServicesVm=$(jq -r '.parameters.provisionServicesVM.value // false' ${{ inputs.PARAMETERS_FILE }})
+          echo "provisioned=$provisionServicesVm" >> "$GITHUB_OUTPUT"
+          if [ "$provisionServicesVm" = "true" ]; then
+            resourceGroup=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.PARAMETERS_FILE }})
+            publicIp=$(docker exec azure az deployment group show \
+              --resource-group $resourceGroup \
+              --name main \
+              --query "properties.outputs.servicesVmPublicIp.value" \
+              --output tsv)
+
+            echo "resource-group=$resourceGroup" >> "$GITHUB_OUTPUT"
+            echo "public-ip=$publicIp" >> "$GITHUB_OUTPUT"
+            echo "provision-agent-server=$(jq -r '.parameters.additionalEnvVars.value // [] | any(.name == "AGENT_SERVER_URL")' ${{ inputs.PARAMETERS_FILE }})" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve Container Registry
+        if: steps.services-vm.outputs.provision-agent-server == 'true'
+        id: container-registry
+        run: echo "name=$(jq -r '.parameters.containerRegistryName.value' ${{ inputs.PARAMETERS_FILE }})" >> "$GITHUB_OUTPUT"
+
+      - name: Check out project repository
+        if: steps.services-vm.outputs.provision-agent-server == 'true'
+        uses: ./reusable-workflow/.github/actions/checkout
+        with:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+          PATH: project-repo
+
+      - name: Log in to Container Registry
+        if: steps.services-vm.outputs.provision-agent-server == 'true'
+        uses: ./reusable-workflow/.github/actions/setup-docker
+        with:
+          CONTAINER_REGISTRY: ${{ steps.container-registry.outputs.name }}.azurecr.io
+          CONTAINER_REGISTRY_USERNAME: ${{ inputs.SERVICE_PRINCIPAL_ID }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+
+      - name: Build and push agent-server image
+        if: steps.services-vm.outputs.provision-agent-server == 'true'
+        uses: ./reusable-workflow/.github/actions/build-and-push-agent-server-image
+        with:
+          PIMCORE_ROOT: project-repo
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          CONTAINER_REGISTRY: ${{ steps.container-registry.outputs.name }}.azurecr.io
+          CACHE_FROM: type=gha
+          CACHE_TO: type=gha,mode=min
+
+      - name: Build Ansible inventory
+        if: steps.services-vm.outputs.provisioned == 'true'
+        run: |
+          mkdir -p /tmp/ci-ansible-inventory
+          publicIp="${{ steps.services-vm.outputs.public-ip }}"
+
+          cat > /tmp/ci-ansible-inventory/hosts.ini <<EOF
+          [opensearch]
+          $publicIp
+
+          [mercure]
+          $publicIp
+
+          [all:vars]
+          ansible_user=azureuser
+          ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+          EOF
+
+          if [ "${{ steps.services-vm.outputs.provision-agent-server }}" = "true" ]; then
+            cat >> /tmp/ci-ansible-inventory/hosts.ini <<EOF
+
+          [pimcore_agent_server]
+          $publicIp
+          EOF
+          fi
+
+      - name: Log in to Azure
+        if: steps.services-vm.outputs.provisioned == 'true'
+        run: |
+          az login --tenant $(jq -r '.parameters.tenantId.value' ${{ inputs.PARAMETERS_FILE }}) \
+            --service-principal \
+              --username ${{ inputs.SERVICE_PRINCIPAL_ID }} \
+              --password ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }} \
+              --output none
+
+      - name: Configure services VM with Ansible
+        if: steps.services-vm.outputs.provisioned == 'true'
+        uses: ./reusable-workflow/.github/actions/run-ansible-playbooks
+        with:
+          ANSIBLE_DIRECTORY: /tmp/ci-ansible-inventory
+          INVENTORY_FILE: hosts.ini
+          ANSIBLE_IMAGE_TAG: ${{ inputs.ANSIBLE_IMAGE_TAG }}
+          RESOURCE_GROUP: ${{ steps.services-vm.outputs.resource-group }}
+          PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
+
+      - name: Cancel Azure deployment if the deploy step failed or was cancelled
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ ${{ steps.deploy.outcome }} == 'failure' ] || [ ${{ steps.deploy.outcome }} == 'cancelled' ]; then
+            docker exec azure bash -c '
+              resourceGroup=$(jq -r ".parameters.resourceGroupName.value" parameters.json)
+              az deployment group cancel \
+                --resource-group $resourceGroup \
+                --name main
+            '
+          fi
+
+      - name: Clean up Docker artifacts
+        if: always()
+        continue-on-error: true
+        run: |
+          docker rm -f azure
+          docker image prune -af

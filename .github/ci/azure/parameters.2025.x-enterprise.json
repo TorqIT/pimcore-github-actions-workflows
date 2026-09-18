@@ -9,7 +9,7 @@
       "value": "6f8ae12a-9b31-4877-b46f-c0590040b1fb"
     },
     "resourceGroupName": {
-      "value": "Pim-2025x-GH-CI"
+      "value": "Pim-2025x-Ent-GH-CI"
     },
     "provisionServicePrincipal": {
       "value": false
@@ -18,7 +18,7 @@
       "value": "canadacentral"
     },
     "keyVaultName": {
-      "value": "pim-2025x-gh-kv-ci"
+      "value": "pim-2025x-ent-gh-kv-ci"
     },
     "keyVaultEnablePurgeProtection": {
       "value": false
@@ -27,16 +27,16 @@
       "value": true
     },
     "containerRegistryName": {
-      "value": "pim2025xghcrci"
+      "value": "pim2025xentghcrci"
     },
     "containerRegistrySku": {
       "value": "Basic"
     },
     "virtualNetworkName": {
-      "value": "pim-2025x-gh-vnet-ci"
+      "value": "pim-2025x-ent-gh-vnet-ci"
     },
     "storageAccountName": {
-      "value": "pim2025xghsaci"
+      "value": "pim2025xentghsaci"
     },
     "storageAccountFileShares": {
       "value": [
@@ -49,10 +49,10 @@
       "value": false
     },
     "databaseServerName": {
-      "value": "pim-2025x-gh-db-ci"
+      "value": "pim-2025x-ent-gh-db-ci"
     },
     "containerAppsEnvironmentName": {
-      "value": "pim-2025x-gh-cae-ci"
+      "value": "pim-2025x-ent-gh-cae-ci"
     },
     "containerAppsEnvironmentUseWorkloadProfiles": {
       "value": true
@@ -61,7 +61,7 @@
       "value": true
     },
     "initContainerAppJobName": {
-      "value": "pim-2025x-gh-init-ci"
+      "value": "pim-2025x-ent-gh-init-ci"
     },
     "initContainerAppJobRunPimcoreInstall": {
       "value": true
@@ -70,7 +70,7 @@
       "value": true
     },
     "phpContainerAppName": {
-      "value": "pim-2025x-gh-php-ci"
+      "value": "pim-2025x-ent-gh-php-ci"
     },
     "phpContainerAppTargetPort": {
       "value": 8080
@@ -79,16 +79,16 @@
       "value": 0
     },
     "supervisordContainerAppName": {
-      "value": "pim-2025x-gh-svisord-ci"
+      "value": "pim-2025x-ent-gh-svisord-ci"
     },
     "redisContainerAppName": {
-      "value": "pim-2025x-gh-redis-ci"
+      "value": "pim-2025x-ent-gh-redis-ci"
     },
     "provisionServicesVM": {
       "value": true
     },
     "servicesVmName": {
-      "value": "pim-2025x-gh-services-ci"
+      "value": "pim-2025x-ent-gh-services-ci"
     },
     "provisionOpensearch": {
       "value": true
@@ -114,8 +114,32 @@
     "additionalEnvVars": {
       "value": [
         {
+          "name": "AGENT_SERVER_COPILOT_AUTH_MODE",
+          "value": "byok"
+        },
+        {
+          "name": "AGENT_SERVER_COPILOT_PROVIDER",
+          "value": "anthropic"
+        },
+        {
+          "name": "AGENT_SERVER_COPILOT_MODEL",
+          "value": "claude-sonnet-4-6"
+        },
+        {
+          "name": "AGENT_SERVER_TITLE_MODEL",
+          "value": "claude-haiku-4-5-20251001"
+        },
+        {
+          "name": "AGENT_SERVER_AVAILABLE_MODELS",
+          "value": "claude-sonnet-4-6,claude-haiku-4-5-20251001"
+        },
+        {
           "name": "MERCURE_URL_SERVER",
-          "value": "http://pim-2025x-gh-services-ci.internal.cloudapp.net:80/.well-known/mercure"
+          "value": "http://pim-2025x-ent-gh-services-ci.internal.cloudapp.net:80/.well-known/mercure"
+        },
+        {
+          "name": "AGENT_SERVER_URL",
+          "value": "http://pim-2025x-ent-gh-services-ci.internal.cloudapp.net:3032"
         }
       ]
     },
@@ -143,9 +167,29 @@
             "secretEnvVarNameInContainerApp": "PIMCORE_ENCRYPTION_SECRET"
           },
           {
+            "secretNameInKeyVault": "pimcore-enterprise-token",
+            "secretRefInContainerApp": "pimcore-enterprise-token",
+            "secretEnvVarNameInContainerApp": "PIMCORE_ENTERPRISE_TOKEN"
+          },
+          {
             "secretNameInKeyVault": "mercure-jwt",
             "secretRefInContainerApp": "mercure-jwt",
             "secretEnvVarNameInContainerApp": "MERCURE_JWT_KEY"
+          },
+          {
+            "secretNameInKeyVault": "agent-server-admin-token",
+            "secretRefInContainerApp": "agent-server-admin-token",
+            "secretEnvVarNameInContainerApp": "AGENT_SERVER_ADMIN_TOKEN"
+          },
+          {
+            "secretNameInKeyVault": "anthropic-api-key",
+            "secretRefInContainerApp": "anthropic-api-key",
+            "secretEnvVarNameInContainerApp": "ANTHROPIC_API_KEY"
+          },
+          {
+            "secretNameInKeyVault": "open-ai-auth-token",
+            "secretRefInContainerApp": "open-ai-auth-token",
+            "secretEnvVarNameInContainerApp": "OPEN_AI_AUTH_TOKEN"
           }
         ]
       }
@@ -153,7 +197,7 @@
     "additionalVolumesAndMounts": {
       "value": [
         {
-          "storageAccountName": "pim2025xghsaci",
+          "storageAccountName": "pim2025xentghsaci",
           "fileShareName": "uploads",
           "mountName": "uploads",
           "mountAccessMode": "ReadWrite",
