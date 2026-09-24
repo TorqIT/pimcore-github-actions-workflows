@@ -47,6 +47,7 @@ on:
       RUNNER:
         required: false
         type: string
+        default: ubuntu-26.04
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       ENVIRONMENT:
         required: true
@@ -84,7 +85,7 @@ on:
 jobs:
   back-up-db:
     name: Back up Azure MySQL database to a Storage Account
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
     environment: ${{ inputs.ENVIRONMENT }}
     steps:
       - name: Get workflow version

@@ -29,6 +29,7 @@ on:
       RUNNER:
         required: false
         type: string
+        default: ubuntu-26.04
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       IGNORE_TABLES:
         required: false
@@ -145,7 +146,7 @@ on:
 jobs:
   db-sync:
     name: MySQL Sync
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
 
     steps:
       - name: Get workflow version

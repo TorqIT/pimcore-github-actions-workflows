@@ -42,6 +42,11 @@ on:
         required: true
         type: string
         description: Self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
+      BUILD_RUNNER:
+        required: false
+        type: string
+        default: ubuntu-26.04
+        description: Runner used to build and push the Docker images and send failure notifications (defaults to a GitHub-hosted runner)
       SKIP_LINTING:
         required: false
         type: boolean
@@ -255,7 +260,7 @@ on:
 jobs:
   build-and-push-images:
     name: Build and push Pimcore Docker images
-    runs-on: "ubuntu-latest"
+    runs-on: ${{ inputs.BUILD_RUNNER }}
     environment: ${{ inputs.ENVIRONMENT }}
 
     steps:
@@ -582,7 +587,7 @@ jobs:
 
   workflow-failure-notification:
     name: Send workflow failure notification to Slack channel
-    runs-on: "ubuntu-latest"
+    runs-on: ${{ inputs.BUILD_RUNNER }}
     environment: ${{ inputs.ENVIRONMENT }}
     if: failure()
     needs:

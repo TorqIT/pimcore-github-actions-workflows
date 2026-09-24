@@ -30,6 +30,7 @@ on:
       RUNNER:
         required: false
         type: string
+        default: ubuntu-26.04
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       SOURCE_STORAGE_ACCOUNT:
         required: true
@@ -89,7 +90,7 @@ on:
 jobs:
   storage-sync:
     name: Azure Storage Sync
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
 
     steps:
       - name: Get workflow version

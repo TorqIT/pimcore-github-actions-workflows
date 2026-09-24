@@ -4,6 +4,11 @@ description: Use the given Azure parameters file to determine the FQDN of the PH
 on:
   workflow_call:
     inputs:
+      RUNNER:
+        required: false
+        type: string
+        default: ubuntu-26.04
+        description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       ENVIRONMENT:
         required: true
         type: string
@@ -44,7 +49,7 @@ on:
 jobs:
   post-container-app-url:
     name: Post Container App URL to PR
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.RUNNER }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
