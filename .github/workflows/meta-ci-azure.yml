@@ -11,6 +11,11 @@ on:
         required: true
         type: string
         description: "Path to the Azure parameters file used when provisioning the environment"
+      PROJECT_REPOSITORY:
+        required: false
+        type: string
+        default: TorqIT/shopware-skeleton
+        description: "The project repository to test against, in owner/repo format"
       PROJECT_REPOSITORY_REF:
         required: false
         type: string
@@ -30,18 +35,23 @@ on:
 jobs:
   provision:
     name: "Provision Azure environment"
-    uses: TorqIT/shopware-azure-provisioning/.github/workflows/provision-azure-environment.yml@v2
+    uses: ./.github/workflows/workflow-provision-ci-environment.yml
     with:
       ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
       PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
       SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
       SKIP_IF_EXISTS: false
+      PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+      PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+      GITHUB_APP_CHECKOUT: true
     secrets:
       SHOPWARE_COMPOSER_TOKEN: ${{ secrets.SHOPWARE_COMPOSER_TOKEN }}
       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
+      GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
+      GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
 
   deploy:
-    name: "Test Azure CD workflow against Shopware skeleton"
+    name: "Deploy to Azure"
     needs: provision
     uses: ./.github/workflows/deploy-to-azure-container-apps.yml
     with:
@@ -61,11 +71,10 @@ jobs:
   post-url:
     name: Post Container App URL to PR
     needs: [deploy]
-    uses: TorqIT/shopware-azure-provisioning/.github/workflows/post-container-app-url-to-pr.yml@v2
+    uses: ./.github/workflows/workflow-post-container-app-url-to-pr.yml
     with:
       ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
       PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
       SERVICE_PRINCIPAL_ID: ${{ vars.CI_SERVICE_PRINCIPAL_ID }}
     secrets:
       SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
-      SHOPWARE_COMPOSER_TOKEN: ${{ secrets.SHOPWARE_COMPOSER_TOKEN }}

@@ -1,0 +1,126 @@
+name: "Run Ansible Playbook"
+description: "Pulls the Ansible provisioning image and runs its playbook against the hosts defined in the project's Ansible inventory file"
+inputs:
+  ANSIBLE_DIRECTORY:
+    required: true
+    description: "The path (relative to the project's root) of the directory containing the project's Ansible inventory file"
+  INVENTORY_FILE:
+    required: true
+    description: "The name of the Ansible inventory file (relative to ANSIBLE_DIRECTORY) defining the hosts to run the playbook against"
+  ANSIBLE_IMAGE_TAG:
+    required: false
+    default: "1"
+    description: "Tag to use when pulling the Ansible provisioning image (https://github.com/TorqIT/ansible-provisioning)"
+  RESOURCE_GROUP:
+    required: true
+    description: "The Azure Resource Group containing the services VM"
+  PARAMETERS_FILE:
+    required: true
+    description: "Path to the Azure parameters file"
+  LIMIT:
+    required: false
+    description: "Optional Ansible --limit pattern, to scope the playbook run to specific host(s)/group(s) when the inventory file defines more than one environment"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Resolve parameters
+      id: params
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "key-vault-name=$(jq -r '.parameters.keyVaultName.value' "${{ inputs.PARAMETERS_FILE }}")" >> "$GITHUB_OUTPUT"
+        echo "key-vault-resource-group=$(jq -r --arg RESOURCE_GROUP "${{ inputs.RESOURCE_GROUP }}" '.parameters.keyVaultResourceGroupName.value // $RESOURCE_GROUP' "${{ inputs.PARAMETERS_FILE }}")" >> "$GITHUB_OUTPUT"
+        echo "services-vm-name=$(jq -r '.parameters.servicesVmName.value' "${{ inputs.PARAMETERS_FILE }}")" >> "$GITHUB_OUTPUT"
+
+    - name: Open firewalls on Key Vaults and VMs
+      id: open-access
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        runnerIp=$(curl -s ipinfo.io/ip)
+        servicesVmNsgName="${{ steps.params.outputs.services-vm-name }}-nsg"
+
+        echo "Temporarily allowing this runner ($runnerIp) through the Key Vault and services VM firewalls..."
+        az keyvault network-rule add \
+          --name "${{ steps.params.outputs.key-vault-name }}" \
+          --resource-group "${{ steps.params.outputs.key-vault-resource-group }}" \
+          --ip-address "$runnerIp" \
+          --output none
+        az network nsg rule create \
+          --resource-group "${{ inputs.RESOURCE_GROUP }}" \
+          --nsg-name "$servicesVmNsgName" \
+          --name AllowCiRunnerSsh \
+          --priority 100 \
+          --direction Inbound \
+          --access Allow \
+          --protocol Tcp \
+          --destination-port-ranges 22 \
+          --source-address-prefixes "$runnerIp" \
+          --output none
+
+        echo "Waiting for the NSG rule to propagate..."
+        sleep 60
+
+        echo "runner-ip=$runnerIp" >> "$GITHUB_OUTPUT"
+        echo "services-vm-nsg-name=$servicesVmNsgName" >> "$GITHUB_OUTPUT"
+
+    - name: Pull and start Ansible provisioning container
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Pulling and starting Ansible container..."
+        mkdir -p /tmp/ansible-run
+        cp "${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.INVENTORY_FILE }}" /tmp/ansible-run/hosts.yml
+        az keyvault secret show --vault-name "${{ steps.params.outputs.key-vault-name }}" --name services-vm-private-key --query value --output tsv > /tmp/ansible-run/ssh_key
+        chmod 600 /tmp/ansible-run/ssh_key
+        docker run \
+          --name ansible-provisioning \
+          -d \
+          -v /tmp/ansible-run:/ansible-run \
+          ghcr.io/torqit/ansible-provisioning:${{ inputs.ANSIBLE_IMAGE_TAG }}
+
+    - name: Fetch secrets and env vars
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        findSecretName() {
+          jq -r --arg envVar "$1" '.parameters.additionalSecrets.value.array // [] | map(select(.secretEnvVarNameInContainerApp == $envVar)) | .[0].secretNameInKeyVault // empty' "${{ inputs.PARAMETERS_FILE }}"
+        }
+
+        extraVars='{}'
+
+        echo "$extraVars" > /tmp/ansible-run/extra-vars.json
+
+    - name: Run Ansible playbook
+      shell: bash
+      run: |
+        echo "Running Ansible playbook against hosts in ${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.INVENTORY_FILE }}..."
+        limitArgs=()
+        if [ -n "${{ inputs.LIMIT }}" ]; then
+          limitArgs=(--limit "${{ inputs.LIMIT }}")
+        fi
+        docker exec ansible-provisioning ansible-playbook \
+          -i /ansible-run/hosts.yml \
+          --private-key /ansible-run/ssh_key \
+          --extra-vars "@/ansible-run/extra-vars.json" \
+          "${limitArgs[@]}" \
+          playbook.yml
+
+    - name: Clean up ansible-provisioning container
+      shell: bash
+      if: always()
+      run: docker rm --force ansible-provisioning
+
+    - name: Close firewall access
+      shell: bash
+      if: always() && steps.open-access.outcome == 'success'
+      continue-on-error: true
+      env:
+        RUNNER_IP: ${{ steps.open-access.outputs.runner-ip }}
+        SERVICES_VM_NSG_NAME: ${{ steps.open-access.outputs.services-vm-nsg-name }}
+      run: |
+        az keyvault network-rule remove --name "${{ steps.params.outputs.key-vault-name }}" --resource-group "${{ steps.params.outputs.key-vault-resource-group }}" --ip-address "$RUNNER_IP" --output none
+        az network nsg rule delete --resource-group "${{ inputs.RESOURCE_GROUP }}" --nsg-name "$SERVICES_VM_NSG_NAME" --name AllowCiRunnerSsh --output none

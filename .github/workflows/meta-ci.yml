@@ -22,8 +22,12 @@ jobs:
         uses: ./.github/actions/lint
 
   skeleton-ci:
-    name: "Test CI workflow against Shopware skeleton"
+    name: "Test CI against skeleton"
     uses: ./.github/workflows/ci-docker.yml
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [main]
     with:
       PROJECT_REPOSITORY: TorqIT/shopware-skeleton
       PROJECT_REPOSITORY_REF: main
@@ -40,12 +44,19 @@ jobs:
       SHOPWARE_COMPOSER_TOKEN: ${{ secrets.SHOPWARE_COMPOSER_TOKEN }}
 
   skeleton-ci-azure:
-    name: "Test Azure CD workflow against Shopware skeleton"
+    name: "Test Azure CD against skeleton"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - github_environment: 6.6
+            parameters_file: "./.github/ci/azure/parameters.6.6.json"
+            skeleton_ref: main
     uses: ./.github/workflows/meta-ci-azure.yml
     with:
-      ENVIRONMENT: 6.6
-      PARAMETERS_FILE: "./.github/ci/azure/parameters.6.6.json"
-      PROJECT_REPOSITORY_REF: main
+      ENVIRONMENT: ${{ matrix.github_environment }}
+      PARAMETERS_FILE: ${{ matrix.parameters_file }}
+      PROJECT_REPOSITORY_REF: ${{ matrix.skeleton_ref }}
     secrets:
       SHOPWARE_COMPOSER_TOKEN: ${{ secrets.SHOPWARE_COMPOSER_TOKEN }}
       CI_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}

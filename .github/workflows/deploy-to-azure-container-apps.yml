@@ -147,6 +147,26 @@ on:
         type: string
         default: "supervisord"
         description: "The Docker target to use when building the supervisord image"
+      ANSIBLE_DIRECTORY:
+        required: false
+        type: string
+        default: ".ansible"
+        description: "The path (relative to the project's root) of the directory containing the project's Ansible inventory file"
+      ANSIBLE_INVENTORY_FILE:
+        required: false
+        type: string
+        default: "hosts.yml"
+        description: "The name of the Ansible inventory file (relative to ANSIBLE_DIRECTORY) defining the hosts to run the ansible playbook against. If this file does not exist, the Ansible job is skipped"
+      ANSIBLE_LIMIT:
+        required: false
+        type: string
+        default: ""
+        description: "Optional Ansible --limit pattern, to scope the playbook run to specific host(s)/group(s) when the inventory file defines more than one environment"
+      ANSIBLE_IMAGE_TAG:
+        required: false
+        type: string
+        default: "0"
+        description: "Tag to use when pulling the Ansible provisioning image (https://github.com/TorqIT/ansible-provisioning)"
       AZURE_DIRECTORY:
         required: false
         type: string
@@ -363,6 +383,75 @@ jobs:
             echo "Container Registry has no firewall in place, so nothing to do"
           fi
 
+  run-ansible-playbooks:
+    name: Run Ansible playbooks
+    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    environment: ${{ inputs.ENVIRONMENT }}
+    needs:
+      - build-and-push-images
+    steps:
+      - name: Get workflow version
+        id: workflow-version
+        uses: canonical/get-workflow-version-action@ba22d0abdc1eda539aa3ac81af1cfee160b10714 # v1.0.4
+        with:
+          repository-name: TorqIT/shopware-github-actions-workflows
+          file-name: deploy-to-azure-container-apps.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workflow repository to use composite actions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: TorqIT/shopware-github-actions-workflows
+          ref: ${{ steps.workflow-version.outputs.sha }}
+          path: reusable-workflow
+          fetch-depth: 1
+
+      - name: Check out project repository and submodules
+        uses: ./reusable-workflow/.github/actions/checkout
+        with:
+          PROJECT_REPOSITORY: ${{ inputs.PROJECT_REPOSITORY }}
+          PROJECT_REPOSITORY_REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
+          SUBMODULES: ${{ inputs.SUBMODULES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_CHECKOUT: ${{ inputs.GITHUB_APP_CHECKOUT }}
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+
+      - name: Check for Ansible inventory file
+        id: check-ansible-inventory
+        run: |
+          if [ -f "${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.ANSIBLE_INVENTORY_FILE }}" ]; then
+            echo "Found ${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.ANSIBLE_INVENTORY_FILE }}!"
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.ANSIBLE_INVENTORY_FILE }} not found, skipping Ansible"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install tools for workflows/actions
+        if: ${{ steps.check-ansible-inventory.outputs.found == 'true' }}
+        uses: ./reusable-workflow/.github/actions/setup-tools
+
+      - name: Log in to Azure
+        if: ${{ steps.check-ansible-inventory.outputs.found == 'true' }}
+        uses: ./reusable-workflow/.github/actions/azure-login
+        with:
+          SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
+          SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}
+          TENANT: ${{ vars.AZURE_TENANT_ID }}
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run Ansible playbook
+        if: ${{ steps.check-ansible-inventory.outputs.found == 'true' }}
+        uses: ./reusable-workflow/.github/actions/run-ansible-playbooks
+        with:
+          ANSIBLE_DIRECTORY: ${{ inputs.ANSIBLE_DIRECTORY }}
+          INVENTORY_FILE: ${{ inputs.ANSIBLE_INVENTORY_FILE }}
+          ANSIBLE_IMAGE_TAG: ${{ inputs.ANSIBLE_IMAGE_TAG }}
+          LIMIT: ${{ inputs.ANSIBLE_LIMIT }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          PARAMETERS_FILE: ${{ inputs.AZURE_DIRECTORY }}/${{ vars.AZURE_PARAMETERS_FILE }}
+
   deploy-and-run-init:
     name: Deploy and run init Container App Job
     runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
@@ -371,6 +460,7 @@ jobs:
       workflow-version: ${{ needs.build-and-push-images.outputs.workflow-version }}
     needs:
       - build-and-push-images
+      - run-ansible-playbooks
     steps:
       - name: Get workflow version
         id: workflow-version
@@ -534,6 +624,7 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT }}
     if: failure()
     needs:
+      - run-ansible-playbooks
       - deploy-and-run-init
       - deploy-php-container-app-revision
       - deploy-supervisord-container-app-revision

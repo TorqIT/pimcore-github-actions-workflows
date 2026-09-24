@@ -82,7 +82,7 @@ runs:
     - name: Build and push image
       shell: bash
       run: |
-        set -uo pipefail
+        set +e -uo pipefail
 
         ARGS=(buildx build --file '${{ inputs.DOCKERFILE_PATH }}' --target '${{ inputs.DOCKERFILE_TARGET }}')
         while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--cache-from "$line"); done <<< '${{ inputs.CACHE_FROM }}'

@@ -25,6 +25,9 @@ inputs:
   GITHUB_APP_PRIVATE_KEY:
     description: "The private key of the GitHub App to use for authentication when checking out the repository. Required if GITHUB_APP_CHECKOUT is 'true'."
     required: false
+  PATH:
+    description: "Relative path under $GITHUB_WORKSPACE to check the repository out to. Defaults to $GITHUB_WORKSPACE itself."
+    required: false
 
 runs: 
   using: "composite"
@@ -62,6 +65,7 @@ runs:
         ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
         token: ${{ steps.main_token.outputs.token }}
         submodules: false
+        path: ${{ inputs.PATH }}
         sparse-checkout: |
           .gitmodules
 
@@ -102,6 +106,7 @@ runs:
         ref: ${{ inputs.PROJECT_REPOSITORY_REF }}
         submodules: ${{ inputs.SUBMODULES }}
         token: ${{ steps.full_token.outputs.token || inputs.GITHUB_TOKEN }}
+        path: ${{ inputs.PATH }}
 
     - name: Move reusable-workflow files back to original location
       shell: bash
