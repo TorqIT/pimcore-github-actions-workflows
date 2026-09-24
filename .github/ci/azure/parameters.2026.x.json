@@ -93,9 +93,6 @@
     "servicesVmName": {
       "value": "pim-2026x-gh-services-ci"
     },
-    "provisionOpensearch": {
-      "value": true
-    },
     "appDebug": {
       "value": "1"
     },
