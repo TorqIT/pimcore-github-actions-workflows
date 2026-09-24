@@ -1,5 +1,4 @@
 name: Post Container App URL to PR
-description: Use the given Azure parameters file to determine the FQDN of the PHP Container App, and post it to the event's PR as a comment
 
 on:
   workflow_call:
