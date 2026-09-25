@@ -3,6 +3,11 @@ name: Provision Azure Environment for Pimcore
 on:
   workflow_call:
     inputs:
+      RUNNER:
+        required: false
+        type: string
+        default: ubuntu-26.04
+        description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       ENVIRONMENT:
         required: true
         type: string
@@ -73,7 +78,7 @@ on:
 jobs:
   provision:
     name: Provision Azure environment
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.RUNNER }}
     environment: ${{ inputs.ENVIRONMENT }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

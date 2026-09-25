@@ -28,6 +28,7 @@ on:
       RUNNER:
         required: false
         type: string
+        default: ubuntu-26.04
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       NPM_BUILD:
         required: false
@@ -114,7 +115,7 @@ on:
 jobs:
   build-docker-images:
     name: Build Docker images
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
 
     steps:
       - name: Checkout repository

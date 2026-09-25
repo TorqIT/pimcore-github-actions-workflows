@@ -43,7 +43,7 @@ on:
       RUNNER:
         required: false
         type: string
-        default: ubuntu-latest
+        default: ubuntu-26.04
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
 
       # Azure Configuration
@@ -381,7 +381,7 @@ jobs:
 
   send-workflow-status-message:
     name: Send workflow status message to Slack
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
     needs:
       [
         shutdown-target-container-apps,

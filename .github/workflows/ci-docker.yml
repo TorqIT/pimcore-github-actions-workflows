@@ -30,6 +30,7 @@ on:
       RUNNER:
         required: false
         type: string
+        default: ubuntu-26.04
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       PROJECT_REPOSITORY:
         required: false
@@ -185,7 +186,7 @@ on:
 jobs:
   lint:
     name: Lint files
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
 
     steps:
       - name: Get workflow version
@@ -223,7 +224,7 @@ jobs:
 
   vulnerability-scan:
     name: Scan for vulnerabilities in dependencies and code (SCA and SAST)
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
     outputs:
       npm-outcome: ${{ steps.npm-scan.outcome }}
       composer-outcome: ${{ steps.composer-scan.outcome }}
@@ -383,7 +384,7 @@ jobs:
 
   build:
     name: Build and scan ${{ matrix.name }} image
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
     strategy:
       fail-fast: false
       matrix:
@@ -520,7 +521,7 @@ jobs:
 
   post-scan-report:
     name: Post security scan results to PR
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
     needs: [vulnerability-scan, build]
     if: (success() || failure()) && github.event_name == 'pull_request' && inputs.POST_SCAN_RESULTS_TO_PR
     steps:
@@ -552,7 +553,7 @@ jobs:
 
   run-unit-tests:
     name: Run unit tests
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
     if: ${{ inputs.RUN_UNIT_TESTS }}
     steps:
       - name: Get workflow version
@@ -605,7 +606,7 @@ jobs:
 
   run-phpstan:
     name: Run PHPStan
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
     if: ${{ inputs.RUN_PHPSTAN }}
     steps:
       - name: Get workflow version

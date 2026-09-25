@@ -43,6 +43,7 @@ on:
       RUNNER:
         required: false
         type: string
+        default: ubuntu-26.04
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       ENVIRONMENT:
         required: true
@@ -62,7 +63,7 @@ on:
 jobs:
   back-up-file-share:
     name: Create a snapshot of an Azure NFS File Share
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
     environment: ${{ inputs.ENVIRONMENT }}
     steps:
       - name: Get workflow version

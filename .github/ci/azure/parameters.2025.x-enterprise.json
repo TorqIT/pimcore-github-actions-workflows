@@ -90,9 +90,6 @@
     "servicesVmName": {
       "value": "pim-2025x-ent-gh-services-ci"
     },
-    "provisionOpensearch": {
-      "value": true
-    },
     "appDebug": {
       "value": "1"
     },
@@ -113,6 +110,10 @@
     },
     "additionalEnvVars": {
       "value": [
+        {
+          "name": "OPENSEARCH_HOST",
+          "value": "pim-2025x-ent-gh-services-ci.internal.cloudapp.net:9200"
+        },
         {
           "name": "AGENT_SERVER_COPILOT_AUTH_MODE",
           "value": "byok"

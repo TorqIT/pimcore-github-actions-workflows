@@ -42,6 +42,7 @@ on:
       RUNNER:
         required: false
         type: string
+        default: ubuntu-26.04
         description: "Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)"
       ENVIRONMENTS:
         required: true
@@ -57,7 +58,7 @@ on:
 
 jobs:
   deactivate-old-revisions:
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
     strategy:
       fail-fast: false
       matrix:

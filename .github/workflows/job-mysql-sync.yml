@@ -29,6 +29,7 @@ on:
       RUNNER:
         required: false
         type: string
+        default: ubuntu-26.04
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       IGNORE_TABLES:
         required: false
@@ -145,7 +146,7 @@ on:
 jobs:
   db-sync:
     name: MySQL Sync
-    runs-on: ${{ inputs.RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.RUNNER }}
 
     steps:
       - name: Get workflow version
@@ -275,7 +276,7 @@ jobs:
           echo "Installing mydumper/myloader..."
 
           # Download and install a recent version of mydumper that supports --ssl-mode
-          MYDUMPER_VERSION="0.20.1-2"
+          MYDUMPER_VERSION="1.0.8-1"
           wget https://github.com/mydumper/mydumper/releases/download/v${MYDUMPER_VERSION}/mydumper_${MYDUMPER_VERSION}.$(lsb_release -cs)_amd64.deb
           sudo dpkg -i mydumper_${MYDUMPER_VERSION}.$(lsb_release -cs)_amd64.deb || sudo apt-get install -f -y
 

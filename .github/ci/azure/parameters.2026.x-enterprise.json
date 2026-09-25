@@ -93,9 +93,6 @@
     "servicesVmName": {
       "value": "pim-2026x-ent-gh-services-ci"
     },
-    "provisionOpensearch": {
-      "value": true
-    },
     "appDebug": {
       "value": "1"
     },
@@ -116,6 +113,10 @@
     },
     "additionalEnvVars": {
       "value": [
+        {
+          "name": "OPENSEARCH_HOST",
+          "value": "pim-2026x-ent-gh-services-ci.internal.cloudapp.net:9200"
+        },
         {
           "name": "MERCURE_URL_SERVER",
           "value": "http://pim-2026x-ent-gh-services-ci.internal.cloudapp.net:80/.well-known/mercure"

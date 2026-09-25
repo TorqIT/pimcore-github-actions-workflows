@@ -3,6 +3,11 @@ name: Tear down Azure resources based on a given parameters file
 on:
   workflow_call:
     inputs:
+      RUNNER:
+        required: false
+        type: string
+        default: ubuntu-26.04
+        description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       SERVICE_PRINCIPAL_ID:
         required: true
         type: string
@@ -38,7 +43,7 @@ concurrency:
 jobs:
   tear-down-azure-resources:
     name: Tear down CI Azure resources
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.RUNNER }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
