@@ -6,7 +6,7 @@ on:
       RUNNER:
         required: false
         type: string
-        default: ubuntu-26.04
+        default: ubuntu-latest
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       SERVICE_PRINCIPAL_ID:
         required: true
