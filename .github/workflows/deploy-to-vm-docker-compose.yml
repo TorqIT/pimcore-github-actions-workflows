@@ -45,7 +45,7 @@ on:
       BUILD_RUNNER:
         required: false
         type: string
-        default: ubuntu-latest
+        default: ubuntu-26.04
         description: Runner used to build and push the Docker images and send failure notifications (defaults to a GitHub-hosted runner)
       SKIP_LINTING:
         required: false

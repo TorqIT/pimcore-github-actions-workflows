@@ -85,7 +85,7 @@ on:
       RUNNER:
         required: false
         type: string
-        default: ubuntu-latest
+        default: ubuntu-26.04
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       PROJECT_REPOSITORY:
         required: false
