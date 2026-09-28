@@ -29,7 +29,7 @@ on:
       RUNNER:
         required: false
         type: string
-        default: ubuntu-26.04
+        default: ubuntu-24.04
         description: Optional self-hosted runner for this workflow (see https://github.com/TorqIT/pimcore-github-actions-workflows#self-hosted-runners)
       IGNORE_TABLES:
         required: false

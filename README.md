@@ -26,4 +26,4 @@ At present, reusable workflows can access [GitHub Environment](https://docs.gith
 
 ### Self-hosted runners
 
-All workflows contain an optional `RUNNER` input that will accept the name of a self-hosted runner. If this parameter is not provided, an `ubuntu-26.04` GitHub runner will be used.
+All workflows contain an optional `RUNNER` input that will accept the name of a self-hosted runner. If this parameter is not provided, an `ubuntu-24.04` GitHub runner will be used.

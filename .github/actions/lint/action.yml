@@ -77,10 +77,10 @@ runs:
         ACTIONLINT_VERSION="1.7.12"
         curl -sL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
           | tar xz -C /tmp actionlint
-        # actionlint does not yet know the ubuntu-26.04 labels, so declare them unless the project has its own config
+        # actionlint does not yet know the ubuntu-24.04 labels, so declare them unless the project has its own config
         config_args=()
         if [ ! -f .github/actionlint.yaml ] && [ ! -f .github/actionlint.yml ]; then
-          printf 'self-hosted-runner:\n  labels:\n    - ubuntu-26.04\n    - ubuntu-26.04-arm\n' > /tmp/actionlint.yaml
+          printf 'self-hosted-runner:\n  labels:\n    - ubuntu-24.04\n    - ubuntu-24.04-arm\n' > /tmp/actionlint.yaml
           config_args=(-config-file /tmp/actionlint.yaml)
         fi
         errors=0
