@@ -188,9 +188,15 @@ runs:
                   # npm ranges OR multiple disjoint windows with " || " and AND
                   # constraints within a window with a space, e.g.
                   # "<4.17.11 || >=4.17.20 <4.17.21" (a CVE reintroduced later)
+                  # A segment may also be an npm hyphen range ("X.Y.Z - A.B.C"),
+                  # meaning >=X.Y.Z <=A.B.C, instead of space-separated operators.
                   def npm_ranges(affected):
                     (affected // "" | split("||") | map(
-                        gsub("^[ \t]+|[ \t]+$"; "") | split(" ") | map(select(. != ""))
+                        gsub("^[ \t]+|[ \t]+$"; "") as $seg |
+                        ($seg | split(" - ")) as $parts |
+                        if ($parts | length) == 2 then [">=" + $parts[0], "<=" + $parts[1]]
+                        else ($seg | split(" ") | map(select(. != "")))
+                        end
                       )
                     );
                   def fix_for(cur; affected):
@@ -212,7 +218,13 @@ runs:
                     .key,
                     (.value.severity | ascii_upcase),
                     $current_ver,
-                    (if (.value.fixAvailable | type) == "object" then .value.fixAvailable.version
+                    (if (.value.fixAvailable | type) == "object" then
+                       (.value.fixAvailable.name) as $fixName |
+                       (.value.fixAvailable.version) as $fixVer |
+                       if $fixName != .key then ("via " + $fixName + "@" + $fixVer)
+                       elif vcmp($fixVer; $current_ver) <= 0 then ($fixVer + " (downgrade)")
+                       else $fixVer
+                       end
                      else (fix_for($current_ver; $affected) // $affected // "-")
                      end),
                     (if (.value.fixAvailable | type) == "object" and .value.fixAvailable.isSemVerMajor then "force" else "auto" end),
