@@ -10,7 +10,6 @@
 #     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-azure-sync-with-container-shutdown.yml@v7
 #     permissions:
 #       contents: read
-#       actions: read
 #     with:
 #       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
 #       SOURCE_SUBSCRIPTION_ID: 12345678-90ab-cdef-1234-567890abcdef
@@ -259,7 +258,6 @@ jobs:
     needs: shutdown-target-container-apps
     permissions:
       contents: read
-      actions: read
     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-azure-storage-sync.yml@v7
     with:
       RUNNER: ${{ inputs.RUNNER }}
@@ -283,7 +281,6 @@ jobs:
     needs: shutdown-target-container-apps
     permissions:
       contents: read
-      actions: read
     uses: TorqIT/pimcore-github-actions-workflows/.github/workflows/job-mysql-sync.yml@v7
     with:
       RUNNER: ${{ inputs.RUNNER }}
@@ -391,19 +388,11 @@ jobs:
       ]
     if: ${{ !cancelled() }}
     steps:
-      - name: Get workflow version
-        id: workflow-version
-        uses: canonical/get-workflow-version-action@ba22d0abdc1eda539aa3ac81af1cfee160b10714 # v1.0.4
-        with:
-          repository-name: TorqIT/pimcore-github-actions-workflows
-          file-name: job-azure-sync.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Checkout workflow repository to use composite actions
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: TorqIT/pimcore-github-actions-workflows
-          ref: ${{ steps.workflow-version.outputs.sha }}
+          ref: ${{ job.workflow_sha }}
           path: reusable-workflow
           fetch-depth: 1
 
