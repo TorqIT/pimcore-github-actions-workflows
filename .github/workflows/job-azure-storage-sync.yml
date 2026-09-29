@@ -110,18 +110,21 @@ jobs:
           fetch-depth: 1
 
       - name: Validate target is not production
+        env:
+          INPUT_TARGET_STORAGE_ACCOUNT: ${{ inputs.TARGET_STORAGE_ACCOUNT }}
+          INPUT_TARGET_CONTAINER: ${{ inputs.TARGET_CONTAINER }}
         run: |
           echo "Validating that target storage account and container names do not contain 'prod'..."
 
           # Check target storage account
-          if echo "${{ inputs.TARGET_STORAGE_ACCOUNT }}" | grep -i "prod" > /dev/null; then
-            echo "ERROR: Target storage account '${{ inputs.TARGET_STORAGE_ACCOUNT }}' contains 'prod' substring. This is not allowed for safety reasons."
+          if echo "${INPUT_TARGET_STORAGE_ACCOUNT}" | grep -i "prod" > /dev/null; then
+            echo "ERROR: Target storage account "${INPUT_TARGET_STORAGE_ACCOUNT}" contains 'prod' substring. This is not allowed for safety reasons."
             exit 1
           fi
 
           # Check target container
-          if echo "${{ inputs.TARGET_CONTAINER }}" | grep -i "prod" > /dev/null; then
-            echo "ERROR: Target container '${{ inputs.TARGET_CONTAINER }}' contains 'prod' substring. This is not allowed for safety reasons."
+          if echo "${INPUT_TARGET_CONTAINER}" | grep -i "prod" > /dev/null; then
+            echo "ERROR: Target container "${INPUT_TARGET_CONTAINER}" contains 'prod' substring. This is not allowed for safety reasons."
             exit 1
           fi
 
@@ -135,8 +138,10 @@ jobs:
             az login --service-principal \
               -u ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
               -p ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }} \
-              --tenant ${{ inputs.AZURE_TENANT_ID }}
+              --tenant ${INPUT_AZURE_TENANT_ID}
             echo "Azure login successful"
+        env:
+          INPUT_AZURE_TENANT_ID: ${{ inputs.AZURE_TENANT_ID }}
 
       - name: Add temporary network rule for this runner to Storage Account firewalls
         uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
@@ -147,34 +152,41 @@ jobs:
             runnerIp=$(curl ipinfo.io/ip)
 
             echo "Adding temporary network rule for this runner ($runnerIp) to source Storage Account's firewall..."
-            az account set --subscription "${{ inputs.SOURCE_SUBSCRIPTION_ID }}"
-            if [ -z "${{ inputs.SOURCE_RESOURCE_GROUP }}" ]; then
-              source_rg=$(az storage account show --name ${{ inputs.SOURCE_STORAGE_ACCOUNT }} --query 'resourceGroup' -o tsv)
+            az account set --subscription "${INPUT_SOURCE_SUBSCRIPTION_ID}"
+            if [ -z "${INPUT_SOURCE_RESOURCE_GROUP}" ]; then
+              source_rg=$(az storage account show --name ${INPUT_SOURCE_STORAGE_ACCOUNT} --query 'resourceGroup' -o tsv)
             else
-              source_rg="${{ inputs.SOURCE_RESOURCE_GROUP }}"
+              source_rg="${INPUT_SOURCE_RESOURCE_GROUP}"
             fi
             az storage account network-rule add \
               --resource-group "$source_rg" \
-              --account-name ${{ inputs.SOURCE_STORAGE_ACCOUNT }} \
+              --account-name ${INPUT_SOURCE_STORAGE_ACCOUNT} \
               --ip-address $runnerIp \
               --verbose
 
             echo "Adding temporary network rule for this runner ($runnerIp) to target Storage Account's firewall..."
-            az account set --subscription "${{ inputs.TARGET_SUBSCRIPTION_ID }}"
-            echo "Target subscription: ${{ inputs.TARGET_SUBSCRIPTION_ID }}"
-            if [ -z "${{ inputs.TARGET_RESOURCE_GROUP }}" ]; then
-              target_rg=$(az storage account show --name ${{ inputs.TARGET_STORAGE_ACCOUNT }} --query 'resourceGroup' -o tsv)
+            az account set --subscription "${INPUT_TARGET_SUBSCRIPTION_ID}"
+            echo "Target subscription: ${INPUT_TARGET_SUBSCRIPTION_ID}"
+            if [ -z "${INPUT_TARGET_RESOURCE_GROUP}" ]; then
+              target_rg=$(az storage account show --name ${INPUT_TARGET_STORAGE_ACCOUNT} --query 'resourceGroup' -o tsv)
             else
-              target_rg="${{ inputs.TARGET_RESOURCE_GROUP }}"
+              target_rg="${INPUT_TARGET_RESOURCE_GROUP}"
             fi
             az storage account network-rule add \
               --resource-group "$target_rg" \
-              --account-name ${{ inputs.TARGET_STORAGE_ACCOUNT }} \
+              --account-name ${INPUT_TARGET_STORAGE_ACCOUNT} \
               --ip-address $runnerIp \
               --verbose
 
             echo "Sleeping for 180 seconds to allow network rules to propagate..."
             sleep 180
+        env:
+          INPUT_SOURCE_SUBSCRIPTION_ID: ${{ inputs.SOURCE_SUBSCRIPTION_ID }}
+          INPUT_SOURCE_RESOURCE_GROUP: ${{ inputs.SOURCE_RESOURCE_GROUP }}
+          INPUT_SOURCE_STORAGE_ACCOUNT: ${{ inputs.SOURCE_STORAGE_ACCOUNT }}
+          INPUT_TARGET_SUBSCRIPTION_ID: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
+          INPUT_TARGET_RESOURCE_GROUP: ${{ inputs.TARGET_RESOURCE_GROUP }}
+          INPUT_TARGET_STORAGE_ACCOUNT: ${{ inputs.TARGET_STORAGE_ACCOUNT }}
 
       - name: Install and configure AzCopy
         run: |
@@ -188,26 +200,33 @@ jobs:
           echo "Logging in to AzCopy with service principal..."
           azcopy login --service-principal \
             --application-id ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
-            --tenant-id ${{ inputs.AZURE_TENANT_ID }}
+            --tenant-id ${INPUT_AZURE_TENANT_ID}
 
           echo "AzCopy installation and authentication complete"
         env:
           AZCOPY_SPA_CLIENT_SECRET: ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }}
+          INPUT_AZURE_TENANT_ID: ${{ inputs.AZURE_TENANT_ID }}
 
       - name: Perform storage sync
         id: sync-operation
+        env:
+          INPUT_SOURCE_STORAGE_ACCOUNT: ${{ inputs.SOURCE_STORAGE_ACCOUNT }}
+          INPUT_SOURCE_CONTAINER: ${{ inputs.SOURCE_CONTAINER }}
+          INPUT_TARGET_STORAGE_ACCOUNT: ${{ inputs.TARGET_STORAGE_ACCOUNT }}
+          INPUT_TARGET_CONTAINER: ${{ inputs.TARGET_CONTAINER }}
+          INPUT_DELETE_DESTINATION: ${{ inputs.DELETE_DESTINATION }}
         run: |
           set -e
 
-          echo "Starting Azure Storage sync from ${{ inputs.SOURCE_STORAGE_ACCOUNT }}/${{ inputs.SOURCE_CONTAINER }} to ${{ inputs.TARGET_STORAGE_ACCOUNT }}/${{ inputs.TARGET_CONTAINER }}..."
+          echo "Starting Azure Storage sync from ${INPUT_SOURCE_STORAGE_ACCOUNT}/${INPUT_SOURCE_CONTAINER} to ${INPUT_TARGET_STORAGE_ACCOUNT}/${INPUT_TARGET_CONTAINER}..."
           start_time=$(date +%s)
 
-          source_url="https://${{ inputs.SOURCE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ inputs.SOURCE_CONTAINER }}"
-          target_url="https://${{ inputs.TARGET_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ inputs.TARGET_CONTAINER }}"
+          source_url="https://${INPUT_SOURCE_STORAGE_ACCOUNT}.blob.core.windows.net/${INPUT_SOURCE_CONTAINER}"
+          target_url="https://${INPUT_TARGET_STORAGE_ACCOUNT}.blob.core.windows.net/${INPUT_TARGET_CONTAINER}"
 
           azcopy_cmd=(azcopy sync "$source_url" "$target_url")
 
-          if [ "${{ inputs.DELETE_DESTINATION }}" = "true" ]; then
+          if [ "${INPUT_DELETE_DESTINATION}" = "true" ]; then
             azcopy_cmd+=("--delete-destination=true")
           fi
 
@@ -260,17 +279,21 @@ jobs:
             runnerIp=$(curl ipinfo.io/ip)
 
             echo "Removing temporary network rule for this runner ($runnerIp) from source Storage Account's firewall..."
-            az account set --subscription "${{ inputs.SOURCE_SUBSCRIPTION_ID }}"
-            echo "Source subscription: ${{ inputs.SOURCE_SUBSCRIPTION_ID }}"
-            if [ -z "${{ inputs.SOURCE_RESOURCE_GROUP }}" ]; then
-              source_rg=$(az storage account show --name ${{ inputs.SOURCE_STORAGE_ACCOUNT }} --query 'resourceGroup' -o tsv)
+            az account set --subscription "${INPUT_SOURCE_SUBSCRIPTION_ID}"
+            echo "Source subscription: ${INPUT_SOURCE_SUBSCRIPTION_ID}"
+            if [ -z "${INPUT_SOURCE_RESOURCE_GROUP}" ]; then
+              source_rg=$(az storage account show --name ${INPUT_SOURCE_STORAGE_ACCOUNT} --query 'resourceGroup' -o tsv)
             else
-              source_rg="${{ inputs.SOURCE_RESOURCE_GROUP }}"
+              source_rg="${INPUT_SOURCE_RESOURCE_GROUP}"
             fi
             az storage account network-rule remove \
               --resource-group "$source_rg" \
-              --account-name ${{ inputs.SOURCE_STORAGE_ACCOUNT }} \
+              --account-name ${INPUT_SOURCE_STORAGE_ACCOUNT} \
               --ip-address $runnerIp
+        env:
+          INPUT_SOURCE_SUBSCRIPTION_ID: ${{ inputs.SOURCE_SUBSCRIPTION_ID }}
+          INPUT_SOURCE_RESOURCE_GROUP: ${{ inputs.SOURCE_RESOURCE_GROUP }}
+          INPUT_SOURCE_STORAGE_ACCOUNT: ${{ inputs.SOURCE_STORAGE_ACCOUNT }}
 
       - name: Remove temporary network rule from target Storage Account firewall
         if: always()
@@ -282,16 +305,20 @@ jobs:
             runnerIp=$(curl ipinfo.io/ip)
 
             echo "Removing temporary network rule for this runner ($runnerIp) from target Storage Account's firewall..."
-            az account set --subscription "${{ inputs.TARGET_SUBSCRIPTION_ID }}"
-            if [ -z "${{ inputs.TARGET_RESOURCE_GROUP }}" ]; then
-              target_rg=$(az storage account show --name ${{ inputs.TARGET_STORAGE_ACCOUNT }} --query 'resourceGroup' -o tsv)
+            az account set --subscription "${INPUT_TARGET_SUBSCRIPTION_ID}"
+            if [ -z "${INPUT_TARGET_RESOURCE_GROUP}" ]; then
+              target_rg=$(az storage account show --name ${INPUT_TARGET_STORAGE_ACCOUNT} --query 'resourceGroup' -o tsv)
             else
-              target_rg="${{ inputs.TARGET_RESOURCE_GROUP }}"
+              target_rg="${INPUT_TARGET_RESOURCE_GROUP}"
             fi
             az storage account network-rule remove \
               --resource-group "$target_rg" \
-              --account-name ${{ inputs.TARGET_STORAGE_ACCOUNT }} \
+              --account-name ${INPUT_TARGET_STORAGE_ACCOUNT} \
               --ip-address $runnerIp
+        env:
+          INPUT_TARGET_SUBSCRIPTION_ID: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
+          INPUT_TARGET_RESOURCE_GROUP: ${{ inputs.TARGET_RESOURCE_GROUP }}
+          INPUT_TARGET_STORAGE_ACCOUNT: ${{ inputs.TARGET_STORAGE_ACCOUNT }}
 
       - name: Send job status to Slack
         if: ${{ !cancelled() }}

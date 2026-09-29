@@ -272,6 +272,7 @@ jobs:
           app-id: ${{ secrets.GITHUB_APP_ID }}
           private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
           repositories: ${{ inputs.GITHUB_APP_CHECKOUT_REPOSITORIES }}
+          permission-contents: read
 
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -402,10 +403,12 @@ jobs:
 
       - name: Add run-time secrets to .env file
         if: ${{ inputs.RUN_TIME_SECRETS_AS_ENV_VARS }}
+        env:
+          INPUT_ENV_FILE: ${{ inputs.ENV_FILE }}
         run: |
           set -e
-          echo "" >> ${{ inputs.ENV_FILE }}
-          echo '${{ secrets.RUN_TIME_SECRETS }}' | jq -r 'to_entries | .[] | (.key | ascii_upcase | gsub("-"; "_")) + "=" + .value' >> ${{ inputs.ENV_FILE }}
+          echo "" >> ${INPUT_ENV_FILE}
+          echo '${{ secrets.RUN_TIME_SECRETS }}' | jq -r 'to_entries | .[] | (.key | ascii_upcase | gsub("-"; "_")) + "=" + .value' >> ${INPUT_ENV_FILE}
 
       - name: Create Docker secret files
         run: |
@@ -418,20 +421,24 @@ jobs:
       - name: Extract external volume names
         id: extract-volumes
         uses: mikefarah/yq@c14f446382944492701b16c1ddb48bb9dbe683e3 # v4.53.6
+        env:
+          INPUT_DOCKER_COMPOSE_FILE: ${{ inputs.DOCKER_COMPOSE_FILE }}
         with:
           cmd: >
             yq e -o=json '.volumes // {} | to_entries |
             map(select(.value.external == true or .value.external.name) |
-            .value.external.name // .key)' ${{ inputs.DOCKER_COMPOSE_FILE }}
+            .value.external.name // .key)' "$INPUT_DOCKER_COMPOSE_FILE"
 
       - name: Extract external network names
         id: extract-networks
         uses: mikefarah/yq@c14f446382944492701b16c1ddb48bb9dbe683e3 # v4.53.6
+        env:
+          INPUT_DOCKER_COMPOSE_FILE: ${{ inputs.DOCKER_COMPOSE_FILE }}
         with:
           cmd: >
             yq e -o=json '.networks // {} | to_entries |
             map(select(.value.external == true or .value.external.name) |
-            .value.external.name // .key)' ${{ inputs.DOCKER_COMPOSE_FILE }}
+            .value.external.name // .key)' "$INPUT_DOCKER_COMPOSE_FILE"
 
       - name: Create external volumes
         run: |
@@ -462,39 +469,60 @@ jobs:
           done
 
       - name: Start generic services outside of blue/green (e.g. Redis, database, Elasticsearch, etc)
+        env:
+          INPUT_DOCKER_COMPOSE_FILE: ${{ inputs.DOCKER_COMPOSE_FILE }}
+          INPUT_ENV_FILE: ${{ inputs.ENV_FILE }}
+          INPUT_NON_PIMCORE_SERVICES: ${{ inputs.NON_PIMCORE_SERVICES }}
         run: |
           docker compose \
-              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-              --env-file ${{ inputs.ENV_FILE }} \
-              up -d ${{ inputs.NON_PIMCORE_SERVICES }}
+              -f docker-compose.yaml -f ${INPUT_DOCKER_COMPOSE_FILE} \
+              --env-file ${INPUT_ENV_FILE} \
+              up -d ${INPUT_NON_PIMCORE_SERVICES}
 
       - name: Pull latest built images
+        env:
+          INPUT_INIT: ${{ inputs.INIT }}
+          INPUT_DOCKER_COMPOSE_FILE: ${{ inputs.DOCKER_COMPOSE_FILE }}
+          INPUT_ENV_FILE: ${{ inputs.ENV_FILE }}
+          INPUT_INIT_SERVICE: ${{ inputs.INIT_SERVICE }}
+          INPUT_PHP_SERVICE: ${{ inputs.PHP_SERVICE }}
+          INPUT_SUPERVISORD_SERVICE: ${{ inputs.SUPERVISORD_SERVICE }}
         run: |
           echo "Pulling latest built images..."
-          if [[ "${{ inputs.INIT}}" == "true" ]]; then
+          if [[ "${INPUT_INIT}" == "true" ]]; then
             docker compose \
-              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-              --env-file ${{ inputs.ENV_FILE }} \
+              -f docker-compose.yaml -f ${INPUT_DOCKER_COMPOSE_FILE} \
+              --env-file ${INPUT_ENV_FILE} \
               pull \
-              ${{ inputs.INIT_SERVICE }}
+              ${INPUT_INIT_SERVICE}
           fi
           docker compose \
-            -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-            --env-file ${{ inputs.ENV_FILE }} \
+            -f docker-compose.yaml -f ${INPUT_DOCKER_COMPOSE_FILE} \
+            --env-file ${INPUT_ENV_FILE} \
             pull \
-            ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
+            ${INPUT_PHP_SERVICE} ${INPUT_SUPERVISORD_SERVICE}
 
       - name: Run init container
         if: ${{ inputs.INIT }}
+        env:
+          INPUT_DOCKER_COMPOSE_FILE: ${{ inputs.DOCKER_COMPOSE_FILE }}
+          INPUT_ENV_FILE: ${{ inputs.ENV_FILE }}
+          INPUT_INIT_SERVICE: ${{ inputs.INIT_SERVICE }}
         run: |
           echo "Running init container..."
           docker compose \
-              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-              --env-file ${{ inputs.ENV_FILE }} \
-              run --rm ${{ inputs.INIT_SERVICE }}
+              -f docker-compose.yaml -f ${INPUT_DOCKER_COMPOSE_FILE} \
+              --env-file ${INPUT_ENV_FILE} \
+              run --rm ${INPUT_INIT_SERVICE}
 
       - name: Perform blue/green deployment of PHP and supervisord containers
         id: blue-green-deployment
+        env:
+          INPUT_DOCKER_COMPOSE_FILE: ${{ inputs.DOCKER_COMPOSE_FILE }}
+          INPUT_ENV_FILE: ${{ inputs.ENV_FILE }}
+          INPUT_PHP_SERVICE: ${{ inputs.PHP_SERVICE }}
+          INPUT_SUPERVISORD_SERVICE: ${{ inputs.SUPERVISORD_SERVICE }}
+          INPUT_HEALTHCHECK_ENDPOINT: ${{ inputs.HEALTHCHECK_ENDPOINT }}
         run: |
           if [ "$(docker ps -f name=blue -q)" ]; then
               NEW_DEPLOYMENT="green"
@@ -508,17 +536,17 @@ jobs:
           echo "Starting "$NEW_DEPLOYMENT" containers..."
           docker compose \
               --project-name=$NEW_DEPLOYMENT \
-              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-              --env-file ${{ inputs.ENV_FILE }} \
-              up -d ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
+              -f docker-compose.yaml -f ${INPUT_DOCKER_COMPOSE_FILE} \
+              --env-file ${INPUT_ENV_FILE} \
+              up -d ${INPUT_PHP_SERVICE} ${INPUT_SUPERVISORD_SERVICE}
 
           echo "Waiting for $NEW_DEPLOYMENT deployment to be ready..."
           set +e
           docker compose \
               --project-name=$NEW_DEPLOYMENT \
-              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-              --env-file ${{ inputs.ENV_FILE }} \
-              exec -T ${{ inputs.PHP_SERVICE }} \
+              -f docker-compose.yaml -f ${INPUT_DOCKER_COMPOSE_FILE} \
+              --env-file ${INPUT_ENV_FILE} \
+              exec -T ${INPUT_PHP_SERVICE} \
                   wget \
                     --verbose \
                     --content-on-error \
@@ -526,7 +554,7 @@ jobs:
                     -T 3 -t 100 \
                     --retry-connrefused \
                     -O /dev/null \
-                    "localhost${{ inputs.HEALTHCHECK_ENDPOINT }}"
+                    "localhost${INPUT_HEALTHCHECK_ENDPOINT}"
           DEPLOY_STATUS=$?
           set -e
 
@@ -534,26 +562,26 @@ jobs:
               echo "Stopping "$OLD_DEPLOYMENT" containers..."
               docker compose \
                   --project-name=$OLD_DEPLOYMENT \
-                  -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-                  --env-file ${{ inputs.ENV_FILE }} \
-                  rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
+                  -f docker-compose.yaml -f ${INPUT_DOCKER_COMPOSE_FILE} \
+                  --env-file ${INPUT_ENV_FILE} \
+                  rm --stop --force ${INPUT_PHP_SERVICE} ${INPUT_SUPERVISORD_SERVICE}
           else
               set +e
               echo "Error bringing up new containers - here are stdout logs from failed container:"
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
-                  -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-                  --env-file ${{ inputs.ENV_FILE }} \
+                  -f docker-compose.yaml -f ${INPUT_DOCKER_COMPOSE_FILE} \
+                  --env-file ${INPUT_ENV_FILE} \
                   logs \
-                  ${{ inputs.PHP_SERVICE }}
+                  ${INPUT_PHP_SERVICE}
               echo ""
               echo "Here is tail of var/log/APP_ENV-error.log:"
               docker compose \
                   --project-name=$OLD_DEPLOYMENT \
-                  -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-                  --env-file ${{ inputs.ENV_FILE }} \
+                  -f docker-compose.yaml -f ${INPUT_DOCKER_COMPOSE_FILE} \
+                  --env-file ${INPUT_ENV_FILE} \
                   exec -it \
-                    ${{ inputs.PHP_SERVICE }} \
+                    ${INPUT_PHP_SERVICE} \
                     bash -c '
                       if [ -f /var/www/html/var/log/$APP_ENV-error.log ]; then
                         tail -n 3 /var/www/html/var/log/$APP_ENV-error.log
@@ -565,25 +593,28 @@ jobs:
               echo "Stopping "$NEW_DEPLOYMENT" containers..."
               docker compose \
                   --project-name=$NEW_DEPLOYMENT \
-                  -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-                  --env-file ${{ inputs.ENV_FILE }} \
-                  rm --stop --force ${{ inputs.PHP_SERVICE }} ${{ inputs.SUPERVISORD_SERVICE }}
+                  -f docker-compose.yaml -f ${INPUT_DOCKER_COMPOSE_FILE} \
+                  --env-file ${INPUT_ENV_FILE} \
+                  rm --stop --force ${INPUT_PHP_SERVICE} ${INPUT_SUPERVISORD_SERVICE}
               exit 1
           fi
 
       - name: Run post-deployment commands
         if: ${{ inputs.POST_DEPLOYMENT_COMMANDS != '' }}
+        env:
+          INPUT_DOCKER_COMPOSE_FILE: ${{ inputs.DOCKER_COMPOSE_FILE }}
+          INPUT_ENV_FILE: ${{ inputs.ENV_FILE }}
+          INPUT_PHP_SERVICE: ${{ inputs.PHP_SERVICE }}
+          INPUT_POST_DEPLOYMENT_COMMANDS: ${{ inputs.POST_DEPLOYMENT_COMMANDS }}
         run: |
           set -e
 
-          docker compose \
+          printf '%s\n' "${INPUT_POST_DEPLOYMENT_COMMANDS}" | docker compose \
             --project-name=${{ steps.blue-green-deployment.outputs.new_deployment_name }} \
-            -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
-            --env-file ${{ inputs.ENV_FILE }} \
-            exec -T ${{ inputs.PHP_SERVICE }} \
-            bash -s <<'EOF'
-          ${{ inputs.POST_DEPLOYMENT_COMMANDS }}
-          EOF
+            -f docker-compose.yaml -f ${INPUT_DOCKER_COMPOSE_FILE} \
+            --env-file ${INPUT_ENV_FILE} \
+            exec -T ${INPUT_PHP_SERVICE} \
+            bash -s
 
   workflow-failure-notification:
     name: Send workflow failure notification to Slack channel

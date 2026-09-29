@@ -111,14 +111,16 @@ jobs:
       # TODO this should ideally be a script in the container itself
       - name: Provision the Azure environment
         id: deploy
+        env:
+          INPUT_SKIP_IF_EXISTS: ${{ inputs.SKIP_IF_EXISTS }}
         run: |
-          docker exec azure bash -c '
+          docker exec -e INPUT_SKIP_IF_EXISTS azure bash -c '
             set -e
 
             resourceGroup=$(jq -r ".parameters.resourceGroupName.value" parameters.json)
 
             if [ $(az group exists --name $resourceGroup) == 'true' ] &&
-                [ ${{ inputs.SKIP_IF_EXISTS }} == 'true' ]; then
+                [ ${INPUT_SKIP_IF_EXISTS} == 'true' ]; then
               echo "Resource Group $resourceGroup already exists, skipping provisioning as SKIP_IF_EXISTS is set to true."
             else
               echo "Creating Resource Group $resourceGroup..."
@@ -180,16 +182,18 @@ jobs:
 
       - name: Patch Mercure client URL onto the PHP Container App
         if: steps.deploy.outcome == 'success'
+        env:
+          INPUT_PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
         run: |
-          hasMercure=$(jq -r '.parameters.additionalEnvVars.value // [] | any(.name == "MERCURE_URL_SERVER")' ${{ inputs.PARAMETERS_FILE }})
+          hasMercure=$(jq -r '.parameters.additionalEnvVars.value // [] | any(.name == "MERCURE_URL_SERVER")' ${INPUT_PARAMETERS_FILE})
           if [ "$hasMercure" != "true" ]; then
             echo "Mercure not configured for this environment, nothing to patch."
             exit 0
           fi
 
-          resourceGroup=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.PARAMETERS_FILE }})
-          phpContainerAppName=$(jq -r '.parameters.phpContainerAppName.value' ${{ inputs.PARAMETERS_FILE }})
-          phpCustomDomains=$(jq -c '.parameters.phpContainerAppCustomDomains.value // []' ${{ inputs.PARAMETERS_FILE }})
+          resourceGroup=$(jq -r '.parameters.resourceGroupName.value' ${INPUT_PARAMETERS_FILE})
+          phpContainerAppName=$(jq -r '.parameters.phpContainerAppName.value' ${INPUT_PARAMETERS_FILE})
+          phpCustomDomains=$(jq -c '.parameters.phpContainerAppCustomDomains.value // []' ${INPUT_PARAMETERS_FILE})
 
           if [ "$(echo "$phpCustomDomains" | jq 'length')" -gt 0 ]; then
             phpFqdn=$(echo "$phpCustomDomains" | jq -r '.[0].domainName')
@@ -207,11 +211,13 @@ jobs:
       - name: Check whether the services VM is provisioned
         id: services-vm
         if: steps.deploy.outcome == 'success'
+        env:
+          INPUT_PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
         run: |
-          provisionServicesVm=$(jq -r '.parameters.provisionServicesVM.value // false' ${{ inputs.PARAMETERS_FILE }})
+          provisionServicesVm=$(jq -r '.parameters.provisionServicesVM.value // false' ${INPUT_PARAMETERS_FILE})
           echo "provisioned=$provisionServicesVm" >> "$GITHUB_OUTPUT"
           if [ "$provisionServicesVm" = "true" ]; then
-            resourceGroup=$(jq -r '.parameters.resourceGroupName.value' ${{ inputs.PARAMETERS_FILE }})
+            resourceGroup=$(jq -r '.parameters.resourceGroupName.value' ${INPUT_PARAMETERS_FILE})
             publicIp=$(docker exec azure az deployment group show \
               --resource-group $resourceGroup \
               --name main \
@@ -220,13 +226,15 @@ jobs:
 
             echo "resource-group=$resourceGroup" >> "$GITHUB_OUTPUT"
             echo "public-ip=$publicIp" >> "$GITHUB_OUTPUT"
-            echo "provision-agent-server=$(jq -r '.parameters.additionalEnvVars.value // [] | any(.name == "AGENT_SERVER_URL")' ${{ inputs.PARAMETERS_FILE }})" >> "$GITHUB_OUTPUT"
+            echo "provision-agent-server=$(jq -r '.parameters.additionalEnvVars.value // [] | any(.name == "AGENT_SERVER_URL")' ${INPUT_PARAMETERS_FILE})" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Resolve Container Registry
         if: steps.services-vm.outputs.provision-agent-server == 'true'
         id: container-registry
-        run: echo "name=$(jq -r '.parameters.containerRegistryName.value' ${{ inputs.PARAMETERS_FILE }})" >> "$GITHUB_OUTPUT"
+        env:
+          INPUT_PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
+        run: echo "name=$(jq -r '.parameters.containerRegistryName.value' ${INPUT_PARAMETERS_FILE})" >> "$GITHUB_OUTPUT"
 
       - name: Check out project repository
         if: steps.services-vm.outputs.provision-agent-server == 'true'
@@ -286,10 +294,13 @@ jobs:
 
       - name: Log in to Azure
         if: steps.services-vm.outputs.provisioned == 'true'
+        env:
+          INPUT_PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
+          INPUT_SERVICE_PRINCIPAL_ID: ${{ inputs.SERVICE_PRINCIPAL_ID }}
         run: |
-          az login --tenant $(jq -r '.parameters.tenantId.value' ${{ inputs.PARAMETERS_FILE }}) \
+          az login --tenant $(jq -r '.parameters.tenantId.value' ${INPUT_PARAMETERS_FILE}) \
             --service-principal \
-              --username ${{ inputs.SERVICE_PRINCIPAL_ID }} \
+              --username ${INPUT_SERVICE_PRINCIPAL_ID} \
               --password ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }} \
               --output none
 

@@ -207,13 +207,13 @@ jobs:
               --service-principal \
               -u "${{ secrets.SERVICE_PRINCIPAL_ID }}" \
               -p "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}" \
-              --tenant "${{ inputs.AZURE_TENANT_ID }}"
-            az account set --subscription "${{ inputs.TARGET_SUBSCRIPTION_ID }}"
+              --tenant "${INPUT_AZURE_TENANT_ID}"
+            az account set --subscription "${INPUT_TARGET_SUBSCRIPTION_ID}"
 
-            echo "Fetching active revisions for PHP Container App: ${{ inputs.TARGET_PHP_CONTAINER_APP }}..."
+            echo "Fetching active revisions for PHP Container App: ${INPUT_TARGET_PHP_CONTAINER_APP}..."
             activeRevisions=$(az containerapp revision list \
-              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-              --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
+              --resource-group ${INPUT_TARGET_RESOURCE_GROUP} \
+              --name ${INPUT_TARGET_PHP_CONTAINER_APP} \
               --query "[?properties.active==\`true\`].name" \
               --output tsv)
 
@@ -225,17 +225,17 @@ jobs:
               do
                 echo "Deactivating revision: $revision"
                 az containerapp revision deactivate \
-                  --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-                  --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
+                  --resource-group ${INPUT_TARGET_RESOURCE_GROUP} \
+                  --name ${INPUT_TARGET_PHP_CONTAINER_APP} \
                   --revision $revision
               done
               echo "Successfully deactivated all PHP Container App revisions"
             fi
 
-            echo "Fetching active revisions for supervisord Container App: ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}..."
+            echo "Fetching active revisions for supervisord Container App: ${INPUT_TARGET_SUPERVISORD_CONTAINER_APP}..."
             activeRevisions=$(az containerapp revision list \
-              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-              --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
+              --resource-group ${INPUT_TARGET_RESOURCE_GROUP} \
+              --name ${INPUT_TARGET_SUPERVISORD_CONTAINER_APP} \
               --query "[?properties.active==\`true\`].name" \
               --output tsv)
 
@@ -247,12 +247,18 @@ jobs:
               do
                 echo "Deactivating revision: $revision"
                 az containerapp revision deactivate \
-                  --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-                  --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
+                  --resource-group ${INPUT_TARGET_RESOURCE_GROUP} \
+                  --name ${INPUT_TARGET_SUPERVISORD_CONTAINER_APP} \
                   --revision $revision
               done
               echo "Successfully deactivated all supervisord Container App revisions"
             fi
+        env:
+          INPUT_AZURE_TENANT_ID: ${{ inputs.AZURE_TENANT_ID }}
+          INPUT_TARGET_SUBSCRIPTION_ID: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
+          INPUT_TARGET_PHP_CONTAINER_APP: ${{ inputs.TARGET_PHP_CONTAINER_APP }}
+          INPUT_TARGET_RESOURCE_GROUP: ${{ inputs.TARGET_RESOURCE_GROUP }}
+          INPUT_TARGET_SUPERVISORD_CONTAINER_APP: ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}
 
   storage-sync:
     name: Storage sync
@@ -334,13 +340,13 @@ jobs:
               --service-principal \
               -u "${{ secrets.SERVICE_PRINCIPAL_ID }}" \
               -p "${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}" \
-              --tenant "${{ inputs.AZURE_TENANT_ID }}"
-            az account set --subscription "${{ inputs.TARGET_SUBSCRIPTION_ID }}"
+              --tenant "${INPUT_AZURE_TENANT_ID}"
+            az account set --subscription "${INPUT_TARGET_SUBSCRIPTION_ID}"
 
             # Get the most recent inactive PHP revision (sorted by creation time, newest first)
             latestInactiveRevision=$(az containerapp revision list \
-              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-              --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
+              --resource-group ${INPUT_TARGET_RESOURCE_GROUP} \
+              --name ${INPUT_TARGET_PHP_CONTAINER_APP} \
               --query "[?properties.active==\`false\`] | sort_by(@, &properties.createdTime) | [-1].name" \
               --all \
               --output tsv)
@@ -352,16 +358,16 @@ jobs:
 
             echo "Activating most recent inactive revision: $latestInactiveRevision"
             az containerapp revision activate \
-              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-              --name ${{ inputs.TARGET_PHP_CONTAINER_APP }} \
+              --resource-group ${INPUT_TARGET_RESOURCE_GROUP} \
+              --name ${INPUT_TARGET_PHP_CONTAINER_APP} \
               --revision $latestInactiveRevision
 
             echo "PHP Container App restarted revision: $latestInactiveRevision"
 
             # Get the most recent inactive supervisord revision (sorted by creation time, newest first)
             latestInactiveRevision=$(az containerapp revision list \
-              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-              --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
+              --resource-group ${INPUT_TARGET_RESOURCE_GROUP} \
+              --name ${INPUT_TARGET_SUPERVISORD_CONTAINER_APP} \
               --query "[?properties.active==\`false\`] | sort_by(@, &properties.createdTime) | [-1].name" \
               --all \
               --output tsv)
@@ -373,11 +379,17 @@ jobs:
 
             echo "Activating most recent inactive revision: $latestInactiveRevision"
             az containerapp revision activate \
-              --resource-group ${{ inputs.TARGET_RESOURCE_GROUP }} \
-              --name ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }} \
+              --resource-group ${INPUT_TARGET_RESOURCE_GROUP} \
+              --name ${INPUT_TARGET_SUPERVISORD_CONTAINER_APP} \
               --revision $latestInactiveRevision
 
             echo "supervisord Container App restarted revision: $latestInactiveRevision"
+        env:
+          INPUT_AZURE_TENANT_ID: ${{ inputs.AZURE_TENANT_ID }}
+          INPUT_TARGET_SUBSCRIPTION_ID: ${{ inputs.TARGET_SUBSCRIPTION_ID }}
+          INPUT_TARGET_RESOURCE_GROUP: ${{ inputs.TARGET_RESOURCE_GROUP }}
+          INPUT_TARGET_PHP_CONTAINER_APP: ${{ inputs.TARGET_PHP_CONTAINER_APP }}
+          INPUT_TARGET_SUPERVISORD_CONTAINER_APP: ${{ inputs.TARGET_SUPERVISORD_CONTAINER_APP }}
 
   send-workflow-status-message:
     name: Send workflow status message to Slack

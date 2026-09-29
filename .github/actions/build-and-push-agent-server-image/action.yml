@@ -39,11 +39,13 @@ runs:
     - name: Determine pimcore-agent-bundle version from composer.json
       id: agent-bundle-version
       shell: bash
+      env:
+        INPUT_PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
       run: |
         set -euo pipefail
-        version=$(jq -r '.require["pimcore/pimcore-agent-bundle"] // empty' ${{ inputs.PIMCORE_ROOT }}/composer.json)
+        version=$(jq -r '.require["pimcore/pimcore-agent-bundle"] // empty' ${INPUT_PIMCORE_ROOT}/composer.json)
         if [ -z "$version" ]; then
-          echo "::error::pimcore/pimcore-agent-bundle was not found in ${{ inputs.PIMCORE_ROOT }}/composer.json"
+          echo "::error::pimcore/pimcore-agent-bundle was not found in ${INPUT_PIMCORE_ROOT}/composer.json"
           exit 1
         fi
         echo "Found pimcore/pimcore-agent-bundle $version in composer.json"
@@ -52,11 +54,13 @@ runs:
     - name: Determine repo.pimcore.com repository from composer.json
       id: agent-bundle-repository
       shell: bash
+      env:
+        INPUT_PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
       run: |
         set -euo pipefail
-        repo_json=$(jq -c '(.repositories // {}) | to_entries[] | select(.value.url // "" | contains("repo.pimcore.com")) | {key, url: .value.url}' ${{ inputs.PIMCORE_ROOT }}/composer.json | head -n1)
+        repo_json=$(jq -c '(.repositories // {}) | to_entries[] | select(.value.url // "" | contains("repo.pimcore.com")) | {key, url: .value.url}' ${INPUT_PIMCORE_ROOT}/composer.json | head -n1)
         if [ -z "$repo_json" ]; then
-          echo "::error::No repo.pimcore.com repository was found in ${{ inputs.PIMCORE_ROOT }}/composer.json"
+          echo "::error::No repo.pimcore.com repository was found in ${INPUT_PIMCORE_ROOT}/composer.json"
           exit 1
         fi
         repo_key=$(echo "$repo_json" | jq -r '.key')
@@ -67,9 +71,11 @@ runs:
 
     - name: Download pimcore-agent-bundle
       shell: bash
+      env:
+        INPUT_PIMCORE_ENTERPRISE_TOKEN: ${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
       run: |
         set -euo pipefail
-        composer config --global --auth http-basic.repo.pimcore.com token "${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}"
+        composer config --global --auth http-basic.repo.pimcore.com token "${INPUT_PIMCORE_ENTERPRISE_TOKEN}"
         mkdir -p agent-bundle-fetch
         composer init --working-dir=agent-bundle-fetch --no-interaction --stability=beta
         composer config --working-dir=agent-bundle-fetch repositories.${{ steps.agent-bundle-repository.outputs.key }} composer ${{ steps.agent-bundle-repository.outputs.url }}
@@ -78,9 +84,11 @@ runs:
 
     - name: Patch agent-server Dockerfile, if provided
       shell: bash
+      env:
+        INPUT_PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
       run: |
         set -euo pipefail
-        patch_file="${{ inputs.PIMCORE_ROOT }}/.docker/agent-server/Dockerfile.patch"
+        patch_file="${INPUT_PIMCORE_ROOT}/.docker/agent-server/Dockerfile.patch"
         if [ -f "$patch_file" ]; then
           echo "Found $patch_file - patching agent-server Dockerfile"
           cp "$patch_file" agent-bundle-fetch/vendor/pimcore/pimcore-agent-bundle/agent-server/Dockerfile

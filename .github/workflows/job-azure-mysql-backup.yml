@@ -150,6 +150,10 @@ jobs:
 
       - name: Perform a MySQL dump and save the result to Storage Account
         id: dump
+        env:
+          INPUT_IGNORE_TABLES: ${{ inputs.IGNORE_TABLES }}
+          INPUT_IGNORE_TABLE_PATTERNS: ${{ inputs.IGNORE_TABLE_PATTERNS }}
+          INPUT_MYDUMPER_THREADS: ${{ inputs.MYDUMPER_THREADS }}
         run: |
           set -euo pipefail
 
@@ -164,8 +168,8 @@ jobs:
           touch "$OMIT_FILE"
 
           # Add specific tables to exclude data
-          if [ -n "${{ inputs.IGNORE_TABLES }}" ]; then
-            IFS=',' read -ra TABLES <<< "${{ inputs.IGNORE_TABLES }}"
+          if [ -n "${INPUT_IGNORE_TABLES}" ]; then
+            IFS=',' read -ra TABLES <<< "${INPUT_IGNORE_TABLES}"
             for table in "${TABLES[@]}"; do
               table=$(echo "$table" | xargs)
               if [ -n "$table" ]; then
@@ -176,8 +180,8 @@ jobs:
           fi
 
           # Query database for tables matching patterns and add them to omit file
-          if [ -n "${{ inputs.IGNORE_TABLE_PATTERNS }}" ]; then
-            IFS=',' read -ra PATTERNS <<< "${{ inputs.IGNORE_TABLE_PATTERNS }}"
+          if [ -n "${INPUT_IGNORE_TABLE_PATTERNS}" ]; then
+            IFS=',' read -ra PATTERNS <<< "${INPUT_IGNORE_TABLE_PATTERNS}"
             for pattern in "${PATTERNS[@]}"; do
               pattern=$(echo "$pattern" | xargs)
               if [ -n "$pattern" ]; then
@@ -214,7 +218,7 @@ jobs:
               --database="$dbName" \
               --ssl-mode=PREFERRED \
               --outputdir="$dumpDir" \
-              --threads=${{ inputs.MYDUMPER_THREADS }} \
+              --threads=${INPUT_MYDUMPER_THREADS} \
               --compress \
               --routines \
               --triggers \

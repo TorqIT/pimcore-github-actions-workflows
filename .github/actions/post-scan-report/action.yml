@@ -76,10 +76,15 @@ runs:
         GH_TOKEN: ${{ inputs.GITHUB_TOKEN }}
         ZIZMOR_OUTCOME: ${{ inputs.ZIZMOR_OUTCOME }}
         TRIVY_SCAN: ${{ inputs.TRIVY_SCAN }}
+        INPUT_NPM_OUTCOME: ${{ inputs.NPM_OUTCOME }}
+        INPUT_COMPOSER_OUTCOME: ${{ inputs.COMPOSER_OUTCOME }}
+        INPUT_SEMGREP_OUTCOME: ${{ inputs.SEMGREP_OUTCOME }}
+        INPUT_INIT: ${{ inputs.INIT }}
+        INPUT_REF: ${{ inputs.REF }}
       run: |
-        npm_outcome="${{ inputs.NPM_OUTCOME }}"
-        composer_outcome="${{ inputs.COMPOSER_OUTCOME }}"
-        semgrep_outcome="${{ inputs.SEMGREP_OUTCOME }}"
+        npm_outcome="${INPUT_NPM_OUTCOME}"
+        composer_outcome="${INPUT_COMPOSER_OUTCOME}"
+        semgrep_outcome="${INPUT_SEMGREP_OUTCOME}"
         zizmor_outcome="$ZIZMOR_OUTCOME"
         php_outcome=$(cat ./trivy-results-php/trivy-php-status.txt 2>/dev/null || echo "unknown")
         supervisord_outcome=$(cat ./trivy-results-supervisord/trivy-supervisord-status.txt 2>/dev/null || echo "unknown")
@@ -107,7 +112,7 @@ runs:
         add_scan "Semgrep SAST" "$semgrep_outcome"
         add_scan "zizmor (GitHub Actions)" "$zizmor_outcome"
         if [[ "$TRIVY_SCAN" == "true" ]]; then
-          if [[ "${{ inputs.INIT }}" == "true" ]]; then
+          if [[ "${INPUT_INIT}" == "true" ]]; then
             init_outcome=$(cat ./trivy-results-init/trivy-init-status.txt 2>/dev/null || echo "unknown")
             labels+=("Trivy (init image)")
             outcomes+=("$init_outcome")
@@ -126,8 +131,8 @@ runs:
         LOGS_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
         {
-          echo "<!-- vulnerability-scan-results-${{ inputs.REF }} -->"
-          echo "## Security Scan Results for ${{ inputs.REF }}"
+          echo "<!-- vulnerability-scan-results-${INPUT_REF} -->"
+          echo "## Security Scan Results for ${INPUT_REF}"
           echo ""
 
           if [ "$failure_count" -gt 0 ]; then
@@ -460,7 +465,7 @@ runs:
               trivy_names=()
               trivy_labels=()
               trivy_outcomes=()
-            elif [[ "${{ inputs.INIT }}" == "true" ]]; then
+            elif [[ "${INPUT_INIT}" == "true" ]]; then
               trivy_names=("init" "php" "supervisord")
               trivy_labels=("Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
               trivy_outcomes=("$init_outcome" "$php_outcome" "$supervisord_outcome")
@@ -512,7 +517,7 @@ runs:
 
         PR_NUMBER=${{ github.event.pull_request.number }}
         REPO=${{ github.repository }}
-        MARKER="<!-- vulnerability-scan-results-${{ inputs.REF }} -->"
+        MARKER="<!-- vulnerability-scan-results-${INPUT_REF} -->"
 
         comment_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
           --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\")))] | last | .id // empty")
