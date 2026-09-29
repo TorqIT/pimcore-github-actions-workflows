@@ -11,6 +11,9 @@ inputs:
   SEMGREP_OUTCOME:
     required: true
     description: "Outcome of the Semgrep SAST scan (success/failure/skipped)"
+  ZIZMOR_OUTCOME:
+    required: true
+    description: "Outcome of the zizmor GitHub Actions scan (success/failure/skipped)"
   INIT:
     required: false
     default: "true"
@@ -64,10 +67,12 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+        ZIZMOR_OUTCOME: ${{ inputs.ZIZMOR_OUTCOME }}
       run: |
         npm_outcome="${{ inputs.NPM_OUTCOME }}"
         composer_outcome="${{ inputs.COMPOSER_OUTCOME }}"
         semgrep_outcome="${{ inputs.SEMGREP_OUTCOME }}"
+        zizmor_outcome="$ZIZMOR_OUTCOME"
         php_outcome=$(cat ./trivy-results-php/trivy-php-status.txt 2>/dev/null || echo "unknown")
         supervisord_outcome=$(cat ./trivy-results-supervisord/trivy-supervisord-status.txt 2>/dev/null || echo "unknown")
 
@@ -82,11 +87,11 @@ runs:
 
         if [[ "${{ inputs.INIT }}" == "true" ]]; then
           init_outcome=$(cat ./trivy-results-init/trivy-init-status.txt 2>/dev/null || echo "unknown")
-          labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
-          outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$init_outcome" "$php_outcome" "$supervisord_outcome")
+          labels=("npm audit" "Composer audit" "Semgrep SAST" "zizmor (GitHub Actions)" "Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
+          outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$zizmor_outcome" "$init_outcome" "$php_outcome" "$supervisord_outcome")
         else
-          labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (php image)" "Trivy (supervisord image)")
-          outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$php_outcome" "$supervisord_outcome")
+          labels=("npm audit" "Composer audit" "Semgrep SAST" "zizmor (GitHub Actions)" "Trivy (php image)" "Trivy (supervisord image)")
+          outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$zizmor_outcome" "$php_outcome" "$supervisord_outcome")
         fi
 
         failure_count=0
@@ -383,6 +388,46 @@ runs:
                 fi
               else
                 echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL) for the flagged patterns and file locations."
+                echo ""
+              fi
+              echo "</details>"
+              echo ""
+            fi
+
+            if [ "$zizmor_outcome" = "failure" ]; then
+              echo ""
+              echo "<details>"
+              echo "<summary><strong>zizmor (GitHub Actions)</strong></summary>"
+              echo ""
+              if [ -f "./scan-results/zizmor.json" ]; then
+                rows=$(jq -r '
+                  .[] |
+                  select(.determinations.severity == "High") |
+                  ((.locations | map(select(.symbolic.kind == "Primary")) | first) // .locations[0]) as $loc |
+                  [
+                    ("[" + .ident + "](" + .url + ")"),
+                    ($loc.symbolic.key.Local.given_path // $loc.symbolic.key.Local.verbatim_path // "-"),
+                    (($loc.concrete.location.start_point.row + 1) | tostring),
+                    .determinations.confidence,
+                    ((.desc + ": " + ($loc.symbolic.annotation // "")) | gsub("[\n\r\t|]"; " ") | .[0:300])
+                  ] |
+                  @tsv
+                ' ./scan-results/zizmor.json 2>/dev/null || echo "")
+                if [ -n "$rows" ]; then
+                  echo "| Audit | Location | Confidence | Message |"
+                  echo "|-------|----------|------------|---------|"
+                  while IFS=$'\t' read -r audit file line confidence message; do
+                    echo "| $audit | \`${file#./}:$line\` | $confidence | $message |"
+                  done <<< "$rows"
+                  echo ""
+                  echo "Findings can be suppressed with a \`# zizmor: ignore[<audit>]\` comment or a \`zizmor.yml\` config in the repository. See the [zizmor docs](https://docs.zizmor.sh/usage/#ignoring-results)."
+                  echo ""
+                else
+                  echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
+                  echo ""
+                fi
+              else
+                echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
                 echo ""
               fi
               echo "</details>"
