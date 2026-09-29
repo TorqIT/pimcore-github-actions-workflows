@@ -1,0 +1,6 @@
+# actionlint does not yet recognize the job.workflow_sha context property GitHub added on 2026-04-23
+# (https://github.com/rhysd/actionlint/pull/707). Remove this once a release with support is available.
+paths:
+  .github/workflows/**/*.{yml,yaml}:
+    ignore:
+      - 'property "workflow_sha" is not defined in object type'
