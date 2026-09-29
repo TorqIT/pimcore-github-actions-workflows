@@ -22,14 +22,19 @@ runs:
   steps:
     - name: Deploy new revision of init Container App Job
       shell: bash
+      env:
+        INPUT_INIT_CONTAINER_APP_JOB: ${{ inputs.INIT_CONTAINER_APP_JOB }}
+        INPUT_RESOURCE_GROUP: ${{ inputs.RESOURCE_GROUP }}
+        INPUT_CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
+        INPUT_INIT_IMAGE: ${{ inputs.INIT_IMAGE }}
       run: |
-        echo Creating new revision of ${{ inputs.INIT_CONTAINER_APP_JOB }} Container App Job...
+        echo Creating new revision of ${INPUT_INIT_CONTAINER_APP_JOB} Container App Job...
         retries=0
         while [[ $retries < 3 ]]; do
           az containerapp job update \
-            --resource-group ${{ inputs.RESOURCE_GROUP }} \
-            --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
-            --image ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.INIT_IMAGE }}:${{ github.run_id }} \
+            --resource-group ${INPUT_RESOURCE_GROUP} \
+            --name ${INPUT_INIT_CONTAINER_APP_JOB} \
+            --image ${INPUT_CONTAINER_REGISTRY}/${INPUT_INIT_IMAGE}:${{ github.run_id }} \
             || true # do not exit the script on error
           status=$?
           if [[ $status != 0 ]]; then
@@ -45,24 +50,28 @@ runs:
     - name: Run init job
       shell: bash
       id: run-init
+      env:
+        INPUT_RESOURCE_GROUP: ${{ inputs.RESOURCE_GROUP }}
+        INPUT_INIT_CONTAINER_APP_JOB: ${{ inputs.INIT_CONTAINER_APP_JOB }}
+        INPUT_INIT_CONTAINER_NAME: ${{ inputs.INIT_CONTAINER_NAME }}
       run: |
         get_execution_status() {
           executionName=$1
           local executionStatus=$(az containerapp job execution list \
-            --resource-group ${{ inputs.RESOURCE_GROUP }} \
-            --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
+            --resource-group ${INPUT_RESOURCE_GROUP} \
+            --name ${INPUT_INIT_CONTAINER_APP_JOB} \
             | jq -r --arg executionName $executionName '.[] | select(.name==$executionName) | .properties.status')
           echo "$executionStatus"
         }
 
         echo Starting init Container App Job...
         az containerapp job start \
-          --resource-group ${{ inputs.RESOURCE_GROUP }} \
-          --name ${{ inputs.INIT_CONTAINER_APP_JOB }}
+          --resource-group ${INPUT_RESOURCE_GROUP} \
+          --name ${INPUT_INIT_CONTAINER_APP_JOB}
 
         executionName=$(az containerapp job execution list \
-          --resource-group ${{ inputs.RESOURCE_GROUP }} \
-          --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
+          --resource-group ${INPUT_RESOURCE_GROUP} \
+          --name ${INPUT_INIT_CONTAINER_APP_JOB} \
           | jq -r '.[] | select(.properties.status | contains("Running")) | .name')
         echo "EXECUTION_NAME=$executionName" >> $GITHUB_OUTPUT
 
@@ -76,10 +85,10 @@ runs:
 
         while [[ true ]]; do
           az containerapp job logs show \
-            --resource-group ${{ inputs.RESOURCE_GROUP }} \
-            --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
+            --resource-group ${INPUT_RESOURCE_GROUP} \
+            --name ${INPUT_INIT_CONTAINER_APP_JOB} \
             --execution $executionName \
-            --container ${{ inputs.INIT_CONTAINER_NAME }} \
+            --container ${INPUT_INIT_CONTAINER_NAME} \
             --follow true \
             || true # do not exit the script on error
 
@@ -101,9 +110,12 @@ runs:
       if: always()
       continue-on-error: true
       shell: bash
+      env:
+        INPUT_RESOURCE_GROUP: ${{ inputs.RESOURCE_GROUP }}
+        INPUT_INIT_CONTAINER_APP_JOB: ${{ inputs.INIT_CONTAINER_APP_JOB }}
       run: |
         echo Stopping execution ${{ steps.run-init.outputs.EXECUTION_NAME }}
         az containerapp job stop \
-            --resource-group ${{ inputs.RESOURCE_GROUP }} \
-            --name ${{ inputs.INIT_CONTAINER_APP_JOB }} \
+            --resource-group ${INPUT_RESOURCE_GROUP} \
+            --name ${INPUT_INIT_CONTAINER_APP_JOB} \
             --job-execution-name ${{ steps.run-init.outputs.EXECUTION_NAME }}

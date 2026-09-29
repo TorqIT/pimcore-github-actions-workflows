@@ -23,16 +23,21 @@ runs:
   steps:    
     - name: Create new revision of Container App
       shell: bash
+      env:
+        INPUT_CONTAINER_APP: ${{ inputs.CONTAINER_APP }}
+        INPUT_RESOURCE_GROUP: ${{ inputs.RESOURCE_GROUP }}
+        INPUT_CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
+        INPUT_IMAGE: ${{ inputs.IMAGE }}
       run: |
         set -e
-        echo Creating new revision of ${{ inputs.CONTAINER_APP }}...
+        echo Creating new revision of ${INPUT_CONTAINER_APP}...
         retries=0
         while [[ $retries < 3 ]]; do
           set +e
           az containerapp revision copy \
-            --resource-group ${{ inputs.RESOURCE_GROUP }} \
-            --name ${{ inputs.CONTAINER_APP }} \
-            --image ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.IMAGE }}:${{ github.run_id }} \
+            --resource-group ${INPUT_RESOURCE_GROUP} \
+            --name ${INPUT_CONTAINER_APP} \
+            --image ${INPUT_CONTAINER_REGISTRY}/${INPUT_IMAGE}:${{ github.run_id }} \
             --revision-suffix run-${{ github.run_id }}
           status=$?
           set -e
@@ -51,9 +56,12 @@ runs:
     - name: If using a multi-revision setup, ensure that 100% of traffic is set to the latest...
       if: inputs.MULTI_REVISION == 'true'
       shell: bash
+      env:
+        INPUT_RESOURCE_GROUP: ${{ inputs.RESOURCE_GROUP }}
+        INPUT_CONTAINER_APP: ${{ inputs.CONTAINER_APP }}
       run: |
         echo Ensuring latest revision gets 100% of traffic...
         az containerapp ingress traffic set \
-          --resource-group ${{ inputs.RESOURCE_GROUP }} \
-          --name ${{ inputs.CONTAINER_APP }} \
+          --resource-group ${INPUT_RESOURCE_GROUP} \
+          --name ${INPUT_CONTAINER_APP} \
           --revision-weight latest=100

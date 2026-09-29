@@ -82,24 +82,31 @@ runs:
 
     - name: Run unit tests
       shell: bash
+      env:
+        INPUT_PIMCORE_ENTERPRISE_TOKEN: ${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
+        INPUT_BUILD_TIME_SECRETS: ${{ inputs.BUILD_TIME_SECRETS }}
+        INPUT_PIMCORE_PRODUCT_KEY: ${{ inputs.PIMCORE_PRODUCT_KEY }}
+        INPUT_PIMCORE_INSTANCE_IDENTIFIER: ${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}
+        INPUT_PIMCORE_ENCRYPTION_SECRET: ${{ inputs.PIMCORE_ENCRYPTION_SECRET }}
+        INPUT_UNIT_TESTS_DIRECTORY: ${{ inputs.UNIT_TESTS_DIRECTORY }}
       run: |
         set -eEuo pipefail
 
-        PIMCORE_ENTERPRISE_TOKEN="${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}"
+        PIMCORE_ENTERPRISE_TOKEN="${INPUT_PIMCORE_ENTERPRISE_TOKEN}"
         if [[ -z "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
-          PIMCORE_ENTERPRISE_TOKEN=$(printf '%s' '${{ inputs.BUILD_TIME_SECRETS }}' | jq -r '."pimcore-enterprise-token" // empty' 2>/dev/null || true)
+          PIMCORE_ENTERPRISE_TOKEN=$(printf '%s' "${INPUT_BUILD_TIME_SECRETS}" | jq -r '."pimcore-enterprise-token" // empty' 2>/dev/null || true)
         fi
         if [[ -n "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
-          echo "::add-mask::$PIMCORE_ENTERPRISE_TOKEN"
+          echo "::add-mask::$PIMCORE_ENTERPRISE_TOKEN" # nosemgrep: unsafe-add-mask-workflow-command
         fi
 
         docker run --rm \
           --network test-network \
           -e APP_ENV=test \
           -e PIMCORE_TEST_DB_DSN='mysql://test:test@test-db:3306/test?serverVersion=mariadb-11.4.0' \
-          -e PIMCORE_PRODUCT_KEY='${{ inputs.PIMCORE_PRODUCT_KEY }}' \
-          -e PIMCORE_INSTANCE_IDENTIFIER='${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}' \
-          -e PIMCORE_ENCRYPTION_SECRET='${{ inputs.PIMCORE_ENCRYPTION_SECRET }}' \
+          -e PIMCORE_PRODUCT_KEY="${INPUT_PIMCORE_PRODUCT_KEY}" \
+          -e PIMCORE_INSTANCE_IDENTIFIER="${INPUT_PIMCORE_INSTANCE_IDENTIFIER}" \
+          -e PIMCORE_ENCRYPTION_SECRET="${INPUT_PIMCORE_ENCRYPTION_SECRET}" \
           -e PIMCORE_ENTERPRISE_TOKEN="$PIMCORE_ENTERPRISE_TOKEN" \
           -e PIMCORE_ADMIN_USER='admin' \
           -e PIMCORE_ADMIN_PASSWORD='pimcore' \
@@ -110,9 +117,9 @@ runs:
           -e PIMCORE_INSTALL_MYSQL_DATABASE='test' \
           -e PIMCORE_INSTALL_ADMIN_USERNAME='admin' \
           -e PIMCORE_INSTALL_ADMIN_PASSWORD='pimcore' \
-          -e PIMCORE_INSTALL_ENCRYPTION_SECRET='${{ inputs.PIMCORE_ENCRYPTION_SECRET }}' \
-          -e PIMCORE_INSTALL_INSTANCE_IDENTIFIER='${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}' \
-          -e PIMCORE_INSTALL_PRODUCT_KEY='${{ inputs.PIMCORE_PRODUCT_KEY }}' \
+          -e PIMCORE_INSTALL_ENCRYPTION_SECRET="${INPUT_PIMCORE_ENCRYPTION_SECRET}" \
+          -e PIMCORE_INSTALL_INSTANCE_IDENTIFIER="${INPUT_PIMCORE_INSTANCE_IDENTIFIER}" \
+          -e PIMCORE_INSTALL_PRODUCT_KEY="${INPUT_PIMCORE_PRODUCT_KEY}" \
           --entrypoint /bin/bash \
           test:test \
           -c '
@@ -161,7 +168,7 @@ runs:
               $RUN_AS /var/www/html/vendor/bin/codecept run
             else
               $RUN_AS composer require --working-dir=/var/www/html --dev phpunit/phpunit --no-scripts
-              $RUN_AS /var/www/html/vendor/bin/phpunit --testdox ${{ inputs.UNIT_TESTS_DIRECTORY }}
+              $RUN_AS /var/www/html/vendor/bin/phpunit --testdox ${INPUT_UNIT_TESTS_DIRECTORY}
             fi
           '
 

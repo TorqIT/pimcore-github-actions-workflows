@@ -11,10 +11,17 @@ inputs:
   SEMGREP_OUTCOME:
     required: true
     description: "Outcome of the Semgrep SAST scan (success/failure/skipped)"
+  ZIZMOR_OUTCOME:
+    required: true
+    description: "Outcome of the zizmor GitHub Actions scan (success/failure/skipped)"
   INIT:
     required: false
     default: "true"
     description: "Whether the project uses an init container (omits the init Trivy row when false)"
+  TRIVY_SCAN:
+    required: false
+    default: "true"
+    description: "Whether Trivy image scans were run (omits all Trivy rows when false)"
   REF:
     required: true
     description: "The branch/ref name used in the comment marker for deduplication"
@@ -40,6 +47,7 @@ runs:
       continue-on-error: true
 
     - name: Download Trivy results (init)
+      if: inputs.TRIVY_SCAN == 'true'
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: trivy-results-init-${{ steps.ref-slug.outputs.slug }}
@@ -47,6 +55,7 @@ runs:
       continue-on-error: true
 
     - name: Download Trivy results (php)
+      if: inputs.TRIVY_SCAN == 'true'
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: trivy-results-php-${{ steps.ref-slug.outputs.slug }}
@@ -54,6 +63,7 @@ runs:
       continue-on-error: true
 
     - name: Download Trivy results (supervisord)
+      if: inputs.TRIVY_SCAN == 'true'
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: trivy-results-supervisord-${{ steps.ref-slug.outputs.slug }}
@@ -64,10 +74,18 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+        ZIZMOR_OUTCOME: ${{ inputs.ZIZMOR_OUTCOME }}
+        TRIVY_SCAN: ${{ inputs.TRIVY_SCAN }}
+        INPUT_NPM_OUTCOME: ${{ inputs.NPM_OUTCOME }}
+        INPUT_COMPOSER_OUTCOME: ${{ inputs.COMPOSER_OUTCOME }}
+        INPUT_SEMGREP_OUTCOME: ${{ inputs.SEMGREP_OUTCOME }}
+        INPUT_INIT: ${{ inputs.INIT }}
+        INPUT_REF: ${{ inputs.REF }}
       run: |
-        npm_outcome="${{ inputs.NPM_OUTCOME }}"
-        composer_outcome="${{ inputs.COMPOSER_OUTCOME }}"
-        semgrep_outcome="${{ inputs.SEMGREP_OUTCOME }}"
+        npm_outcome="${INPUT_NPM_OUTCOME}"
+        composer_outcome="${INPUT_COMPOSER_OUTCOME}"
+        semgrep_outcome="${INPUT_SEMGREP_OUTCOME}"
+        zizmor_outcome="$ZIZMOR_OUTCOME"
         php_outcome=$(cat ./trivy-results-php/trivy-php-status.txt 2>/dev/null || echo "unknown")
         supervisord_outcome=$(cat ./trivy-results-supervisord/trivy-supervisord-status.txt 2>/dev/null || echo "unknown")
 
@@ -80,13 +98,27 @@ runs:
           esac
         }
 
-        if [[ "${{ inputs.INIT }}" == "true" ]]; then
-          init_outcome=$(cat ./trivy-results-init/trivy-init-status.txt 2>/dev/null || echo "unknown")
-          labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
-          outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$init_outcome" "$php_outcome" "$supervisord_outcome")
-        else
-          labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (php image)" "Trivy (supervisord image)")
-          outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$php_outcome" "$supervisord_outcome")
+        labels=()
+        outcomes=()
+        # vulnerability-scan only skips a scan when it has been disabled, so leave those out of the table
+        add_scan() {
+          if [ "$2" != "skipped" ]; then
+            labels+=("$1")
+            outcomes+=("$2")
+          fi
+        }
+        add_scan "npm audit" "$npm_outcome"
+        add_scan "Composer audit" "$composer_outcome"
+        add_scan "Semgrep SAST" "$semgrep_outcome"
+        add_scan "zizmor (GitHub Actions)" "$zizmor_outcome"
+        if [[ "$TRIVY_SCAN" == "true" ]]; then
+          if [[ "${INPUT_INIT}" == "true" ]]; then
+            init_outcome=$(cat ./trivy-results-init/trivy-init-status.txt 2>/dev/null || echo "unknown")
+            labels+=("Trivy (init image)")
+            outcomes+=("$init_outcome")
+          fi
+          labels+=("Trivy (php image)" "Trivy (supervisord image)")
+          outcomes+=("$php_outcome" "$supervisord_outcome")
         fi
 
         failure_count=0
@@ -99,8 +131,8 @@ runs:
         LOGS_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
         {
-          echo "<!-- vulnerability-scan-results-${{ inputs.REF }} -->"
-          echo "## Security Scan Results for ${{ inputs.REF }}"
+          echo "<!-- vulnerability-scan-results-${INPUT_REF} -->"
+          echo "## Security Scan Results for ${INPUT_REF}"
           echo ""
 
           if [ "$failure_count" -gt 0 ]; then
@@ -401,7 +433,51 @@ runs:
               echo ""
             fi
 
-            if [[ "${{ inputs.INIT }}" == "true" ]]; then
+            if [ "$zizmor_outcome" = "failure" ]; then
+              echo ""
+              echo "<details>"
+              echo "<summary><strong>zizmor (GitHub Actions)</strong></summary>"
+              echo ""
+              if [ -f "./scan-results/zizmor.json" ]; then
+                rows=$(jq -r '
+                  .[] |
+                  select(.determinations.severity == "High") |
+                  ((.locations | map(select(.symbolic.kind == "Primary")) | first) // .locations[0]) as $loc |
+                  [
+                    ("[" + .ident + "](" + .url + ")"),
+                    ($loc.symbolic.key.Local.given_path // $loc.symbolic.key.Local.verbatim_path // "-"),
+                    (($loc.concrete.location.start_point.row + 1) | tostring),
+                    .determinations.confidence,
+                    ((.desc + ": " + ($loc.symbolic.annotation // "")) | gsub("[\n\r\t|]"; " ") | .[0:300])
+                  ] |
+                  @tsv
+                ' ./scan-results/zizmor.json 2>/dev/null || echo "")
+                if [ -n "$rows" ]; then
+                  echo "| Audit | Location | Confidence | Message |"
+                  echo "|-------|----------|------------|---------|"
+                  while IFS=$'\t' read -r audit file line confidence message; do
+                    echo "| $audit | \`${file#./}:$line\` | $confidence | $message |"
+                  done <<< "$rows"
+                  echo ""
+                  echo "Findings can be suppressed with a \`# zizmor: ignore[<audit>]\` comment or a \`zizmor.yml\` config in the repository. See the [zizmor docs](https://docs.zizmor.sh/usage/#ignoring-results)."
+                  echo ""
+                else
+                  echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
+                  echo ""
+                fi
+              else
+                echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
+                echo ""
+              fi
+              echo "</details>"
+              echo ""
+            fi
+
+            if [[ "$TRIVY_SCAN" != "true" ]]; then
+              trivy_names=()
+              trivy_labels=()
+              trivy_outcomes=()
+            elif [[ "${INPUT_INIT}" == "true" ]]; then
               trivy_names=("init" "php" "supervisord")
               trivy_labels=("Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
               trivy_outcomes=("$init_outcome" "$php_outcome" "$supervisord_outcome")
@@ -453,7 +529,7 @@ runs:
 
         PR_NUMBER=${{ github.event.pull_request.number }}
         REPO=${{ github.repository }}
-        MARKER="<!-- vulnerability-scan-results-${{ inputs.REF }} -->"
+        MARKER="<!-- vulnerability-scan-results-${INPUT_REF} -->"
 
         comment_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
           --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\")))] | last | .id // empty")

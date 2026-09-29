@@ -166,18 +166,21 @@ jobs:
           fetch-depth: 1
 
       - name: Validate target is not production
+        env:
+          INPUT_TARGET_HOST: ${{ inputs.TARGET_HOST }}
+          INPUT_TARGET_DATABASE: ${{ inputs.TARGET_DATABASE }}
         run: |
           echo "Validating that target host and database names do not contain 'prod'..."
 
           # Check target host
-          if echo "${{ inputs.TARGET_HOST }}" | grep -i "prod" > /dev/null; then
-            echo "ERROR: Target host '${{ inputs.TARGET_HOST }}' contains 'prod' substring. This is not allowed for safety reasons."
+          if echo "${INPUT_TARGET_HOST}" | grep -i "prod" > /dev/null; then
+            echo "ERROR: Target host "${INPUT_TARGET_HOST}" contains 'prod' substring. This is not allowed for safety reasons."
             exit 1
           fi
 
           # Check target database
-          if echo "${{ inputs.TARGET_DATABASE }}" | grep -i "prod" > /dev/null; then
-            echo "ERROR: Target database '${{ inputs.TARGET_DATABASE }}' contains 'prod' substring. This is not allowed for safety reasons."
+          if echo "${INPUT_TARGET_DATABASE}" | grep -i "prod" > /dev/null; then
+            echo "ERROR: Target database "${INPUT_TARGET_DATABASE}" contains 'prod' substring. This is not allowed for safety reasons."
             exit 1
           fi
 
@@ -192,8 +195,10 @@ jobs:
             az login --service-principal \
               -u ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} \
               -p ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }} \
-              --tenant ${{ inputs.AZURE_TENANT_ID }}
+              --tenant ${INPUT_AZURE_TENANT_ID}
             echo "Azure login successful"
+        env:
+          INPUT_AZURE_TENANT_ID: ${{ inputs.AZURE_TENANT_ID }}
 
       - name: If source is an Azure MySQL server, add temporary network rule for this runner
         if: ${{ inputs.SOURCE_IS_IN_AZURE }}
@@ -204,14 +209,18 @@ jobs:
             set -e
             runnerIp=$(curl ipinfo.io/ip)
             echo "Adding temporary network rule for this runner ($runnerIp) to source database server's firewall..."
-            az account set --subscription "${{ inputs.AZURE_SOURCE_SUBSCRIPTION_ID }}"
+            az account set --subscription "${INPUT_AZURE_SOURCE_SUBSCRIPTION_ID}"
             az mysql flexible-server firewall-rule create \
-              --name $(echo "${{ inputs.SOURCE_HOST }}" | cut -d'.' -f1) \
-              --resource-group ${{ inputs.SOURCE_AZURE_RESOURCE_GROUP }} \
+              --name $(echo "${INPUT_SOURCE_HOST}" | cut -d'.' -f1) \
+              --resource-group ${INPUT_SOURCE_AZURE_RESOURCE_GROUP} \
               --rule-name allow-runner-ip \
               --start-ip-address $runnerIp \
               --end-ip-address $runnerIp \
               --verbose
+        env:
+          INPUT_AZURE_SOURCE_SUBSCRIPTION_ID: ${{ inputs.AZURE_SOURCE_SUBSCRIPTION_ID }}
+          INPUT_SOURCE_HOST: ${{ inputs.SOURCE_HOST }}
+          INPUT_SOURCE_AZURE_RESOURCE_GROUP: ${{ inputs.SOURCE_AZURE_RESOURCE_GROUP }}
 
       - name: If target is an Azure MySQL server, add temporary network rule for this runner
         if: ${{ inputs.TARGET_IS_IN_AZURE }}
@@ -222,52 +231,74 @@ jobs:
             set -e
             runnerIp=$(curl ipinfo.io/ip)
             echo "Adding temporary network rule for this runner ($runnerIp) to target database server's firewall..."
-            az account set --subscription "${{ inputs.AZURE_TARGET_SUBSCRIPTION_ID }}"
+            az account set --subscription "${INPUT_AZURE_TARGET_SUBSCRIPTION_ID}"
             az mysql flexible-server firewall-rule create \
-              --name $(echo "${{ inputs.TARGET_HOST }}" | cut -d'.' -f1) \
-              --resource-group ${{ inputs.TARGET_AZURE_RESOURCE_GROUP }} \
+              --name $(echo "${INPUT_TARGET_HOST}" | cut -d'.' -f1) \
+              --resource-group ${INPUT_TARGET_AZURE_RESOURCE_GROUP} \
               --rule-name allow-runner-ip \
               --start-ip-address $runnerIp \
               --end-ip-address $runnerIp \
               --verbose
+        env:
+          INPUT_AZURE_TARGET_SUBSCRIPTION_ID: ${{ inputs.AZURE_TARGET_SUBSCRIPTION_ID }}
+          INPUT_TARGET_HOST: ${{ inputs.TARGET_HOST }}
+          INPUT_TARGET_AZURE_RESOURCE_GROUP: ${{ inputs.TARGET_AZURE_RESOURCE_GROUP }}
 
       - name: Test source database connection
+        env:
+          INPUT_SOURCE_HOST: ${{ inputs.SOURCE_HOST }}
+          INPUT_SOURCE_PORT: ${{ inputs.SOURCE_PORT }}
+          INPUT_SOURCE_USERNAME: ${{ inputs.SOURCE_USERNAME }}
+          INPUT_SOURCE_SSL_MODE: ${{ inputs.SOURCE_SSL_MODE }}
+          INPUT_SOURCE_DATABASE: ${{ inputs.SOURCE_DATABASE }}
         run: |
           echo "Testing connection to source database..."
           MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
             mysql \
-            -h ${{ inputs.SOURCE_HOST }} \
-            -P ${{ inputs.SOURCE_PORT }} \
-            -u ${{ inputs.SOURCE_USERNAME }} \
-            --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
+            -h ${INPUT_SOURCE_HOST} \
+            -P ${INPUT_SOURCE_PORT} \
+            -u ${INPUT_SOURCE_USERNAME} \
+            --ssl-mode=${INPUT_SOURCE_SSL_MODE} \
             -e "SELECT 1;" \
-            ${{ inputs.SOURCE_DATABASE }}
+            ${INPUT_SOURCE_DATABASE}
           echo "Source database connection successful"
 
       - name: Test target database connection
+        env:
+          INPUT_TARGET_HOST: ${{ inputs.TARGET_HOST }}
+          INPUT_TARGET_PORT: ${{ inputs.TARGET_PORT }}
+          INPUT_TARGET_USERNAME: ${{ inputs.TARGET_USERNAME }}
+          INPUT_TARGET_SSL_MODE: ${{ inputs.TARGET_SSL_MODE }}
+          INPUT_TARGET_DATABASE: ${{ inputs.TARGET_DATABASE }}
         run: |
           echo "Testing connection to target database..."
           MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
             mysql \
-            -h ${{ inputs.TARGET_HOST }} \
-            -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ inputs.TARGET_USERNAME }} \
-            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
+            -h ${INPUT_TARGET_HOST} \
+            -P ${INPUT_TARGET_PORT} \
+            -u ${INPUT_TARGET_USERNAME} \
+            --ssl-mode=${INPUT_TARGET_SSL_MODE} \
             -e "SELECT 1;" \
-            ${{ inputs.TARGET_DATABASE }}
+            ${INPUT_TARGET_DATABASE}
           echo "Target database connection successful"
 
       - name: Drop target database if requested
         if: ${{ inputs.DROP_TARGET_BEFORE_RESTORE }}
+        env:
+          INPUT_TARGET_HOST: ${{ inputs.TARGET_HOST }}
+          INPUT_TARGET_PORT: ${{ inputs.TARGET_PORT }}
+          INPUT_TARGET_USERNAME: ${{ inputs.TARGET_USERNAME }}
+          INPUT_TARGET_SSL_MODE: ${{ inputs.TARGET_SSL_MODE }}
+          INPUT_TARGET_DATABASE: ${{ inputs.TARGET_DATABASE }}
         run: |
           echo "Dropping target database before restore..."
           MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
             mysql \
-            -h ${{ inputs.TARGET_HOST }} \
-            -P ${{ inputs.TARGET_PORT }} \
-            -u ${{ inputs.TARGET_USERNAME }} \
-            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-            -e "DROP DATABASE IF EXISTS \`${{ inputs.TARGET_DATABASE }}\`; CREATE DATABASE \`${{ inputs.TARGET_DATABASE }}\`;"
+            -h ${INPUT_TARGET_HOST} \
+            -P ${INPUT_TARGET_PORT} \
+            -u ${INPUT_TARGET_USERNAME} \
+            --ssl-mode=${INPUT_TARGET_SSL_MODE} \
+            -e "DROP DATABASE IF EXISTS \`${INPUT_TARGET_DATABASE}\`; CREATE DATABASE \`${INPUT_TARGET_DATABASE}\`;"
           echo "Target database dropped"
 
       - name: Install mydumper
@@ -285,10 +316,24 @@ jobs:
 
       - name: Perform MySQL dump and restore
         id: dump-restore
+        env:
+          INPUT_SOURCE_HOST: ${{ inputs.SOURCE_HOST }}
+          INPUT_SOURCE_DATABASE: ${{ inputs.SOURCE_DATABASE }}
+          INPUT_TARGET_HOST: ${{ inputs.TARGET_HOST }}
+          INPUT_TARGET_DATABASE: ${{ inputs.TARGET_DATABASE }}
+          INPUT_SOURCE_SSL_MODE: ${{ inputs.SOURCE_SSL_MODE }}
+          INPUT_SOURCE_PORT: ${{ inputs.SOURCE_PORT }}
+          INPUT_SOURCE_USERNAME: ${{ inputs.SOURCE_USERNAME }}
+          INPUT_MYDUMPER_THREADS: ${{ inputs.MYDUMPER_THREADS }}
+          INPUT_TARGET_SSL_MODE: ${{ inputs.TARGET_SSL_MODE }}
+          INPUT_TARGET_PORT: ${{ inputs.TARGET_PORT }}
+          INPUT_TARGET_USERNAME: ${{ inputs.TARGET_USERNAME }}
+          INPUT_IGNORE_TABLES: ${{ inputs.IGNORE_TABLES }}
+          INPUT_IGNORE_TABLE_PATTERNS: ${{ inputs.IGNORE_TABLE_PATTERNS }}
         run: |
           set -e
 
-          echo "Starting MySQL sync from ${{ inputs.SOURCE_HOST }}/${{ inputs.SOURCE_DATABASE }} to ${{ inputs.TARGET_HOST }}/${{ inputs.TARGET_DATABASE }}..."
+          echo "Starting MySQL sync from ${INPUT_SOURCE_HOST}/${INPUT_SOURCE_DATABASE} to ${INPUT_TARGET_HOST}/${INPUT_TARGET_DATABASE}..."
           start_time=$(date +%s)
 
           # ============================================
@@ -303,13 +348,13 @@ jobs:
 
           MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
             mydumper \
-            --host=${{ inputs.SOURCE_HOST }} \
-            --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
-            --port=${{ inputs.SOURCE_PORT }} \
-            --user=${{ inputs.SOURCE_USERNAME }} \
-            --database=${{ inputs.SOURCE_DATABASE }} \
+            --host=${INPUT_SOURCE_HOST} \
+            --ssl-mode=${INPUT_SOURCE_SSL_MODE} \
+            --port=${INPUT_SOURCE_PORT} \
+            --user=${INPUT_SOURCE_USERNAME} \
+            --database=${INPUT_SOURCE_DATABASE} \
             --outputdir="$DUMP_DIR_SCHEMA" \
-            --threads=${{ inputs.MYDUMPER_THREADS }} \
+            --threads=${INPUT_MYDUMPER_THREADS} \
             --no-data \
             --routines \
             --events \
@@ -329,13 +374,13 @@ jobs:
 
           MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
             myloader \
-            --host=${{ inputs.TARGET_HOST }} \
-            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-            --port=${{ inputs.TARGET_PORT }} \
-            --user=${{ inputs.TARGET_USERNAME }} \
-            --database=${{ inputs.TARGET_DATABASE }} \
+            --host=${INPUT_TARGET_HOST} \
+            --ssl-mode=${INPUT_TARGET_SSL_MODE} \
+            --port=${INPUT_TARGET_PORT} \
+            --user=${INPUT_TARGET_USERNAME} \
+            --database=${INPUT_TARGET_DATABASE} \
             --directory="$DUMP_DIR_SCHEMA" \
-            --threads=${{ inputs.MYDUMPER_THREADS }} \
+            --threads=${INPUT_MYDUMPER_THREADS} \
             --drop-table \
             --verbose=3
 
@@ -356,20 +401,20 @@ jobs:
           touch "$OMIT_FILE"
 
           # Add specific tables to exclude data
-          if [ -n "${{ inputs.IGNORE_TABLES }}" ]; then
-            IFS=',' read -ra TABLES <<< "${{ inputs.IGNORE_TABLES }}"
+          if [ -n "${INPUT_IGNORE_TABLES}" ]; then
+            IFS=',' read -ra TABLES <<< "${INPUT_IGNORE_TABLES}"
             for table in "${TABLES[@]}"; do
               table=$(echo "$table" | xargs)
               if [ -n "$table" ]; then
-                echo "${{ inputs.SOURCE_DATABASE }}.$table" >> "$OMIT_FILE"
+                echo "${INPUT_SOURCE_DATABASE}.$table" >> "$OMIT_FILE"
                 echo "Will exclude data for table: $table"
               fi
             done
           fi
 
           # Query database for tables matching patterns and add them to omit file
-          if [ -n "${{ inputs.IGNORE_TABLE_PATTERNS }}" ]; then
-            IFS=',' read -ra PATTERNS <<< "${{ inputs.IGNORE_TABLE_PATTERNS }}"
+          if [ -n "${INPUT_IGNORE_TABLE_PATTERNS}" ]; then
+            IFS=',' read -ra PATTERNS <<< "${INPUT_IGNORE_TABLE_PATTERNS}"
             for pattern in "${PATTERNS[@]}"; do
               pattern=$(echo "$pattern" | xargs)
               if [ -n "$pattern" ]; then
@@ -377,14 +422,14 @@ jobs:
                 
                 MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
                   mysql \
-                  -h ${{ inputs.SOURCE_HOST }} \
-                  -P ${{ inputs.SOURCE_PORT }} \
-                  -u ${{ inputs.SOURCE_USERNAME }} \
-                  --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
+                  -h ${INPUT_SOURCE_HOST} \
+                  -P ${INPUT_SOURCE_PORT} \
+                  -u ${INPUT_SOURCE_USERNAME} \
+                  --ssl-mode=${INPUT_SOURCE_SSL_MODE} \
                   -N -s \
-                  -e "SELECT CONCAT('${{ inputs.SOURCE_DATABASE }}.', table_name) \
+                  -e "SELECT CONCAT('${INPUT_SOURCE_DATABASE}.', table_name) \
                       FROM information_schema.tables \
-                      WHERE table_schema = '${{ inputs.SOURCE_DATABASE }}' \
+                      WHERE table_schema = '${INPUT_SOURCE_DATABASE}' \
                       AND table_name REGEXP '$pattern';" \
                   >> "$OMIT_FILE"
               fi
@@ -404,13 +449,13 @@ jobs:
 
           MYSQL_PWD="${{ secrets.SOURCE_PASSWORD }}" \
             mydumper \
-            --host=${{ inputs.SOURCE_HOST }} \
-            --ssl-mode=${{ inputs.SOURCE_SSL_MODE }} \
-            --port=${{ inputs.SOURCE_PORT }} \
-            --user=${{ inputs.SOURCE_USERNAME }} \
-            --database=${{ inputs.SOURCE_DATABASE }} \
+            --host=${INPUT_SOURCE_HOST} \
+            --ssl-mode=${INPUT_SOURCE_SSL_MODE} \
+            --port=${INPUT_SOURCE_PORT} \
+            --user=${INPUT_SOURCE_USERNAME} \
+            --database=${INPUT_SOURCE_DATABASE} \
             --outputdir="$DUMP_DIR_DATA" \
-            --threads=${{ inputs.MYDUMPER_THREADS }} \
+            --threads=${INPUT_MYDUMPER_THREADS} \
             --compress \
             --no-schemas \
             --trx-tables \
@@ -431,13 +476,13 @@ jobs:
 
           MYSQL_PWD="${{ secrets.TARGET_PASSWORD }}" \
             myloader \
-            --host=${{ inputs.TARGET_HOST }} \
-            --ssl-mode=${{ inputs.TARGET_SSL_MODE }} \
-            --port=${{ inputs.TARGET_PORT }} \
-            --user=${{ inputs.TARGET_USERNAME }} \
-            --database=${{ inputs.TARGET_DATABASE }} \
+            --host=${INPUT_TARGET_HOST} \
+            --ssl-mode=${INPUT_TARGET_SSL_MODE} \
+            --port=${INPUT_TARGET_PORT} \
+            --user=${INPUT_TARGET_USERNAME} \
+            --database=${INPUT_TARGET_DATABASE} \
             --directory="$DUMP_DIR_DATA" \
-            --threads=${{ inputs.MYDUMPER_THREADS }} \
+            --threads=${INPUT_MYDUMPER_THREADS} \
             --verbose=3
 
           data_restore_time=$(date +%s)
@@ -478,12 +523,16 @@ jobs:
           azcliversion: "2.90.0"
           inlineScript: |
             set -e
-            az account set --subscription "${{ inputs.AZURE_SOURCE_SUBSCRIPTION_ID }}"
+            az account set --subscription "${INPUT_AZURE_SOURCE_SUBSCRIPTION_ID}"
             az mysql flexible-server firewall-rule delete \
-              --resource-group ${{ inputs.SOURCE_AZURE_RESOURCE_GROUP }} \
-              --name $(echo "${{ inputs.SOURCE_HOST }}" | cut -d'.' -f1) \
+              --resource-group ${INPUT_SOURCE_AZURE_RESOURCE_GROUP} \
+              --name $(echo "${INPUT_SOURCE_HOST}" | cut -d'.' -f1) \
               --rule-name allow-runner-ip \
               --yes
+        env:
+          INPUT_AZURE_SOURCE_SUBSCRIPTION_ID: ${{ inputs.AZURE_SOURCE_SUBSCRIPTION_ID }}
+          INPUT_SOURCE_AZURE_RESOURCE_GROUP: ${{ inputs.SOURCE_AZURE_RESOURCE_GROUP }}
+          INPUT_SOURCE_HOST: ${{ inputs.SOURCE_HOST }}
 
       - name: Remove temporary Azure network rule from target database server firewall
         if: ${{ always() && inputs.TARGET_IS_IN_AZURE }}
@@ -492,12 +541,16 @@ jobs:
           azcliversion: "2.90.0"
           inlineScript: |
             set -e
-            az account set --subscription "${{ inputs.AZURE_TARGET_SUBSCRIPTION_ID }}"
+            az account set --subscription "${INPUT_AZURE_TARGET_SUBSCRIPTION_ID}"
             az mysql flexible-server firewall-rule delete \
-              --resource-group ${{ inputs.TARGET_AZURE_RESOURCE_GROUP }} \
-              --name $(echo "${{ inputs.TARGET_HOST }}" | cut -d'.' -f1) \
+              --resource-group ${INPUT_TARGET_AZURE_RESOURCE_GROUP} \
+              --name $(echo "${INPUT_TARGET_HOST}" | cut -d'.' -f1) \
               --rule-name allow-runner-ip \
               --yes
+        env:
+          INPUT_AZURE_TARGET_SUBSCRIPTION_ID: ${{ inputs.AZURE_TARGET_SUBSCRIPTION_ID }}
+          INPUT_TARGET_AZURE_RESOURCE_GROUP: ${{ inputs.TARGET_AZURE_RESOURCE_GROUP }}
+          INPUT_TARGET_HOST: ${{ inputs.TARGET_HOST }}
 
       - name: Send job status to Slack
         if: ${{ !cancelled() }}

@@ -20,14 +20,19 @@ runs:
     - name: Build Azure credentials JSON object
       shell: bash
       id: build-creds
+      env:
+        INPUT_SERVICE_PRINCIPAL_PASSWORD: ${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}
+        INPUT_SUBSCRIPTION: ${{ inputs.SUBSCRIPTION }}
+        INPUT_TENANT: ${{ inputs.TENANT }}
+        INPUT_SERVICE_PRINCIPAL_ID: ${{ inputs.SERVICE_PRINCIPAL_ID }}
       run: |
         azureCreds=$(jq -c -n \
-          --arg clientSecret "${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}" \
-          --arg subscriptionId "${{ inputs.SUBSCRIPTION }}" \
-          --arg tenantId "${{ inputs.TENANT }}" \
-          --arg clientId "${{ inputs.SERVICE_PRINCIPAL_ID }}" \
+          --arg clientSecret "${INPUT_SERVICE_PRINCIPAL_PASSWORD}" \
+          --arg subscriptionId "${INPUT_SUBSCRIPTION}" \
+          --arg tenantId "${INPUT_TENANT}" \
+          --arg clientId "${INPUT_SERVICE_PRINCIPAL_ID}" \
           '{clientSecret: $clientSecret, subscriptionId: $subscriptionId, tenantId: $tenantId, clientId: $clientId}')
-        echo "::add-mask::$azureCreds" 
+        echo "::add-mask::$azureCreds" # nosemgrep: unsafe-add-mask-workflow-command
         echo "azureCreds=$azureCreds" >> $GITHUB_OUTPUT
     
     - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0

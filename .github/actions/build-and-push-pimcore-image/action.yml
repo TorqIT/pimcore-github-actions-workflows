@@ -103,23 +103,31 @@ runs:
       if: inputs.NPM_BUILD == 'true'
       env:
         CI: "" # required to ensure warnings aren't treated as errors
+        INPUT_RECAPTCHA_CLIENT_KEY: ${{ inputs.RECAPTCHA_CLIENT_KEY }}
+        INPUT_FRONTEND_ROOT: ${{ inputs.FRONTEND_ROOT }}
+        INPUT_NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
+        INPUT_NPM_SPA: ${{ inputs.NPM_SPA }}
+        INPUT_PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+        INPUT_SPA_TWIG: ${{ inputs.SPA_TWIG }}
       run: |
         # If the application supports ReCAPTCHA, ensure the client key is present so that it is available for the constructed SPA HTML file
-        export VITE_RECAPTCHA_CLIENT_KEY=${{ inputs.RECAPTCHA_CLIENT_KEY }}
-        export REACT_APP_RECAPTCHA_CLIENT_KEY=${{ inputs.RECAPTCHA_CLIENT_KEY }}
-        npm --prefix ${{ inputs.FRONTEND_ROOT }} ci --legacy-peer-deps
-        npm --prefix ${{ inputs.FRONTEND_ROOT }} run ${{ inputs.NPM_RUN_CMD }}
-        if ${{ inputs.NPM_SPA }}
+        export VITE_RECAPTCHA_CLIENT_KEY=${INPUT_RECAPTCHA_CLIENT_KEY}
+        export REACT_APP_RECAPTCHA_CLIENT_KEY=${INPUT_RECAPTCHA_CLIENT_KEY}
+        npm --prefix ${INPUT_FRONTEND_ROOT} ci --legacy-peer-deps
+        npm --prefix ${INPUT_FRONTEND_ROOT} run ${INPUT_NPM_RUN_CMD}
+        if ${INPUT_NPM_SPA}
         then
-          mv ${{ inputs.FRONTEND_ROOT }}/build/index.html ${{ inputs.PIMCORE_ROOT }}/templates/${{ inputs.SPA_TWIG }}
-          mv ${{ inputs.FRONTEND_ROOT }}/build/* ${{ inputs.PIMCORE_ROOT }}/public/
+          mv ${INPUT_FRONTEND_ROOT}/build/index.html ${INPUT_PIMCORE_ROOT}/templates/${INPUT_SPA_TWIG}
+          mv ${INPUT_FRONTEND_ROOT}/build/* ${INPUT_PIMCORE_ROOT}/public/
         fi
 
     - name: Prepare Docker build args
       id: build-args
+      env:
+        INPUT_BUILD_TIME_ARGS: ${{ inputs.BUILD_TIME_ARGS }}
       run: |
         set -e
-        JSON_INPUT='${{ inputs.BUILD_TIME_ARGS }}'
+        JSON_INPUT="${INPUT_BUILD_TIME_ARGS}"
         echo "args<<EOF" >> $GITHUB_OUTPUT
         echo "$JSON_INPUT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
           echo "$key=$value" >> $GITHUB_OUTPUT
@@ -129,6 +137,13 @@ runs:
 
     - name: Prepare Docker build secrets
       id: build-secrets
+      env:
+        INPUT_PIMCORE_PRODUCT_KEY: ${{ inputs.PIMCORE_PRODUCT_KEY }}
+        INPUT_PIMCORE_INSTANCE_IDENTIFIER: ${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}
+        INPUT_PIMCORE_ENCRYPTION_SECRET: ${{ inputs.PIMCORE_ENCRYPTION_SECRET }}
+        INPUT_PIMCORE_ENTERPRISE_TOKEN: ${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}
+        INPUT_TORQ_GITHUB_TOKEN: ${{ inputs.TORQ_GITHUB_TOKEN }}
+        INPUT_BUILD_TIME_SECRETS: ${{ inputs.BUILD_TIME_SECRETS }}
       run: |
         set -e
         echo "secrets<<EOF" >> $GITHUB_OUTPUT
@@ -136,20 +151,22 @@ runs:
         add_secret() {
           local key="$1" value="$2"
           local var_name="SECRET_$(echo "$key" | tr 'a-z-' 'A-Z_')"
-          echo "$var_name=$value" >> $GITHUB_ENV
+          # Random delimiter so a value containing newlines can't inject other environment variables
+          local delimiter="EOF_$(openssl rand -hex 16)"
+          { echo "$var_name<<$delimiter"; printf '%s\n' "$value"; echo "$delimiter"; } >> "$GITHUB_ENV"
           echo "id=$key,env=$var_name" >> $GITHUB_OUTPUT
         }
 
         add_secret "kernel-secret" "secret"
-        add_secret "pimcore-product-key" "${{ inputs.PIMCORE_PRODUCT_KEY }}"
-        add_secret "pimcore-instance-identifier" "${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}"
-        add_secret "pimcore-encryption-secret" "${{ inputs.PIMCORE_ENCRYPTION_SECRET }}"
-        add_secret "pimcore-enterprise-token" "${{ inputs.PIMCORE_ENTERPRISE_TOKEN }}"
-        add_secret "torq-github-token" "${{ inputs.TORQ_GITHUB_TOKEN }}"
+        add_secret "pimcore-product-key" "${INPUT_PIMCORE_PRODUCT_KEY}"
+        add_secret "pimcore-instance-identifier" "${INPUT_PIMCORE_INSTANCE_IDENTIFIER}"
+        add_secret "pimcore-encryption-secret" "${INPUT_PIMCORE_ENCRYPTION_SECRET}"
+        add_secret "pimcore-enterprise-token" "${INPUT_PIMCORE_ENTERPRISE_TOKEN}"
+        add_secret "torq-github-token" "${INPUT_TORQ_GITHUB_TOKEN}"
 
-        JSON_INPUT='${{ inputs.BUILD_TIME_SECRETS }}'
+        JSON_INPUT="${INPUT_BUILD_TIME_SECRETS}"
         echo "$JSON_INPUT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-          echo "::add-mask::$value"   # Mask the value from logs
+          echo "::add-mask::$value" # nosemgrep: unsafe-add-mask-workflow-command
           add_secret "$key" "$value"
         done
 
@@ -158,18 +175,26 @@ runs:
 
     - name: Build and push image
       shell: bash
+      env:
+        INPUT_DOCKERFILE_PATH: ${{ inputs.DOCKERFILE_PATH }}
+        INPUT_DOCKERFILE_TARGET: ${{ inputs.DOCKERFILE_TARGET }}
+        INPUT_CACHE_FROM: ${{ inputs.CACHE_FROM }}
+        INPUT_CACHE_TO: ${{ inputs.CACHE_TO }}
+        INPUT_TAGS: ${{ inputs.TAGS }}
+        INPUT_PUSH: ${{ inputs.PUSH }}
+        INPUT_LOAD: ${{ inputs.LOAD }}
       run: |
         set +e -uo pipefail
 
-        ARGS=(buildx build --file '${{ inputs.DOCKERFILE_PATH }}' --target '${{ inputs.DOCKERFILE_TARGET }}')
-        while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--cache-from "$line"); done <<< '${{ inputs.CACHE_FROM }}'
-        while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--cache-to "$line"); done <<< '${{ inputs.CACHE_TO }}'
+        ARGS=(buildx build --file "${INPUT_DOCKERFILE_PATH}" --target "${INPUT_DOCKERFILE_TARGET}")
+        while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--cache-from "$line"); done <<< "${INPUT_CACHE_FROM}"
+        while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--cache-to "$line"); done <<< "${INPUT_CACHE_TO}"
         # Tags may be comma- and/or newline-separated (e.g. "tag1,\ntag2"), so split on both.
-        while IFS= read -r line; do line="$(echo "$line" | xargs)"; [ -n "$line" ] && ARGS+=(--tag "$line"); done <<< "$(tr ',' '\n' <<< '${{ inputs.TAGS }}')"
+        while IFS= read -r line; do line="$(echo "$line" | xargs)"; [ -n "$line" ] && ARGS+=(--tag "$line"); done <<< "$(tr ',' '\n' <<< "${INPUT_TAGS}")"
         while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--build-arg "$line"); done <<< '${{ steps.build-args.outputs.args }}'
         while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--secret "$line"); done <<< '${{ steps.build-secrets.outputs.secrets }}'
-        [ '${{ inputs.PUSH }}' = "true" ] && ARGS+=(--push)
-        [ '${{ inputs.LOAD }}' = "true" ] && ARGS+=(--load)
+        [ "${INPUT_PUSH}" = "true" ] && ARGS+=(--push)
+        [ "${INPUT_LOAD}" = "true" ] && ARGS+=(--load)
         ARGS+=(".")
 
         # Failures matching these patterns look like transient network/API errors, 

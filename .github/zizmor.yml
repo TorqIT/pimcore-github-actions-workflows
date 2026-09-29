@@ -1,0 +1,11 @@
+# zizmor configuration (https://docs.zizmor.sh/configuration/)
+#
+# Used for this repository, and as the default config for the zizmor scan in ci-docker.yml when the
+# project repository doesn't provide its own zizmor.yml or .github/zizmor.yml.
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # Our reusable workflows are consumed by major version tag (e.g. @v7) by design
+        "TorqIT/*": ref-pin
+        "*": hash-pin

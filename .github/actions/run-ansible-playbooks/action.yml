@@ -27,15 +27,20 @@ runs:
     - name: Resolve parameters
       id: params
       shell: bash
+      env:
+        INPUT_PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
+        INPUT_RESOURCE_GROUP: ${{ inputs.RESOURCE_GROUP }}
       run: |
         set -euo pipefail
-        echo "key-vault-name=$(jq -r '.parameters.keyVaultName.value' "${{ inputs.PARAMETERS_FILE }}")" >> "$GITHUB_OUTPUT"
-        echo "key-vault-resource-group=$(jq -r --arg RESOURCE_GROUP "${{ inputs.RESOURCE_GROUP }}" '.parameters.keyVaultResourceGroupName.value // $RESOURCE_GROUP' "${{ inputs.PARAMETERS_FILE }}")" >> "$GITHUB_OUTPUT"
-        echo "services-vm-name=$(jq -r '.parameters.servicesVmName.value' "${{ inputs.PARAMETERS_FILE }}")" >> "$GITHUB_OUTPUT"
+        echo "key-vault-name=$(jq -r '.parameters.keyVaultName.value' "${INPUT_PARAMETERS_FILE}")" >> "$GITHUB_OUTPUT"
+        echo "key-vault-resource-group=$(jq -r --arg RESOURCE_GROUP "${INPUT_RESOURCE_GROUP}" '.parameters.keyVaultResourceGroupName.value // $RESOURCE_GROUP' "${INPUT_PARAMETERS_FILE}")" >> "$GITHUB_OUTPUT"
+        echo "services-vm-name=$(jq -r '.parameters.servicesVmName.value' "${INPUT_PARAMETERS_FILE}")" >> "$GITHUB_OUTPUT"
 
     - name: Open firewalls on Key Vaults and VMs
       id: open-access
       shell: bash
+      env:
+        INPUT_RESOURCE_GROUP: ${{ inputs.RESOURCE_GROUP }}
       run: |
         set -euo pipefail
 
@@ -49,7 +54,7 @@ runs:
           --ip-address "$runnerIp" \
           --output none
         az network nsg rule create \
-          --resource-group "${{ inputs.RESOURCE_GROUP }}" \
+          --resource-group "${INPUT_RESOURCE_GROUP}" \
           --nsg-name "$servicesVmNsgName" \
           --name AllowCiRunnerSsh \
           --priority 100 \
@@ -68,18 +73,22 @@ runs:
 
     - name: Pull and start Ansible provisioning container
       shell: bash
+      env:
+        INPUT_ANSIBLE_DIRECTORY: ${{ inputs.ANSIBLE_DIRECTORY }}
+        INPUT_INVENTORY_FILE: ${{ inputs.INVENTORY_FILE }}
+        INPUT_ANSIBLE_IMAGE_TAG: ${{ inputs.ANSIBLE_IMAGE_TAG }}
       run: |
         set -euo pipefail
         echo "Pulling and starting Ansible container..."
         mkdir -p /tmp/ansible-run
-        cp "${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.INVENTORY_FILE }}" /tmp/ansible-run/hosts.yml
+        cp "${INPUT_ANSIBLE_DIRECTORY}/${INPUT_INVENTORY_FILE}" /tmp/ansible-run/hosts.yml
         az keyvault secret show --vault-name "${{ steps.params.outputs.key-vault-name }}" --name services-vm-private-key --query value --output tsv > /tmp/ansible-run/ssh_key
         chmod 600 /tmp/ansible-run/ssh_key
         docker run \
           --name ansible-provisioning \
           -d \
           -v /tmp/ansible-run:/ansible-run \
-          ghcr.io/torqit/ansible-provisioning:${{ inputs.ANSIBLE_IMAGE_TAG }}
+          ghcr.io/torqit/ansible-provisioning:${INPUT_ANSIBLE_IMAGE_TAG}
 
     - name: Determine which host groups are present in the inventory
       id: inventory-groups
@@ -105,37 +114,44 @@ runs:
       id: php-fqdn
       if: steps.inventory-groups.outputs.needs-agent-server-vars == 'true'
       shell: bash
+      env:
+        INPUT_PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
+        INPUT_RESOURCE_GROUP: ${{ inputs.RESOURCE_GROUP }}
       run: |
         set -euo pipefail
-        phpContainerApp=$(jq -r '.parameters.phpContainerAppName.value' "${{ inputs.PARAMETERS_FILE }}")
-        echo "fqdn=$(az containerapp show --resource-group "${{ inputs.RESOURCE_GROUP }}" --name "$phpContainerApp" --query "properties.configuration.ingress.fqdn" --output tsv)" >> "$GITHUB_OUTPUT"
+        phpContainerApp=$(jq -r '.parameters.phpContainerAppName.value' "${INPUT_PARAMETERS_FILE}")
+        echo "fqdn=$(az containerapp show --resource-group "${INPUT_RESOURCE_GROUP}" --name "$phpContainerApp" --query "properties.configuration.ingress.fqdn" --output tsv)" >> "$GITHUB_OUTPUT"
 
     - name: Get ACR access token
       id: acr-token
       if: steps.inventory-groups.outputs.needs-agent-server-vars == 'true'
       shell: bash
+      env:
+        INPUT_PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
       run: |
         set -euo pipefail
-        containerRegistryName=$(jq -r '.parameters.containerRegistryName.value' "${{ inputs.PARAMETERS_FILE }}")
+        containerRegistryName=$(jq -r '.parameters.containerRegistryName.value' "${INPUT_PARAMETERS_FILE}")
         token=$(az acr login --name "$containerRegistryName" --expose-token --output tsv --query accessToken)
-        echo "::add-mask::$token"
+        echo "::add-mask::$token" # nosemgrep: unsafe-add-mask-workflow-command
         echo "registry=$containerRegistryName.azurecr.io" >> "$GITHUB_OUTPUT"
         echo "token=$token" >> "$GITHUB_OUTPUT"
 
     - name: Fetch secrets and env vars
       shell: bash
+      env:
+        INPUT_PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
       run: |
         set -euo pipefail
 
         findSecretName() {
-          jq -r --arg envVar "$1" '.parameters.additionalSecrets.value.array // [] | map(select(.secretEnvVarNameInContainerApp == $envVar)) | .[0].secretNameInKeyVault // empty' "${{ inputs.PARAMETERS_FILE }}"
+          jq -r --arg envVar "$1" '.parameters.additionalSecrets.value.array // [] | map(select(.secretEnvVarNameInContainerApp == $envVar)) | .[0].secretNameInKeyVault // empty' "${INPUT_PARAMETERS_FILE}"
         }
 
         extraVars='{}'
 
         if [ "${{ steps.inventory-groups.outputs.needs-mercure-jwt }}" == "true" ]; then
           mercureJwtKey=$(az keyvault secret show --vault-name "${{ steps.params.outputs.key-vault-name }}" --name "$(findSecretName MERCURE_JWT_KEY)" --query value --output tsv)
-          echo "::add-mask::$mercureJwtKey"
+          echo "::add-mask::$mercureJwtKey" # nosemgrep: unsafe-add-mask-workflow-command
           extraVars=$(echo "$extraVars" | jq --arg v "$mercureJwtKey" '. + {mercure_jwt_key: $v}')
         fi
 
@@ -154,11 +170,11 @@ runs:
             openAiAuthToken=$(az keyvault secret show --vault-name "${{ steps.params.outputs.key-vault-name }}" --name "$openAiSecretName" --query value --output tsv)
           fi
 
-          echo "::add-mask::$agentServerAdminToken"
-          echo "::add-mask::$anthropicApiKey"
-          echo "::add-mask::$openAiAuthToken"
+          echo "::add-mask::$agentServerAdminToken" # nosemgrep: unsafe-add-mask-workflow-command
+          echo "::add-mask::$anthropicApiKey" # nosemgrep: unsafe-add-mask-workflow-command
+          echo "::add-mask::$openAiAuthToken" # nosemgrep: unsafe-add-mask-workflow-command
 
-          extraVars=$(jq -c '.parameters.additionalEnvVars.value // []' "${{ inputs.PARAMETERS_FILE }}" | jq \
+          extraVars=$(jq -c '.parameters.additionalEnvVars.value // []' "${INPUT_PARAMETERS_FILE}" | jq \
             --arg adminToken "$agentServerAdminToken" \
             --arg anthropicKey "$anthropicApiKey" \
             --arg openAiToken "$openAiAuthToken" \
@@ -189,11 +205,15 @@ runs:
 
     - name: Run Ansible playbook
       shell: bash
+      env:
+        INPUT_ANSIBLE_DIRECTORY: ${{ inputs.ANSIBLE_DIRECTORY }}
+        INPUT_INVENTORY_FILE: ${{ inputs.INVENTORY_FILE }}
+        INPUT_LIMIT: ${{ inputs.LIMIT }}
       run: |
-        echo "Running Ansible playbook against hosts in ${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.INVENTORY_FILE }}..."
+        echo "Running Ansible playbook against hosts in ${INPUT_ANSIBLE_DIRECTORY}/${INPUT_INVENTORY_FILE}..."
         limitArgs=()
-        if [ -n "${{ inputs.LIMIT }}" ]; then
-          limitArgs=(--limit "${{ inputs.LIMIT }}")
+        if [ -n "${INPUT_LIMIT}" ]; then
+          limitArgs=(--limit "${INPUT_LIMIT}")
         fi
         docker exec ansible-provisioning ansible-playbook \
           -i /ansible-run/hosts.yml \
@@ -214,6 +234,7 @@ runs:
       env:
         RUNNER_IP: ${{ steps.open-access.outputs.runner-ip }}
         SERVICES_VM_NSG_NAME: ${{ steps.open-access.outputs.services-vm-nsg-name }}
+        INPUT_RESOURCE_GROUP: ${{ inputs.RESOURCE_GROUP }}
       run: |
         az keyvault network-rule remove --name "${{ steps.params.outputs.key-vault-name }}" --resource-group "${{ steps.params.outputs.key-vault-resource-group }}" --ip-address "$RUNNER_IP" --output none
-        az network nsg rule delete --resource-group "${{ inputs.RESOURCE_GROUP }}" --nsg-name "$SERVICES_VM_NSG_NAME" --name AllowCiRunnerSsh --output none
+        az network nsg rule delete --resource-group "${INPUT_RESOURCE_GROUP}" --nsg-name "$SERVICES_VM_NSG_NAME" --name AllowCiRunnerSsh --output none

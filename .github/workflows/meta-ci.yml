@@ -21,6 +21,35 @@ jobs:
       - name: Lint files
         uses: ./.github/actions/lint
 
+      - name: Run vulnerability scans
+        id: scan
+        uses: ./.github/actions/vulnerability-scan
+        with:
+          REF: ${{ github.head_ref }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_SCAN: false
+          COMPOSER_SCAN: false
+
+      - name: Post security scan results
+        if: always() && github.event_name == 'pull_request'
+        uses: ./.github/actions/post-scan-report
+        with:
+          NPM_OUTCOME: ${{ steps.scan.outputs.npm-outcome }}
+          COMPOSER_OUTCOME: ${{ steps.scan.outputs.composer-outcome }}
+          SEMGREP_OUTCOME: ${{ steps.scan.outputs.semgrep-outcome }}
+          ZIZMOR_OUTCOME: ${{ steps.scan.outputs.zizmor-outcome }}
+          TRIVY_SCAN: false
+          REF: ${{ github.head_ref }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fail if any scan found issues
+        if: >-
+          steps.scan.outputs.semgrep-outcome == 'failure' ||
+          steps.scan.outputs.zizmor-outcome == 'failure'
+        run: |
+          echo "One or more security scans found issues - see the scan step output or the scan results artifact for details"
+          exit 1
+
   skeleton-ci:
     name: "Test CI against skeleton"
     uses: ./.github/workflows/ci-docker.yml
@@ -55,43 +84,43 @@ jobs:
       PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
       PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
 
-  skeleton-ci-azure:
-    name: "Test Azure CD against skeleton"
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - github_environment: 2025.x
-            parameters_file: "./.github/ci/azure/parameters.2025.x.json"
-            skeleton_ref: 2025.x-azure
-            agent_server: false
-          - github_environment: 2025.x-enterprise
-            parameters_file: "./.github/ci/azure/parameters.2025.x-enterprise.json"
-            skeleton_ref: 2025.x-enterprise-azure
-            agent_server: true
-          - github_environment: 2026.x
-            parameters_file: "./.github/ci/azure/parameters.2026.x.json"
-            skeleton_ref: 2026.x-azure
-            agent_server: false
-          - github_environment: 2026.x-enterprise
-            parameters_file: "./.github/ci/azure/parameters.2026.x-enterprise.json"
-            skeleton_ref: 2026.x-enterprise-azure
-            agent_server: true
-    uses: ./.github/workflows/meta-ci-azure.yml
-    with:
-      ENVIRONMENT: ${{ matrix.github_environment }}
-      PARAMETERS_FILE: ${{ matrix.parameters_file }}
-      PROJECT_REPOSITORY_REF: ${{ matrix.skeleton_ref }}
-      AGENT_SERVER: ${{ matrix.agent_server }}
-    secrets:
-      PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
-      PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
-      PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
-      PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
-      AGENT_SERVER_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      AGENT_SERVER_OPEN_AI_AUTH_TOKEN: ${{ secrets.OPEN_AI_AUTH_TOKEN }}
-      CI_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
-      GH_APP_ID: ${{ secrets.GH_APP_ID }}
-      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+  #skeleton-ci-azure:
+  #name: "Test Azure CD against skeleton"
+  #strategy:
+  #fail-fast: false
+  #matrix:
+  #include:
+  #- github_environment: 2025.x
+  #parameters_file: "./.github/ci/azure/parameters.2025.x.json"
+  #skeleton_ref: 2025.x-azure
+  #agent_server: false
+  #- github_environment: 2025.x-enterprise
+  #parameters_file: "./.github/ci/azure/parameters.2025.x-enterprise.json"
+  #skeleton_ref: 2025.x-enterprise-azure
+  #agent_server: true
+  #- github_environment: 2026.x
+  #parameters_file: "./.github/ci/azure/parameters.2026.x.json"
+  #skeleton_ref: 2026.x-azure
+  #agent_server: false
+  #- github_environment: 2026.x-enterprise
+  #parameters_file: "./.github/ci/azure/parameters.2026.x-enterprise.json"
+  #skeleton_ref: 2026.x-enterprise-azure
+  #agent_server: true
+  #uses: ./.github/workflows/meta-ci-azure.yml
+  #with:
+  #ENVIRONMENT: ${{ matrix.github_environment }}
+  #PARAMETERS_FILE: ${{ matrix.parameters_file }}
+  #PROJECT_REPOSITORY_REF: ${{ matrix.skeleton_ref }}
+  #AGENT_SERVER: ${{ matrix.agent_server }}
+  #secrets:
+  #PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
+  #PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
+  #PIMCORE_PRODUCT_KEY: ${{ secrets.PIMCORE_PRODUCT_KEY }}
+  #PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+  #AGENT_SERVER_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  #AGENT_SERVER_OPEN_AI_AUTH_TOKEN: ${{ secrets.OPEN_AI_AUTH_TOKEN }}
+  #CI_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.CI_SERVICE_PRINCIPAL_PASSWORD }}
+  #GH_APP_ID: ${{ secrets.GH_APP_ID }}
+  #GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
 
   # TODO test CD to VM

@@ -461,12 +461,15 @@ jobs:
 
       - name: Check for Ansible inventory file
         id: check-ansible-inventory
+        env:
+          INPUT_ANSIBLE_DIRECTORY: ${{ inputs.ANSIBLE_DIRECTORY }}
+          INPUT_ANSIBLE_INVENTORY_FILE: ${{ inputs.ANSIBLE_INVENTORY_FILE }}
         run: |
-          if [ -f "${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.ANSIBLE_INVENTORY_FILE }}" ]; then
-            echo "Found ${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.ANSIBLE_INVENTORY_FILE }}!"
+          if [ -f "${INPUT_ANSIBLE_DIRECTORY}/${INPUT_ANSIBLE_INVENTORY_FILE}" ]; then
+            echo "Found ${INPUT_ANSIBLE_DIRECTORY}/${INPUT_ANSIBLE_INVENTORY_FILE}!"
             echo "found=true" >> "$GITHUB_OUTPUT"
           else
-            echo "${{ inputs.ANSIBLE_DIRECTORY }}/${{ inputs.ANSIBLE_INVENTORY_FILE }} not found, skipping Ansible"
+            echo "${INPUT_ANSIBLE_DIRECTORY}/${INPUT_ANSIBLE_INVENTORY_FILE} not found, skipping Ansible"
             echo "found=false" >> "$GITHUB_OUTPUT"
           fi
 

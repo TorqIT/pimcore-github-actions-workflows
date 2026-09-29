@@ -10,11 +10,15 @@ runs:
   steps:
     - name: Copy in config files
       shell: bash
-      run: cp ./reusable-workflow/.azure/config/packages/flysystem.yaml ${{ inputs.PIMCORE_ROOT }}/config/packages/flysystem.yaml
+      env:
+        INPUT_PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+      run: cp ./reusable-workflow/.azure/config/packages/flysystem.yaml ${INPUT_PIMCORE_ROOT}/config/packages/flysystem.yaml
 
     - name: If the client repository contains its own config file, copy that in as well
       shell: bash
+      env:
+        INPUT_PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
       run: |
-        if [ -e ${{ inputs.PIMCORE_ROOT }}/config/flysystem/flysystem-dev-prod.yaml ]; then
-          cp ${{ inputs.PIMCORE_ROOT }}/config/flysystem/flysystem-dev-prod.yaml ${{ inputs.PIMCORE_ROOT }}/config/packages/flysystem.yaml
+        if [ -e ${INPUT_PIMCORE_ROOT}/config/flysystem/flysystem-dev-prod.yaml ]; then
+          cp ${INPUT_PIMCORE_ROOT}/config/flysystem/flysystem-dev-prod.yaml ${INPUT_PIMCORE_ROOT}/config/packages/flysystem.yaml
         fi

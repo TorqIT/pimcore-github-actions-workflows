@@ -25,30 +25,38 @@ runs:
     - name: Build image
       if: inputs.BUILD_IMAGE == 'true'
       shell: bash
+      env:
+        INPUT_IMAGE_TAG: ${{ inputs.IMAGE_TAG }}
       run: |
         current_dir=$(pwd)
         cd ${{ github.workspace }}
         docker build \
-          -t ghcr.io/torqit/pimcore-azure-provisioning:${{ inputs.IMAGE_TAG }} \
+          -t ghcr.io/torqit/pimcore-azure-provisioning:${INPUT_IMAGE_TAG} \
           .
         cd $current_dir
 
     - name: Start container
       shell: bash
+      env:
+        INPUT_PARAMETERS_FILE: ${{ inputs.PARAMETERS_FILE }}
+        INPUT_IMAGE_TAG: ${{ inputs.IMAGE_TAG }}
       run: |
-        parameters_file=$(realpath "${{ inputs.PARAMETERS_FILE }}")
+        parameters_file=$(realpath "${INPUT_PARAMETERS_FILE}")
         docker run -d \
           --name azure \
           --volume "$parameters_file":/azure/parameters.json \
           --volume /var/run/docker.sock:/var/run/docker.sock:ro \
-          ghcr.io/torqit/pimcore-azure-provisioning:${{ inputs.IMAGE_TAG }}
+          ghcr.io/torqit/pimcore-azure-provisioning:${INPUT_IMAGE_TAG}
 
     - name: Log in to Azure via service principal
       shell: bash
+      env:
+        INPUT_SERVICE_PRINCIPAL_ID: ${{ inputs.SERVICE_PRINCIPAL_ID }}
+        INPUT_SERVICE_PRINCIPAL_PASSWORD: ${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}
       run: |
-        docker exec azure bash -c '
+        docker exec -e INPUT_SERVICE_PRINCIPAL_ID -e INPUT_SERVICE_PRINCIPAL_PASSWORD azure bash -c '
           az login --tenant $(jq -r ".parameters.tenantId.value" /azure/parameters.json) \
             --service-principal \
-              --username ${{ inputs.SERVICE_PRINCIPAL_ID }} \
-              --password ${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}
+              --username ${INPUT_SERVICE_PRINCIPAL_ID} \
+              --password ${INPUT_SERVICE_PRINCIPAL_PASSWORD}
         '

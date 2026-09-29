@@ -36,33 +36,42 @@ runs:
     - name: Echo if Azure parameter file is unchanged
       shell: bash
       if: steps.changed-azure-files.outputs.any_changed == 'false'
-      run: echo "${{ inputs.AZURE_PARAMETERS_FILE }} is unchanged, so nothing to do!"
+      env:
+        INPUT_AZURE_PARAMETERS_FILE: ${{ inputs.AZURE_PARAMETERS_FILE }}
+      run: echo "${INPUT_AZURE_PARAMETERS_FILE} is unchanged, so nothing to do!"
 
     - name: Apply infrastructure changes
       shell: bash
       id: apply
       if: steps.changed-azure-files.outputs.any_changed == 'true'
+      env:
+        INPUT_AZURE_DIRECTORY: ${{ inputs.AZURE_DIRECTORY }}
+        INPUT_AZURE_IMAGE_TAG: ${{ inputs.AZURE_IMAGE_TAG }}
+        INPUT_AZURE_PARAMETERS_FILE: ${{ inputs.AZURE_PARAMETERS_FILE }}
+        INPUT_SERVICE_PRINCIPAL_ID: ${{ inputs.SERVICE_PRINCIPAL_ID }}
+        INPUT_SERVICE_PRINCIPAL_PASSWORD: ${{ inputs.SERVICE_PRINCIPAL_PASSWORD }}
+        INPUT_AZURE_SKIP_DB_DEPLOY: ${{ inputs.AZURE_SKIP_DB_DEPLOY }}
       run: |
         echo "Pulling and starting Azure container..."
         docker run \
           --name azure \
           -d \
-          -v ./${{ inputs.AZURE_DIRECTORY }}:/azure/${{ inputs.AZURE_DIRECTORY }} \
-          ghcr.io/torqit/pimcore-azure-provisioning:${{ inputs.AZURE_IMAGE_TAG }}
+          -v ./${INPUT_AZURE_DIRECTORY}:/azure/${INPUT_AZURE_DIRECTORY} \
+          ghcr.io/torqit/pimcore-azure-provisioning:${INPUT_AZURE_IMAGE_TAG}
 
         echo "Logging into Azure via container..."
         docker exec \
           azure \
-            az login --tenant $(jq -r '.parameters.tenantId.value' ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }}) \
+            az login --tenant $(jq -r '.parameters.tenantId.value' ${INPUT_AZURE_DIRECTORY}/${INPUT_AZURE_PARAMETERS_FILE}) \
               --service-principal \
-                --username ${{ inputs.SERVICE_PRINCIPAL_ID }} \
-                --password ${{ inputs.SERVICE_PRINCIPAL_PASSWORD }} 
+                --username ${INPUT_SERVICE_PRINCIPAL_ID} \
+                --password ${INPUT_SERVICE_PRINCIPAL_PASSWORD} 
 
         retries=0
         while [[ $retries < 3 ]]; do
-          echo "Applying Azure infrastructure changes based on file ${{ inputs.AZURE_PARAMETERS_FILE }}..."
+          echo "Applying Azure infrastructure changes based on file ${INPUT_AZURE_PARAMETERS_FILE}..."
           set +e
-          deploymentOutput=$(docker exec azure ./provision-quick.sh ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }} ${{ inputs.AZURE_SKIP_DB_DEPLOY }} 2>&1)
+          deploymentOutput=$(docker exec azure ./provision-quick.sh ${INPUT_AZURE_DIRECTORY}/${INPUT_AZURE_PARAMETERS_FILE} ${INPUT_AZURE_SKIP_DB_DEPLOY} 2>&1)
           deploymentStatus=$?
           set -e
           echo "$deploymentOutput"
@@ -84,15 +93,17 @@ runs:
       continue-on-error: true
       env:
         CHANGED_FILES: ${{ steps.changed-azure-files.outputs.all_changed_files }}
+        INPUT_AZURE_PARAMETERS_FILE: ${{ inputs.AZURE_PARAMETERS_FILE }}
+        INPUT_AZURE_DIRECTORY: ${{ inputs.AZURE_DIRECTORY }}
       run: |
         if [ ${{ steps.apply.outcome }} == 'failure' ] || [ ${{ steps.apply.outcome }} == 'cancelled' ]; then
           for file in ${CHANGED_FILES[@]}; do
-            echo "Stopping deployment main based on file ${{ inputs.AZURE_PARAMETERS_FILE }}..."
+            echo "Stopping deployment main based on file ${INPUT_AZURE_PARAMETERS_FILE}..."
             set +e
             docker exec \
               azure \
                 az deployment group cancel \
-                  --resource-group $(jq -r '.parameters.resourceGroupName.value' ${{ inputs.AZURE_DIRECTORY }}/${{ inputs.AZURE_PARAMETERS_FILE }}) \
+                  --resource-group $(jq -r '.parameters.resourceGroupName.value' ${INPUT_AZURE_DIRECTORY}/${INPUT_AZURE_PARAMETERS_FILE}) \
                   --name main
             set -e
           done
