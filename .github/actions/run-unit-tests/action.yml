@@ -168,7 +168,7 @@ runs:
 
             if [ ! -d "/var/www/html/var/classes/DataObject" ] || [ -z "$(ls -A /var/www/html/var/classes/DataObject 2>/dev/null)" ]; then
               echo "Building Data Object classes..."
-              $RUN_AS /var/www/html/bin/console pimcore:build:classes
+              $RUN_AS /var/www/html/bin/console pimcore:deployment:classes-rebuild --create-classes --no-interaction
             fi
             
             echo "Running tests..."
