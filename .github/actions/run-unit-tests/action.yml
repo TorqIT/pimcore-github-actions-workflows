@@ -168,7 +168,7 @@ runs:
 
             echo "Building Data Object classes..."
             $RUN_AS /var/www/html/bin/console pimcore:build:classes
-            $RUN_AS /var/www/html/bin/console pimcore:classes-rebuild --create-classes --db-only 
+            $RUN_AS /var/www/html/bin/console pimcore:deployment:classes-rebuild --create-classes --db-only 
             
             echo "Running tests..."
             if [ -f "/var/www/html/codeception.yml" ] || [ -f "/var/www/html/codeception.yml.dist" ] || [ -f "/var/www/html/codeception.dist.yml" ]; then
