@@ -19,6 +19,11 @@
 #           "pimcore-instance-identifier": "${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}",
 #           "pimcore-encryption-secret": "${{ secrets.PIMCORE_ENCRYPTION_SECRET }}"
 #         }
+#       RUN_TIME_SECRETS: >
+#         {
+#           "kernel-secret": "${{ secrets.KERNEL_SECRET }}",
+#           ...any other run-time secrets you need
+#         }
 #
 
 name: CI
@@ -149,11 +154,19 @@ on:
         type: string
         default: ""
         description: "Path to .trivyignore.yaml file (e.g. ./.trivyignore.yaml)"
+      RUN_TIME_SECRETS_AS_ENV_VARS:
+        type: boolean
+        required: false
+        default: false
+        description: "For legacy systems - set to true if you want the values in RUN_TIME_SECRETS to be stored as run-time env vars"
 
     secrets:
       BUILD_TIME_SECRETS:
         required: false
         description: A JSON object of secrets required at build-time (see above for example format)
+      RUN_TIME_SECRETS:
+        required: false
+        description: A JSON object of secrets required at run-time (see above for example format) - each is mounted at /run/secrets/<key> in the containers used for unit tests and PHPStan
       PIMCORE_ENTERPRISE_TOKEN:
         required: false
         description: (Optional) The value of your project's Pimcore Enterprise Token
@@ -562,6 +575,8 @@ jobs:
           PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           UNIT_TESTS_DIRECTORY: ${{ inputs.UNIT_TESTS_DIRECTORY }}
+          RUN_TIME_SECRETS: ${{ secrets.RUN_TIME_SECRETS }}
+          RUN_TIME_SECRETS_AS_ENV_VARS: ${{ inputs.RUN_TIME_SECRETS_AS_ENV_VARS }}
 
   run-phpstan:
     name: Run PHPStan
@@ -607,3 +622,5 @@ jobs:
           PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
           PHPSTAN_ARGS: ${{ inputs.PHPSTAN_ARGS }}
+          RUN_TIME_SECRETS: ${{ secrets.RUN_TIME_SECRETS }}
+          RUN_TIME_SECRETS_AS_ENV_VARS: ${{ inputs.RUN_TIME_SECRETS_AS_ENV_VARS }}
