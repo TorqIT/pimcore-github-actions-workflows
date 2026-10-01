@@ -166,10 +166,8 @@ runs:
                 --no-interaction
             fi
 
-            if [ ! -d "/var/www/html/var/classes/DataObject" ] || [ -z "$(ls -A /var/www/html/var/classes/DataObject 2>/dev/null)" ]; then
-              echo "Building Data Object classes..."
-              $RUN_AS /var/www/html/bin/console pimcore:deployment:classes-rebuild --create-classes --no-interaction
-            fi
+            echo "Building Data Object classes..."
+            $RUN_AS /var/www/html/bin/console pimcore:build:classes
             
             echo "Running tests..."
             if [ -f "/var/www/html/codeception.yml" ] || [ -f "/var/www/html/codeception.yml.dist" ] || [ -f "/var/www/html/codeception.dist.yml" ]; then
