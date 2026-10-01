@@ -1,0 +1,58 @@
+name: "Prepare run-time secrets"
+description: "Writes run-time secrets to files (mounted at /run/secrets/<key>, mirroring Docker Compose secrets) and optionally an env file, and outputs the corresponding docker run arguments"
+inputs:
+  RUN_TIME_SECRETS:
+    required: false
+    default: ""
+    description: "JSON object containing run-time secrets and their values in key: value format"
+  RUN_TIME_SECRETS_AS_ENV_VARS:
+    required: false
+    default: "false"
+    description: "For legacy systems - set to true if you want the values in RUN_TIME_SECRETS to also be passed as run-time env vars"
+outputs:
+  DOCKER_ARGS:
+    description: "Arguments to add to docker run so that the container receives the run-time secrets (empty if there are none)"
+    value: ${{ steps.prepare.outputs.docker-args }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Prepare run-time secrets
+      id: prepare
+      shell: bash
+      env:
+        RUN_TIME_SECRETS: ${{ inputs.RUN_TIME_SECRETS }}
+        RUN_TIME_SECRETS_AS_ENV_VARS: ${{ inputs.RUN_TIME_SECRETS_AS_ENV_VARS }}
+      run: |
+        set -Eeuo pipefail
+
+        secrets_dir="$RUNNER_TEMP/run-time-secrets"
+        env_file="$RUNNER_TEMP/run-time-secrets.env"
+        rm -rf "$secrets_dir" "$env_file"
+
+        if [[ -z "${RUN_TIME_SECRETS// /}" ]] || [[ "$(jq 'length' <<< "$RUN_TIME_SECRETS")" -eq 0 ]]; then
+          echo "No run-time secrets supplied"
+          echo "docker-args=" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        mkdir -p "$secrets_dir"
+        jq -r 'keys[]' <<< "$RUN_TIME_SECRETS" | while IFS= read -r key; do
+          value=$(jq -r --arg k "$key" '.[$k]' <<< "$RUN_TIME_SECRETS")
+          while IFS= read -r line; do
+            if [[ -n "$line" ]]; then
+              echo "::add-mask::$line"
+            fi
+          done <<< "$value"
+          jq -j --arg k "$key" '.[$k]' <<< "$RUN_TIME_SECRETS" > "$secrets_dir/$key"
+        done
+        chmod 755 "$secrets_dir"
+        chmod 644 "$secrets_dir"/*
+        docker_args="-v $secrets_dir:/run/secrets:ro"
+
+        if [[ "$RUN_TIME_SECRETS_AS_ENV_VARS" == "true" ]]; then
+          jq -r 'to_entries | .[] | (.key | ascii_upcase | gsub("-"; "_")) + "=" + .value' <<< "$RUN_TIME_SECRETS" > "$env_file"
+          docker_args="$docker_args --env-file $env_file"
+        fi
+
+        echo "docker-args=$docker_args" >> "$GITHUB_OUTPUT"
