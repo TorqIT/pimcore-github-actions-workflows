@@ -165,6 +165,11 @@ on:
         type: number
         default: 8
         description: Number of threads to use for mydumper/myloader
+      MYDUMPER_VERSION:
+        required: false
+        type: string
+        default: "1.0.8-1"
+        description: Version of mydumper/myloader to install (see https://github.com/mydumper/mydumper/releases)
       IGNORE_TABLE_PATTERNS:
         required: false
         type: string
@@ -305,6 +310,7 @@ jobs:
       IGNORE_TABLES: ${{ inputs.IGNORE_TABLES }}
       IGNORE_TABLE_PATTERNS: ${{ inputs.IGNORE_TABLE_PATTERNS }}
       MYDUMPER_THREADS: ${{ inputs.MYDUMPER_THREADS }}
+      MYDUMPER_VERSION: ${{ inputs.MYDUMPER_VERSION }}
     secrets:
       AZURE_SERVICE_PRINCIPAL_ID: ${{ secrets.SERVICE_PRINCIPAL_ID }}
       AZURE_SERVICE_PRINCIPAL_PASSWORD: ${{ secrets.SERVICE_PRINCIPAL_PASSWORD }}

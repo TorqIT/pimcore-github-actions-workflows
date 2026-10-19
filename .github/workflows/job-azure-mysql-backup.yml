@@ -66,6 +66,11 @@ on:
         type: number
         default: 4
         description: Number of threads to use for the mydumper operation
+      MYDUMPER_VERSION:
+        required: false
+        type: string
+        default: "1.0.8-1"
+        description: Version of mydumper to install (see https://github.com/mydumper/mydumper/releases)
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -102,7 +107,7 @@ jobs:
         run: |
           set -e
           echo "Installing mydumper..."
-          MYDUMPER_VERSION="0.20.1-2"
+          MYDUMPER_VERSION="${{ inputs.MYDUMPER_VERSION }}"
           wget https://github.com/mydumper/mydumper/releases/download/v${MYDUMPER_VERSION}/mydumper_${MYDUMPER_VERSION}.$(lsb_release -cs)_amd64.deb
           sudo dpkg -i mydumper_${MYDUMPER_VERSION}.$(lsb_release -cs)_amd64.deb || sudo apt-get install -f -y
           mydumper --version
