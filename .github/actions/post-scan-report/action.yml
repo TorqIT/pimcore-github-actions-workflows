@@ -64,10 +64,19 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+        # Inputs go through env rather than inline ${{ }} so the script is not
+        # evaluated as one expression (GitHub caps those at 21000 chars) and so
+        # the branch name in REF cannot inject shell code.
+        NPM_OUTCOME: ${{ inputs.NPM_OUTCOME }}
+        COMPOSER_OUTCOME: ${{ inputs.COMPOSER_OUTCOME }}
+        SEMGREP_OUTCOME: ${{ inputs.SEMGREP_OUTCOME }}
+        INIT: ${{ inputs.INIT }}
+        REF: ${{ inputs.REF }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
       run: |
-        npm_outcome="${{ inputs.NPM_OUTCOME }}"
-        composer_outcome="${{ inputs.COMPOSER_OUTCOME }}"
-        semgrep_outcome="${{ inputs.SEMGREP_OUTCOME }}"
+        npm_outcome="$NPM_OUTCOME"
+        composer_outcome="$COMPOSER_OUTCOME"
+        semgrep_outcome="$SEMGREP_OUTCOME"
         php_outcome=$(cat ./trivy-results-php/trivy-php-status.txt 2>/dev/null || echo "unknown")
         supervisord_outcome=$(cat ./trivy-results-supervisord/trivy-supervisord-status.txt 2>/dev/null || echo "unknown")
 
@@ -80,7 +89,7 @@ runs:
           esac
         }
 
-        if [[ "${{ inputs.INIT }}" == "true" ]]; then
+        if [[ "$INIT" == "true" ]]; then
           init_outcome=$(cat ./trivy-results-init/trivy-init-status.txt 2>/dev/null || echo "unknown")
           labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
           outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$init_outcome" "$php_outcome" "$supervisord_outcome")
@@ -96,11 +105,11 @@ runs:
           fi
         done
 
-        LOGS_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        LOGS_URL="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
         {
-          echo "<!-- vulnerability-scan-results-${{ inputs.REF }} -->"
-          echo "## Security Scan Results for ${{ inputs.REF }}"
+          echo "<!-- vulnerability-scan-results-$REF -->"
+          echo "## Security Scan Results for $REF"
           echo ""
 
           if [ "$failure_count" -gt 0 ]; then
@@ -459,7 +468,7 @@ runs:
               echo ""
             fi
 
-            if [[ "${{ inputs.INIT }}" == "true" ]]; then
+            if [[ "$INIT" == "true" ]]; then
               trivy_names=("init" "php" "supervisord")
               trivy_labels=("Trivy (init image)" "Trivy (php image)" "Trivy (supervisord image)")
               trivy_outcomes=("$init_outcome" "$php_outcome" "$supervisord_outcome")
@@ -509,9 +518,8 @@ runs:
           mv /tmp/pr-comment-truncated.md /tmp/pr-comment.md
         fi
 
-        PR_NUMBER=${{ github.event.pull_request.number }}
-        REPO=${{ github.repository }}
-        MARKER="<!-- vulnerability-scan-results-${{ inputs.REF }} -->"
+        REPO="$GITHUB_REPOSITORY"
+        MARKER="<!-- vulnerability-scan-results-$REF -->"
 
         comment_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
           --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\")))] | last | .id // empty")
