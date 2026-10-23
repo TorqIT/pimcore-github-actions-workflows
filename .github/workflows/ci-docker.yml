@@ -276,9 +276,11 @@ jobs:
             npm audit --json --omit=dev --prefix "$dir" 2>/dev/null \
               | jq --arg dir "$dir" '. + {_scannedDir: $dir}' \
               > "/tmp/npm-raw-${dir_slug:-root}.json" || true
-            jq '[.packages // {} | to_entries[] | select(.key | test("^node_modules/(@[^/]+/[^/]+|[^/]+)$")) | {name: (.key | ltrimstr("node_modules/")), version: .value.version}]' \
+            # Include nested copies (keyed by lockfile path) so the report can show
+            # the version npm actually flagged rather than only the hoisted one.
+            jq '[.packages // {} | to_entries[] | select(.key | test("(^|/)node_modules/(@[^/]+/[^/]+|[^/]+)$")) | {path: .key, name: (.key | sub("^.*node_modules/"; "")), version: .value.version}]' \
               "$dir/package-lock.json" > "/tmp/npm-packages-${dir_slug:-root}.json" 2>/dev/null || echo '[]' > "/tmp/npm-packages-${dir_slug:-root}.json"
-            fixable_count=$(jq '[(.vulnerabilities // {}) | to_entries[] | select((.value.severity == "high" or .value.severity == "critical") and .value.fixAvailable == true)] | length' "/tmp/npm-raw-${dir_slug:-root}.json" 2>/dev/null || echo 0)
+            fixable_count=$(jq '[(.vulnerabilities // {}) | to_entries[] | select((.value.severity == "high" or .value.severity == "critical") and .value.fixAvailable != false)] | length' "/tmp/npm-raw-${dir_slug:-root}.json" 2>/dev/null || echo 0)
             if [ "$fixable_count" -gt 0 ]; then
               result=1
             else
