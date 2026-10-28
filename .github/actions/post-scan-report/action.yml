@@ -161,191 +161,13 @@ runs:
               echo "<details>"
               echo "<summary><strong>npm audit</strong></summary>"
               echo ""
+              # Findings and Markdown come from .github/scripts/npm-audit-findings.mjs,
+              # run during the scan, so the report shows exactly what failed it.
               found_any=false
-              for json_file in ./scan-results/npm-raw-*.json; do
-                [ -f "$json_file" ] || continue
-                scan_dir=$(jq -r '._scannedDir // "."' "$json_file" 2>/dev/null || echo ".")
-                dir_slug=$(echo "$scan_dir" | sed 's|^\./||;s|/|__|g')
-                # Read the package list from the file rather than --argjson: with
-                # nested copies included it can exceed Linux's 128 KB per-argument
-                # limit ("Argument list too long"). /dev/null slurps to an empty list.
-                pkgs_file="./scan-results/npm-packages-${dir_slug:-root}.json"
-                jq empty "$pkgs_file" 2>/dev/null || pkgs_file=/dev/null
-                rows=$(jq -r --slurpfile pkgs_in "$pkgs_file" '
-                  def norm(v):
-                    (v // "" | ascii_downcase | ltrimstr("v")) as $s |
-                    ($s | [scan("[0-9]+")] | map(tonumber)) as $parts |
-                    ($parts + [0,0,0,0,0,0])[0:6];
-                  def vcmp(a; b):
-                    (norm(a)) as $a | (norm(b)) as $b |
-                    ([range(0;6)] | map($a[.] - $b[.]) | map(select(. != 0)) | first) // 0;
-                  def satisfies(cur; constraint):
-                    if (constraint == "") then true
-                    elif (constraint | startswith(">=")) then vcmp(cur; constraint[2:]) >= 0
-                    elif (constraint | startswith("<=")) then vcmp(cur; constraint[2:]) <= 0
-                    elif (constraint | startswith("!=")) then vcmp(cur; constraint[2:]) != 0
-                    elif (constraint | startswith("==")) then vcmp(cur; constraint[2:]) == 0
-                    elif (constraint | startswith(">")) then vcmp(cur; constraint[1:]) > 0
-                    elif (constraint | startswith("<")) then vcmp(cur; constraint[1:]) < 0
-                    else true
-                    end;
-                  # An inclusive "<=X" bound means X itself is still vulnerable, so
-                  # the real fix is the next version after X, not X verbatim.
-                  def bump_last(v):
-                    (v | [scan("[0-9]+")] | map(tonumber)) as $parts |
-                    if ($parts | length) == 0 then v
-                    else ($parts[:-1] + [$parts[-1] + 1] | map(tostring) | join(".")) end;
-                  def upper_bound(r):
-                    r | map(select(startswith("<"))) |
-                    map(if startswith("<=") then bump_last(.[2:]) else .[1:] end) | first;
-                  # npm ranges OR multiple disjoint windows with " || " and AND
-                  # constraints within a window with a space, e.g.
-                  # "<4.17.11 || >=4.17.20 <4.17.21" (a CVE reintroduced later)
-                  # A segment may also be an npm hyphen range ("X.Y.Z - A.B.C"),
-                  # meaning >=X.Y.Z <=A.B.C, instead of space-separated operators.
-                  def npm_ranges(affected):
-                    (affected // "" | split("||") | map(
-                        gsub("^[ \t]+|[ \t]+$"; "") as $seg |
-                        ($seg | split(" - ")) as $parts |
-                        if ($parts | length) == 2 then [">=" + $parts[0], "<=" + $parts[1]]
-                        else ($seg | split(" ") | map(select(. != "")))
-                        end
-                      )
-                    );
-                  def fix_for(cur; affected):
-                    (npm_ranges(affected)) as $ranges |
-                    ($ranges | map(select(. as $r | $r | map(satisfies(cur; .)) | all))) as $matching |
-                    ($matching | map(upper_bound(.)) | map(select(. != null))) as $matchfixes |
-                    if ($matchfixes | length) > 0 then
-                      ($matchfixes | sort_by(norm(.)) | first)
-                    else
-                      ($ranges | map(upper_bound(.)) | map(select(. != null))) as $allfixes |
-                      if ($allfixes | length) > 0 then ($allfixes | sort_by(norm(.)) | last) else null end
-                    end;
-                  # A package flagged only because a dependency is vulnerable has
-                  # package names (not advisory objects) in .via, so follow that
-                  # chain down to the advisories that actually caused it.
-                  def root_advisories($vulns; $name; $seen):
-                    if ($seen | any(. == $name)) then []
-                    else
-                      ($vulns[$name].via // []) |
-                      map(if type == "object" then [.url // empty]
-                          else root_advisories($vulns; .; $seen + [$name]) end) |
-                      add // []
-                    end;
-                  # npm can report fixAvailable: true for a package flagged only via a
-                  # dependency even when that dependency can only be fixed by a
-                  # (possibly major) upgrade elsewhere, so take the concrete fix from
-                  # further down the chain when there is one.
-                  def chain_fixes($vulns; $name; $seen):
-                    if ($seen | any(. == $name)) then []
-                    else
-                      ($vulns[$name].via // []) | map(select(type == "string")) |
-                      map(. as $dep | $vulns[$dep].fixAvailable as $f |
-                          if ($f | type) == "object" then [$f]
-                          else chain_fixes($vulns; $dep; $seen + [$name]) end) |
-                      add // []
-                    end;
-                  # Packages are keyed by lockfile path so nested copies (e.g.
-                  # node_modules/a/node_modules/semver) resolve to the version npm
-                  # actually flagged, not the hoisted top-level one. Entries without
-                  # a path (older scan artifacts) fall back to a lookup by name.
-                  (($pkgs_in[0] // []) | map(select(.path) | {(.path): .version}) | add // {}) as $by_path |
-                  (($pkgs_in[0] // []) | map(select((.path // ("node_modules/" + .name)) == ("node_modules/" + .name)) | {(.name): .version}) | add // {}) as $versions |
-                  (.vulnerabilities // {}) as $vulns |
-                  # Every installed version of a vulnerable package, lowest first.
-                  def installed($name):
-                    ([$vulns[$name].nodes // [] | .[] | $by_path[.] // empty] | unique | sort_by(norm(.))) as $found |
-                    if ($found | length) > 0 then $found else [$versions[$name] // "unknown"] end;
-                  $vulns | to_entries[] |
-                  select((.value.severity == "high" or .value.severity == "critical") and (.value.fixAvailable != false)) |
-                  installed(.key) as $installed |
-                  # The lowest installed copy is the one furthest from a fix.
-                  $installed[0] as $current_ver |
-                  # fixAvailable.version is what `npm audit fix` would install
-                  # (usually the latest release), not the lowest patched version,
-                  # so derive the minimum fix from each direct advisory range. A fix
-                  # must clear every advisory, hence the highest of the per-advisory fixes.
-                  ([.value.via // [] | .[] | select(type == "object") | fix_for($current_ver; .range // "")] |
-                    map(select(. != null)) | sort_by(norm(.)) | last) as $patched |
-                  (if (.value.fixAvailable | type) == "object" then .value.fixAvailable
-                   else (chain_fixes($vulns; .key; []) | sort_by(.isSemVerMajor | not) | first) // .value.fixAvailable
-                   end) as $fa |
-                  # npm sometimes "fixes" by downgrading a package to a release that
-                  # predates the vulnerable dependency (e.g. the only version without
-                  # it). Never suggest that: drop that target and point at the patched
-                  # version of the vulnerable package itself, applied via `overrides`.
-                  (($fa | type) == "object" and
-                    (installed($fa.name) | last) as $fa_installed |
-                    $fa_installed != "unknown" and vcmp($fa.version; $fa_installed) < 0) as $downgrade |
-                  (if $downgrade then null else $fa end) as $fa |
-                  # Patched version of each vulnerable dependency (from its own
-                  # advisories), for rows flagged only via those dependencies.
-                  ([.value.via // [] | .[] | select(type == "string")] | unique | map(
-                     . as $dep | (installed($dep)[0]) as $dep_ver |
-                     {name: $dep, fix: ([$vulns[$dep].via // [] | .[] | select(type == "object") | fix_for($dep_ver; .range // "")] |
-                       map(select(. != null)) | sort_by(norm(.)) | last)}
-                   )) as $dep_fixes |
-                  [
-                    .key,
-                    (.value.severity | ascii_upcase),
-                    ($installed | join(", ")),
-                    (if ($fa | type) == "object" and $fa.name != .key then ("via " + $fa.name + "@" + $fa.version)
-                     elif $patched != null then $patched
-                     elif ($fa | type) == "object" then $fa.version
-                     else
-                       ($dep_fixes | map(if .fix != null then (.name + "@" + .fix) else .name end)) as $deps |
-                       (if ($deps | length) > 0 then ("via " + ($deps | join(", "))) else "-" end)
-                     end),
-                    (if $downgrade then "override"
-                     elif ($fa | type) == "object" and $fa.isSemVerMajor then "force"
-                     else "auto" end),
-                    (root_advisories($vulns; .key; []) | unique | if length > 0 then join(" ") else "-" end),
-                    # For downgrade rows: the overrides entry to add, and the rejected npm target.
-                    (if $downgrade then
-                       ((if $patched != null then [{name: .key, fix: $patched}] else $dep_fixes end) |
-                         map(select(.fix != null) | {(.name): ("^" + .fix)}) | add // {} |
-                         if length > 0 then tojson else "-" end)
-                     else "-" end),
-                    (if $downgrade then (.value.fixAvailable.name // (chain_fixes($vulns; .key; []) | first | .name)) +
-                       "@" + (.value.fixAvailable.version // (chain_fixes($vulns; .key; []) | first | .version))
-                     else "-" end)
-                  ] |
-                  @tsv
-                ' "$json_file" 2>/dev/null || echo "")
-                [ -z "$rows" ] && continue
+              for report_file in ./scan-results/npm-report-*.md; do
+                [ -s "$report_file" ] || continue
                 found_any=true
-                echo "**\`$scan_dir\`**"
-                echo ""
-                echo "| Package | Severity | Installed | Fix ≥ | Advisory | Command |"
-                echo "|---------|----------|-----------|-------|----------|---------|"
-                while IFS=$'\t' read -r pkg severity installed fix_ver fix_type advisory_urls override downgrade_target; do
-                  if [ "$fix_type" = "override" ] && [ "$override" != "-" ]; then
-                    cmd="Add \`\"overrides\": $override\` to package.json _(\`npm audit fix --force\` would downgrade to \`$downgrade_target\`)_"
-                  elif [ "$fix_type" = "override" ]; then
-                    cmd="_No fixed release yet (\`npm audit fix --force\` would downgrade to \`$downgrade_target\`)_"
-                  elif [ "$fix_type" = "force" ]; then
-                    cmd="\`npm audit fix --force --prefix $scan_dir\` _(may introduce breaking changes)_"
-                  else
-                    cmd="\`npm audit fix --prefix $scan_dir\`"
-                  fi
-                  # Cap the links so a package with dozens of advisories doesn't
-                  # blow up the row (and the comment size limit).
-                  advisory_col="-"
-                  if [ "$advisory_urls" != "-" ] && [ -n "$advisory_urls" ]; then
-                    advisory_col=""
-                    advisory_total=$(wc -w <<< "$advisory_urls")
-                    for advisory_url in $(tr ' ' '\n' <<< "$advisory_urls" | head -n 3); do
-                      advisory_id=$(basename "$advisory_url")
-                      advisory_col="${advisory_col:+$advisory_col, }[$advisory_id]($advisory_url)"
-                    done
-                    if [ "$advisory_total" -gt 3 ]; then
-                      advisory_col="$advisory_col _+$((advisory_total - 3)) more_"
-                    fi
-                  fi
-                  echo "| \`$pkg\` | $severity | \`$installed\` | \`$fix_ver\` | $advisory_col | $cmd |"
-                done <<< "$rows"
-                echo ""
+                cat "$report_file"
               done
               if [ "$found_any" = false ]; then
                 echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
@@ -395,54 +217,43 @@ runs:
                     elif (constraint | startswith("<")) then vcmp(cur; constraint[1:]) < 0
                     else true
                     end;
-                  # An inclusive "<=X" bound means X itself is still vulnerable, so
-                  # the real fix is the next version after X, not X verbatim.
-                  def bump_last(v):
-                    (v | [scan("[0-9]+")] | map(tonumber)) as $parts |
-                    if ($parts | length) == 0 then v
-                    else ($parts[:-1] + [$parts[-1] + 1] | map(tostring) | join(".")) end;
-                  def upper_bound(r):
-                    r | map(select(startswith("<"))) |
-                    map(if startswith("<=") then bump_last(.[2:]) else .[1:] end) | first;
-                  # Pick the upper bound of whichever disjoint range (affectedVersions is
-                  # "|"-separated, since a package can have separate vulnerable windows,
-                  # e.g. a CVE reintroduced in a later series) the installed version falls
-                  # into, so the displayed fix is always > installed. Falls back to the
-                  # highest upper bound across all ranges only when none match.
+                  # affectedVersions is "|"-separated windows of ","-joined constraints
+                  # (a package can have separate vulnerable windows). The fix is the
+                  # exclusive upper bound of the window the installed version is in. An
+                  # inclusive "<=X" bound means no fixed release is known, so null.
                   def fix_for(cur; affected):
-                    (affected // "" | split("|") | map(split(",") | map(select(. != "")))) as $ranges |
-                    ($ranges | map(select(. as $r | $r | map(satisfies(cur; .)) | all))) as $matching |
-                    ($matching | map(upper_bound(.)) | map(select(. != null))) as $matchfixes |
-                    if ($matchfixes | length) > 0 then
-                      ($matchfixes | sort_by(norm(.)) | first)
-                    else
-                      ($ranges | map(upper_bound(.)) | map(select(. != null))) as $allfixes |
-                      if ($allfixes | length) > 0 then ($allfixes | sort_by(norm(.)) | last) else null end
+                    (affected // "" | split("|") | map(split(",") | map(gsub("^ +| +$"; "")) | map(select(. != "")))) as $ranges |
+                    ($ranges | map(select(. as $r | $r | map(satisfies(cur; .)) | all)) | first) as $window |
+                    if $window == null then null
+                    else ($window | map(select(startswith("<") and (startswith("<=") | not))) | first | if . then .[1:] else null end)
                     end;
                   (($pkgs_in[0] // []) | map({(.name): .version}) | add // {}) as $versions |
                   .advisories // {} | to_entries[] |
                   .key as $pkg |
                   ($versions[$pkg] // "unknown") as $current_ver |
-                  .value[] |
-                  select(.ignored != true and (.severity == "high" or .severity == "critical")) |
-                  [$pkg, (.severity | ascii_upcase), $current_ver,
-                   (fix_for($current_ver; .affectedVersions) // .affectedVersions // ""),
-                   (.advisoryId // "-"), (.link // "-"), (.cve // "-")] |
+                  [.value[] | select(.ignored != true)] as $advs |
+                  select($advs | any(.severity == "high" or .severity == "critical")) |
+                  # One row per package: the fix must clear every advisory, so it is the
+                  # highest per-advisory fix, and unknown if any advisory has none.
+                  ($advs | map(fix_for($current_ver; .affectedVersions))) as $fixes |
+                  (if ($fixes | any(. == null)) then "-" else ($fixes | sort_by(norm(.)) | last) end) as $fix |
+                  ($advs | sort_by(if .severity == "critical" then 0 elif .severity == "high" then 1 else 2 end)) as $sorted |
+                  [$pkg,
+                   (if ($advs | any(.severity == "critical")) then "CRITICAL" else "HIGH" end),
+                   $current_ver, $fix,
+                   ($sorted | map(
+                      (if .link then "[\(.advisoryId // .cve // "advisory")](\(.link))" else (.advisoryId // "-") end) +
+                      (if .cve then " / [\(.cve)](https://nvd.nist.gov/vuln/detail/\(.cve))" else "" end)
+                    ) | .[0:3] | join(", ")) + (if ($advs | length) > 3 then " _+\(($advs | length) - 3) more_" else "" end)
+                  ] |
                   @tsv
                 ' ./scan-results/composer-audit.json 2>/dev/null || echo "")
                 if [ -n "$rows" ]; then
-                  echo "| Package | Severity | Installed | Fix ≥ | Advisory | Command |"
-                  echo "|---------|----------|-----------|-------|----------|---------|"
-                  while IFS=$'\t' read -r pkg severity current_ver fix_ver advisory link cve; do
-                    if [ "$link" != "-" ] && [ -n "$link" ]; then
-                      advisory_col="[$advisory]($link)"
-                    else
-                      advisory_col="$advisory"
-                    fi
-                    if [ "$cve" != "-" ] && [ -n "$cve" ]; then
-                      advisory_col="$advisory_col / [$cve](https://nvd.nist.gov/vuln/detail/$cve)"
-                    fi
-                    echo "| \`$pkg\` | $severity | \`$current_ver\` | \`$fix_ver\` | $advisory_col | \`composer update $pkg\` |"
+                  echo "| Package | Severity | Installed | Fixed in | Advisories | Command |"
+                  echo "|---------|----------|-----------|----------|------------|---------|"
+                  while IFS=$'\t' read -r pkg severity current_ver fix_ver advisory_col; do
+                    [ "$fix_ver" = "-" ] && fix_col="-" || fix_col="\`$fix_ver\`"
+                    echo "| \`$pkg\` | $severity | \`$current_ver\` | $fix_col | $advisory_col | \`composer update $pkg\` |"
                   done <<< "$rows"
                   echo ""
                 else
@@ -450,7 +261,7 @@ runs:
                   echo ""
                 fi
               else
-                echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
+                echo "\`composer audit\` did not produce results (e.g. a registry or authentication error) — refer to the [action logs]($LOGS_URL)."
                 echo ""
               fi
               echo "</details>"
@@ -463,26 +274,35 @@ runs:
               echo "<summary><strong>Semgrep SAST</strong></summary>"
               echo ""
               if [ -f "./scan-results/semgrep.json" ]; then
+                # `semgrep --error` fails on a finding of any severity, so list them all
+                # (most severe first). Cells are escaped: a "|" would end the cell.
                 rows=$(jq -r '
+                  def esc: gsub("\\|"; "\\|");
                   .results // [] |
-                  map(select(.extra.severity == "ERROR" or .extra.severity == "WARNING")) |
-                  sort_by(.extra.severity, .path, .start.line) |
+                  sort_by((.extra.severity | {"ERROR": 0, "WARNING": 1}[.] // 2), .path, .start.line) |
                   .[] |
                   [
                     ("[" + (.check_id | split(".") | last) + "](https://semgrep.dev/r/" + .check_id + ")"),
-                    .path,
+                    (.path | esc),
                     (.start.line | tostring),
                     .extra.severity,
-                    (.extra.message | gsub("[\n\r\t]"; " ") | .[0:300])
+                    (.extra.message | gsub("[\n\r\t]"; " ") | .[0:300] | esc)
                   ] |
-                  @tsv
+                  # Not @tsv: it would double the backslash in the "\|" escapes.
+                  join("\t")
                 ' ./scan-results/semgrep.json 2>/dev/null || echo "")
+                semgrep_errors=$(jq -r '.errors // [] | map(.message // .type // "error" | tostring | gsub("[\n\r\t]"; " ") | .[0:200]) | .[0:5] | .[] | "- " + .' ./scan-results/semgrep.json 2>/dev/null || echo "")
                 if [ -n "$rows" ]; then
                   echo "| Rule | Location | Severity | Message |"
                   echo "|------|----------|----------|---------|"
                   while IFS=$'\t' read -r rule file line severity message; do
                     echo "| $rule | \`$file:$line\` | $severity | $message |"
                   done <<< "$rows"
+                  echo ""
+                elif [ -n "$semgrep_errors" ]; then
+                  echo "Semgrep reported errors rather than findings:"
+                  echo ""
+                  echo "$semgrep_errors"
                   echo ""
                 else
                   echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL) for the flagged patterns and file locations."
@@ -549,8 +369,10 @@ runs:
         REPO="$GITHUB_REPOSITORY"
         MARKER="<!-- vulnerability-scan-results-$REF -->"
 
-        comment_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
-          --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\")))] | last | .id // empty")
+        # --paginate: the endpoint returns 30 comments per page, and missing the
+        # existing comment on a busy PR would post a duplicate.
+        comment_id=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+          --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\"))) | .id" | tail -n 1)
 
         if [ -n "$comment_id" ]; then
           gh api "repos/$REPO/issues/comments/$comment_id" --method PATCH --field body=@/tmp/pr-comment.md

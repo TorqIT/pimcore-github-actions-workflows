@@ -265,70 +265,83 @@ jobs:
       - name: Scan for npm vulnerabilities
         id: npm-scan
         continue-on-error: true
+        env:
+          # Lets the findings script's advisory lookups use a runner's HTTP(S)_PROXY.
+          NODE_USE_ENV_PROXY: "1"
         run: |
           result=0
           > /tmp/npm-audit.txt
           while IFS= read -r -d '' f; do
             dir=$(dirname "$f")
-            dir_slug=$(echo "$dir" | sed 's|^\./||;s|/|__|g')
+            dir_slug=$(echo "$dir" | sed 's|^\./||;s|^\.$||;s|/|__|g')
+            dir_slug=${dir_slug:-root}
             echo "--- Scanning $dir ---" | tee -a /tmp/npm-audit.txt
             npm audit --omit=dev --prefix "$dir" 2>&1 | tee -a /tmp/npm-audit.txt || true
-            npm audit --json --omit=dev --prefix "$dir" 2>/dev/null \
-              | jq --arg dir "$dir" '. + {_scannedDir: $dir}' \
-              > "/tmp/npm-raw-${dir_slug:-root}.json" || true
-            # Include nested copies (keyed by lockfile path) so the report can show
-            # the version npm actually flagged rather than only the hoisted one.
-            jq '[.packages // {} | to_entries[] | select(.key | test("(^|/)node_modules/(@[^/]+/[^/]+|[^/]+)$")) | {path: .key, name: (.key | sub("^.*node_modules/"; "")), version: .value.version}]' \
-              "$dir/package-lock.json" > "/tmp/npm-packages-${dir_slug:-root}.json" 2>/dev/null || echo '[]' > "/tmp/npm-packages-${dir_slug:-root}.json"
-            fixable_count=$(jq '[(.vulnerabilities // {}) | to_entries[] | select((.value.severity == "high" or .value.severity == "critical") and .value.fixAvailable != false)] | length' "/tmp/npm-raw-${dir_slug:-root}.json" 2>/dev/null || echo 0)
-            if [ "$fixable_count" -gt 0 ]; then
-              result=1
-            else
-              echo "No fixable high/critical vulnerabilities found" | tee -a /tmp/npm-audit.txt
+            npm audit --json --omit=dev --prefix "$dir" > "/tmp/npm-raw-$dir_slug.json" 2>/dev/null || true
+            # One script decides both pass/fail and the PR report, so they can't disagree.
+            if ! node reusable-workflow/.github/scripts/npm-audit-findings.mjs "$dir" "/tmp/npm-raw-$dir_slug.json" \
+                "/tmp/npm-findings-$dir_slug.json" "/tmp/npm-report-$dir_slug.md"; then
+              jq -n --arg dir "$dir" '{dir: $dir, error: "the findings script failed (see logs)", findings: [], unfixable: []}' > "/tmp/npm-findings-$dir_slug.json"
+              printf '**`%s`**\n\n> [!WARNING]\n> Could not analyse npm audit results here; see the action logs.\n\n' "$dir" > "/tmp/npm-report-$dir_slug.md"
             fi
-          done < <(find . -name "package-lock.json" -not -path "*/node_modules/*" -print0)
+            verdict=$(jq -r 'if .error then "error: " + .error elif (.findings | length) > 0 then "\(.findings | length) fixable high/critical" else "ok" end' "/tmp/npm-findings-$dir_slug.json")
+            echo "Result: $verdict" | tee -a /tmp/npm-audit.txt
+            # An audit that couldn't run fails the scan rather than passing silently.
+            [ "$verdict" = "ok" ] || result=1
+          done < <(find . -name "package-lock.json" -not -path "*/node_modules/*" -not -path "./reusable-workflow/*" -print0)
           exit $result
 
       - name: Scan for composer vulnerabilities
         id: composer-scan
         continue-on-error: true
+        env:
+          # Secrets and inputs go through env rather than being pasted into the
+          # script, where a quote in a secret's value would break (or inject into) it.
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          REPMAN_CLIENT_TOKEN: ${{ secrets.REPMAN_CLIENT_TOKEN }}
+          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
         run: |
-          PIMCORE_ENTERPRISE_TOKEN="${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
           if [[ -z "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
-            PIMCORE_ENTERPRISE_TOKEN=$(printf '%s' '${{ secrets.BUILD_TIME_SECRETS }}' | jq -r '."pimcore-enterprise-token" // empty' 2>/dev/null || true)
+            PIMCORE_ENTERPRISE_TOKEN=$(printf '%s' "$BUILD_TIME_SECRETS" | jq -r '."pimcore-enterprise-token" // empty' 2>/dev/null || true)
           fi
           if [[ -n "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
             echo "::add-mask::$PIMCORE_ENTERPRISE_TOKEN"
-            composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.repo.pimcore.com token "$PIMCORE_ENTERPRISE_TOKEN"
+            composer --working-dir="$PIMCORE_ROOT" config --global --auth http-basic.repo.pimcore.com token "$PIMCORE_ENTERPRISE_TOKEN"
           fi
-          REPMAN_CLIENT_TOKEN="${{ secrets.REPMAN_CLIENT_TOKEN }}"
           if [[ -z "$REPMAN_CLIENT_TOKEN" ]]; then
-            REPMAN_CLIENT_TOKEN=$(printf '%s' '${{ secrets.BUILD_TIME_SECRETS }}' | jq -r '."repman-client-token" // empty' 2>/dev/null || true)
+            REPMAN_CLIENT_TOKEN=$(printf '%s' "$BUILD_TIME_SECRETS" | jq -r '."repman-client-token" // empty' 2>/dev/null || true)
           fi
           if [[ -n "$REPMAN_CLIENT_TOKEN" ]]; then
             echo "::add-mask::$REPMAN_CLIENT_TOKEN"
-            REPMAN_HOST=$(jq -r '.repositories // [] | map(select(.url // "" | contains("repman.io"))) | .[0].url // "" | ltrimstr("https://") | ltrimstr("http://") | rtrimstr("/")' ${{ inputs.PIMCORE_ROOT }}/composer.json 2>/dev/null || true)
+            REPMAN_HOST=$(jq -r '.repositories // [] | map(select(.url // "" | contains("repman.io"))) | .[0].url // "" | ltrimstr("https://") | ltrimstr("http://") | rtrimstr("/")' "$PIMCORE_ROOT/composer.json" 2>/dev/null || true)
             if [[ -n "$REPMAN_HOST" ]]; then
-              composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.$REPMAN_HOST token "$REPMAN_CLIENT_TOKEN"
+              composer --working-dir="$PIMCORE_ROOT" config --global --auth "http-basic.$REPMAN_HOST" token "$REPMAN_CLIENT_TOKEN"
             fi
           fi
           install_exit=0
-          if [ ! -f "${{ inputs.PIMCORE_ROOT }}/composer.lock" ]; then
+          if [ ! -f "$PIMCORE_ROOT/composer.lock" ]; then
             set +e
-            composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts --ignore-platform-reqs > /tmp/composer-install.txt 2>&1
+            composer --working-dir="$PIMCORE_ROOT" install --prefer-dist --no-scripts --ignore-platform-reqs > /tmp/composer-install.txt 2>&1
             install_exit=$?
             set -e
             cat /tmp/composer-install.txt
           fi
           {
             cat /tmp/composer-install.txt 2>/dev/null || true
-            composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=report --locked --no-dev --format=json > /tmp/composer-audit.json 2>/dev/null || true
-            composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=report --locked --no-dev || true
-            jq '[.packages[] | {name, version}]' "${{ inputs.PIMCORE_ROOT }}/composer.lock" > /tmp/composer-packages.json 2>/dev/null || echo '[]' > /tmp/composer-packages.json
+            composer --working-dir="$PIMCORE_ROOT" audit --abandoned=report --locked --no-dev --format=json > /tmp/composer-audit.json 2>/dev/null || true
+            composer --working-dir="$PIMCORE_ROOT" audit --abandoned=report --locked --no-dev || true
+            jq '[.packages[] | {name, version}]' "$PIMCORE_ROOT/composer.lock" > /tmp/composer-packages.json 2>/dev/null || echo '[]' > /tmp/composer-packages.json
           } 2>&1 | tee /tmp/composer-audit.txt || true
           echo "$install_exit" > /tmp/composer-install-exit.txt
           [ "$install_exit" -eq 0 ] || exit 1
-          high_critical_count=$(jq '[.advisories // {} | to_entries[] | .value[] | select(.ignored != true and (.severity == "high" or .severity == "critical"))] | length' /tmp/composer-audit.json 2>/dev/null || echo 0)
+          # An audit that couldn't run (e.g. a registry error) fails the scan
+          # rather than reading as "no advisories".
+          if ! jq -e '.advisories' /tmp/composer-audit.json > /dev/null 2>&1; then
+            echo "composer audit did not produce results - see output above"
+            exit 1
+          fi
+          high_critical_count=$(jq '[.advisories | to_entries[] | .value[] | select(.ignored != true and (.severity == "high" or .severity == "critical"))] | length' /tmp/composer-audit.json)
           [ "$high_critical_count" -eq 0 ]
 
       - name: Run Semgrep SAST scan
@@ -354,7 +367,8 @@ jobs:
           mkdir -p scan-results
           cp /tmp/npm-audit.txt scan-results/ 2>/dev/null || true
           cp /tmp/npm-raw-*.json scan-results/ 2>/dev/null || true
-          cp /tmp/npm-packages-*.json scan-results/ 2>/dev/null || true
+          cp /tmp/npm-findings-*.json scan-results/ 2>/dev/null || true
+          cp /tmp/npm-report-*.md scan-results/ 2>/dev/null || true
           cp /tmp/composer-audit.txt scan-results/ 2>/dev/null || true
           cp /tmp/composer-audit.json scan-results/ 2>/dev/null || true
           cp /tmp/composer-packages.json scan-results/ 2>/dev/null || true
