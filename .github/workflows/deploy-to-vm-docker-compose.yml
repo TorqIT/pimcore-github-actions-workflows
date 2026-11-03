@@ -185,6 +185,21 @@ on:
         type: string
         default: "supervisord"
         description: "The name of the supervisord service in Docker Compose to run"
+      AGENT_SERVER:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether the project uses pimcore/pimcore-agent-bundle and its agent-server image should be built, pushed, and deployed. The exact version to build is read from the project's composer.json (not composer.lock, which isn't always committed). Requires the PIMCORE_ENTERPRISE_TOKEN secret."
+      AGENT_SERVER_IMAGE:
+        required: false
+        type: string
+        default: "agent-server"
+        description: "Name of the agent-server image"
+      AGENT_SERVER_SERVICE:
+        required: false
+        type: string
+        default: "agent-server"
+        description: "The name of the agent-server service in Docker Compose to run"
       NON_PIMCORE_SERVICES:
         type: string
         required: false
@@ -243,6 +258,9 @@ on:
       RUN_TIME_SECRETS:
         required: false
         description: A JSON object of secret environment variables required at run-time (see above for example format)
+      PIMCORE_ENTERPRISE_TOKEN:
+        required: false
+        description: The value of your project's Pimcore Enterprise Token - required when the AGENT_SERVER input is true
       RECAPTCHA_CLIENT_KEY:
         required: false
         description: A client key used when building NPM frontends that require ReCAPTCHA
@@ -362,6 +380,18 @@ jobs:
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ inputs.IMAGES_TAG }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ github.run_id }}
 
+      - name: Build and push agent-server image
+        uses: ./reusable-workflow/.github/actions/build-and-push-agent-server-image
+        if: ${{ inputs.AGENT_SERVER }}
+        with:
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
+          IMAGE: ${{ inputs.AGENT_SERVER_IMAGE }}
+          CACHE_FROM: ${{ inputs.USE_GHA_CACHE && 'type=gha' || '' }}
+          CACHE_TO: ${{ inputs.USE_GHA_CACHE && 'type=gha,mode=min' || '' }}
+          ADDITIONAL_TAGS: ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.AGENT_SERVER_IMAGE }}:${{ inputs.IMAGES_TAG }}
+
   deploy-containers:
     name: Deploy containers via Docker Compose
     runs-on: ${{ inputs.RUNNER }}
@@ -458,6 +488,19 @@ jobs:
               -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
               --env-file ${{ inputs.ENV_FILE }} \
               up -d ${{ inputs.NON_PIMCORE_SERVICES }}
+
+      - name: Pull and start agent-server outside of blue/green
+        if: ${{ inputs.AGENT_SERVER }}
+        run: |
+          set -e
+          docker compose \
+              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+              --env-file ${{ inputs.ENV_FILE }} \
+              pull ${{ inputs.AGENT_SERVER_SERVICE }}
+          docker compose \
+              -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+              --env-file ${{ inputs.ENV_FILE }} \
+              up -d ${{ inputs.AGENT_SERVER_SERVICE }}
 
       - name: Pull latest built images
         run: |
