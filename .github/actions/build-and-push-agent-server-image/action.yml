@@ -28,6 +28,10 @@ inputs:
     required: false
     default: "false"
     description: "Whether to load the built image into the local Docker cache"
+  ADDITIONAL_TAGS:
+    required: false
+    default: ""
+    description: "Newline-separated list of additional tags to apply to the image, on top of latest, the run ID and the bundle version"
 outputs:
   VERSION:
     description: "The pimcore/pimcore-agent-bundle version that was built"
@@ -100,3 +104,4 @@ runs:
           ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.IMAGE }}:latest
           ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.IMAGE }}:${{ github.run_id }}
           ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.IMAGE }}:${{ steps.agent-bundle-version.outputs.version }}
+          ${{ inputs.ADDITIONAL_TAGS }}
