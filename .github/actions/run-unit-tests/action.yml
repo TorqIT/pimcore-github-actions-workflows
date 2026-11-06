@@ -112,6 +112,8 @@ runs:
           --network test-network \
           ${{ steps.run-time-secrets.outputs.DOCKER_ARGS }} \
           -e APP_ENV=test \
+          -e KERNEL_SECRET=test \
+          -e APP_SECRET=test \
           -e PIMCORE_TEST_DB_DSN='mysql://test:test@test-db:3306/test?serverVersion=mariadb-11.4.0' \
           -e PIMCORE_PRODUCT_KEY='${{ inputs.PIMCORE_PRODUCT_KEY }}' \
           -e PIMCORE_INSTANCE_IDENTIFIER='${{ inputs.PIMCORE_INSTANCE_IDENTIFIER }}' \
