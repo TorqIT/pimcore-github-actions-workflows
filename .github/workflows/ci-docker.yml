@@ -119,6 +119,11 @@ on:
         type: string
         default: "supervisord"
         description: "The Docker target to use when building the supervisord image"
+      AGENT_SERVER:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether the project uses pimcore/pimcore-agent-bundle and its agent-server image should be built and scanned. The exact version to build is read from the project's composer.json. Requires PIMCORE_ENTERPRISE_TOKEN."
       RUN_UNIT_TESTS:
         required: false
         type: boolean
@@ -388,9 +393,11 @@ jobs:
       matrix:
         include:
           - name: init
+            enabled: ${{ inputs.INIT }}
             dockerfile: ${{ inputs.INIT_DOCKERFILE }}
             target: ${{ inputs.INIT_DOCKER_TARGET }}
           - name: php
+            enabled: true
             dockerfile: ${{ inputs.PHP_DOCKERFILE }}
             target: ${{ inputs.PHP_DOCKER_TARGET }}
             npm_build: ${{ inputs.NPM_BUILD }}
@@ -399,8 +406,12 @@ jobs:
             frontend_root: ${{ inputs.FRONTEND_ROOT }}
             npm_run_cmd: ${{ inputs.NPM_RUN_CMD }}
           - name: supervisord
+            enabled: true
             dockerfile: ${{ inputs.SUPERVISORD_DOCKERFILE }}
             target: ${{ inputs.SUPERVISORD_TARGET }}
+          - name: agent-server
+            enabled: ${{ inputs.AGENT_SERVER }}
+            image_ref: "ci/agent-server:${{ github.run_id }}"
     steps:
       - name: Checkout workflow repository to use composite actions
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -436,7 +447,7 @@ jobs:
           DRIVER: docker
 
       - name: Build ${{ matrix.name }} image
-        if: matrix.name != 'init' || inputs.INIT
+        if: matrix.enabled && matrix.name != 'agent-server'
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
         with:
           DOCKERFILE_TARGET: ${{ matrix.target }}
@@ -458,8 +469,19 @@ jobs:
           PUSH: false
           TAGS: "${{ matrix.name }}:ci-${{ github.run_id }}"
 
+      - name: Build agent-server image
+        if: matrix.enabled && matrix.name == 'agent-server'
+        uses: ./reusable-workflow/.github/actions/build-and-push-agent-server-image
+        with:
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          CONTAINER_REGISTRY: ci
+          IMAGE: agent-server
+          PUSH: false
+          LOAD: true
+
       - name: Free disk space before Trivy scan if needed
-        if: matrix.name != 'init' || inputs.INIT
+        if: matrix.enabled
         run: |
           FREE_GB=$(df / --output=avail -BG | tail -1 | tr -d 'G')
           if [ "$FREE_GB" -lt 10 ]; then
@@ -470,13 +492,13 @@ jobs:
 
       - name: Run Trivy vulnerability scanner on image
         id: trivy-scan
-        if: matrix.name != 'init' || inputs.INIT
+        if: matrix.enabled
         continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: "${{ matrix.name }}:ci-${{ github.run_id }}"
-          format: "table"
-          output: "trivy-${{ matrix.name }}.txt"
+          image-ref: ${{ matrix.image_ref || format('{0}:ci-{1}', matrix.name, github.run_id) }}
+          format: "json"
+          output: "trivy-${{ matrix.name }}.json"
           exit-code: "1"
           ignore-unfixed: true
           vuln-type: "os,library"
@@ -487,7 +509,12 @@ jobs:
 
       - name: Print Trivy results to log
         if: always()
-        run: cat trivy-${{ matrix.name }}.txt 2>/dev/null || true
+        env:
+          TRIVY_TABLE_MODE: detailed
+        run: |
+          if [ -f trivy-${{ matrix.name }}.json ]; then
+            trivy convert --format table trivy-${{ matrix.name }}.json || cat trivy-${{ matrix.name }}.json
+          fi
 
       - name: Upload Trivy results
         if: always()
@@ -499,7 +526,7 @@ jobs:
         with:
           name: trivy-results-${{ matrix.name }}-${{ steps.ref-slug.outputs.slug }}
           path: |
-            trivy-${{ matrix.name }}.txt
+            trivy-${{ matrix.name }}.json
             trivy-${{ matrix.name }}-status.txt
           if-no-files-found: ignore
 
@@ -530,6 +557,7 @@ jobs:
           COMPOSER_OUTCOME: ${{ needs.vulnerability-scan.outputs.composer-outcome }}
           SEMGREP_OUTCOME: ${{ needs.vulnerability-scan.outputs.semgrep-outcome }}
           INIT: ${{ inputs.INIT }}
+          AGENT_SERVER: ${{ inputs.AGENT_SERVER }}
           REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

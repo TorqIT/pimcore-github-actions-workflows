@@ -15,6 +15,10 @@ inputs:
     required: false
     default: "true"
     description: "Whether the project uses an init container (omits the init Trivy row when false)"
+  AGENT_SERVER:
+    required: false
+    default: "false"
+    description: "Whether the agent-server image was built and scanned (adds the agent-server Trivy row when true)"
   REF:
     required: true
     description: "The branch/ref name used in the comment marker for deduplication"
@@ -60,6 +64,14 @@ runs:
         path: ./trivy-results-supervisord
       continue-on-error: true
 
+    - name: Download Trivy results (agent-server)
+      if: inputs.AGENT_SERVER == 'true'
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        name: trivy-results-agent-server-${{ steps.ref-slug.outputs.slug }}
+        path: ./trivy-results-agent-server
+      continue-on-error: true
+
     - name: Post security scan results to PR
       shell: bash
       env:
@@ -71,6 +83,7 @@ runs:
         COMPOSER_OUTCOME: ${{ inputs.COMPOSER_OUTCOME }}
         SEMGREP_OUTCOME: ${{ inputs.SEMGREP_OUTCOME }}
         INIT: ${{ inputs.INIT }}
+        AGENT_SERVER: ${{ inputs.AGENT_SERVER }}
         REF: ${{ inputs.REF }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
       run: |
@@ -96,6 +109,11 @@ runs:
         else
           labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (php image)" "Trivy (supervisord image)")
           outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$php_outcome" "$supervisord_outcome")
+        fi
+        if [[ "$AGENT_SERVER" == "true" ]]; then
+          agent_server_outcome=$(cat ./trivy-results-agent-server/trivy-agent-server-status.txt 2>/dev/null || echo "unknown")
+          labels+=("Trivy (agent-server image)")
+          outcomes+=("$agent_server_outcome")
         fi
 
         failure_count=0
@@ -505,6 +523,11 @@ runs:
               trivy_labels=("Trivy (php image)" "Trivy (supervisord image)")
               trivy_outcomes=("$php_outcome" "$supervisord_outcome")
             fi
+            if [[ "$AGENT_SERVER" == "true" ]]; then
+              trivy_names+=("agent-server")
+              trivy_labels+=("Trivy (agent-server image)")
+              trivy_outcomes+=("$agent_server_outcome")
+            fi
             for j in "${!trivy_names[@]}"; do
               name="${trivy_names[$j]}"
               label="${trivy_labels[$j]}"
@@ -520,15 +543,69 @@ runs:
                 else
                   echo "These may contain OS-level package vulnerabilities that require updates (e.g. \`apt update <package>\`) to be added to the Dockerfile."
                   echo ""
-                  trivy_text=$(cat "./trivy-results-${name}/trivy-${name}.txt" 2>/dev/null || echo "")
-                  if [ -n "$trivy_text" ]; then
-                    trivy_lines=$(echo "$trivy_text" | wc -l)
-                    echo '```'
-                    echo "$trivy_text" | head -150 || true
-                    if [ "$trivy_lines" -gt 150 ]; then
-                      echo "... $((trivy_lines - 150)) more lines — refer to the [action logs]($LOGS_URL) for the full output."
+                  trivy_json="./trivy-results-${name}/trivy-${name}.json"
+                  rows=""
+                  if jq empty "$trivy_json" 2>/dev/null; then
+                    rows=$(jq -r '
+                    def norm(v):
+                      (v // "" | ascii_downcase | ltrimstr("v")) as $s |
+                      ($s | [scan("[0-9]+")] | map(tonumber)) as $parts |
+                      ($parts + [0,0,0,0,0,0])[0:6];
+                    def vcmp(a; b):
+                      (norm(a)) as $a | (norm(b)) as $b |
+                      ([range(0;6)] | map($a[.] - $b[.]) | map(select(. != 0)) | first) // 0;
+                    def sev_rank: if . == "CRITICAL" then 0 elif . == "HIGH" then 1 else 2 end;
+                    # FixedVersion lists one fix per release line ("5.0.10, 3.0.7, 2.1.5"); the
+                    # relevant one is the lowest that is still above the installed version.
+                    def min_fix:
+                      .InstalledVersion as $installed |
+                      (.FixedVersion // "" | split(",") | map(gsub("^ +| +$"; "")) | map(select(. != ""))) as $all |
+                      ($all | map(select(vcmp(.; $installed) > 0)) | sort_by(norm(.)) | first) // ($all | first);
+                    def advisory_link:
+                      if (.VulnerabilityID | startswith("CVE-")) then "[\(.VulnerabilityID)](https://nvd.nist.gov/vuln/detail/\(.VulnerabilityID))"
+                      elif (.VulnerabilityID | startswith("GHSA-")) then "[\(.VulnerabilityID)](https://github.com/advisories/\(.VulnerabilityID))"
+                      elif .PrimaryURL then "[\(.VulnerabilityID)](\(.PrimaryURL))"
+                      else .VulnerabilityID end;
+                    [.Results[]? | . as $result | .Vulnerabilities[]? |
+                      . + {Location: (if $result.Class == "os-pkgs"
+                                      then (($result.Target | capture("\\((?<os>[^)]+)\\)$") | .os) // $result.Type)
+                                      else ($result.Target | sub("/package\\.json$"; "")) end)}] |
+                    group_by([.PkgName, .InstalledVersion, .Location]) |
+                    map(
+                      (map(.VulnerabilityID) | unique) as $ids |
+                      (unique_by(.VulnerabilityID)) as $vulns |
+                      {
+                        pkg: .[0].PkgName,
+                        installed: .[0].InstalledVersion,
+                        location: .[0].Location,
+                        severity: (map(.Severity) | min_by(sev_rank)),
+                        # A single upgrade has to clear every advisory, hence the highest per-advisory fix.
+                        fix: ([$vulns[] | min_fix] | map(select(. != null)) | sort_by(norm(.)) | last // "-"),
+                        advisories: (($vulns[0:3] | map(advisory_link) | join(", ")) +
+                                     (if ($ids | length) > 3 then " _+\(($ids | length) - 3) more_" else "" end))
+                      }
+                    ) |
+                    sort_by((.severity | sev_rank), .pkg, .location) |
+                    .[] |
+                    [.pkg, .severity, .installed, .fix, .advisories, .location] |
+                    @tsv
+                    ' "$trivy_json" 2>/dev/null || echo "")
+                  fi
+                  if [ -n "$rows" ]; then
+                    max_rows=50
+                    row_count=$(wc -l <<< "$rows")
+                    echo "| Package | Severity | Installed | Fix ≥ | Advisory | Location |"
+                    echo "|---------|----------|-----------|-------|----------|----------|"
+                    while IFS=$'\t' read -r pkg severity installed fix_ver advisories location; do
+                      echo "| \`$pkg\` | $severity | \`$installed\` | \`$fix_ver\` | $advisories | \`$location\` |"
+                    done <<< "$(head -n "$max_rows" <<< "$rows")"
+                    if [ "$row_count" -gt "$max_rows" ]; then
+                      echo ""
+                      echo "_$((row_count - max_rows)) more package(s) — refer to the [action logs]($LOGS_URL) for the full output._"
                     fi
-                    echo '```'
+                    echo ""
+                  else
+                    echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
                     echo ""
                   fi
                 fi
