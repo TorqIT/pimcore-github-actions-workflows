@@ -543,15 +543,69 @@ runs:
                 else
                   echo "These may contain OS-level package vulnerabilities that require updates (e.g. \`apt update <package>\`) to be added to the Dockerfile."
                   echo ""
-                  trivy_text=$(cat "./trivy-results-${name}/trivy-${name}.txt" 2>/dev/null || echo "")
-                  if [ -n "$trivy_text" ]; then
-                    trivy_lines=$(echo "$trivy_text" | wc -l)
-                    echo '```'
-                    echo "$trivy_text" | head -150 || true
-                    if [ "$trivy_lines" -gt 150 ]; then
-                      echo "... $((trivy_lines - 150)) more lines — refer to the [action logs]($LOGS_URL) for the full output."
+                  trivy_json="./trivy-results-${name}/trivy-${name}.json"
+                  rows=""
+                  if jq empty "$trivy_json" 2>/dev/null; then
+                    rows=$(jq -r '
+                    def norm(v):
+                      (v // "" | ascii_downcase | ltrimstr("v")) as $s |
+                      ($s | [scan("[0-9]+")] | map(tonumber)) as $parts |
+                      ($parts + [0,0,0,0,0,0])[0:6];
+                    def vcmp(a; b):
+                      (norm(a)) as $a | (norm(b)) as $b |
+                      ([range(0;6)] | map($a[.] - $b[.]) | map(select(. != 0)) | first) // 0;
+                    def sev_rank: if . == "CRITICAL" then 0 elif . == "HIGH" then 1 else 2 end;
+                    # FixedVersion lists one fix per release line ("5.0.10, 3.0.7, 2.1.5"); the
+                    # relevant one is the lowest that is still above the installed version.
+                    def min_fix:
+                      .InstalledVersion as $installed |
+                      (.FixedVersion // "" | split(",") | map(gsub("^ +| +$"; "")) | map(select(. != ""))) as $all |
+                      ($all | map(select(vcmp(.; $installed) > 0)) | sort_by(norm(.)) | first) // ($all | first);
+                    def advisory_link:
+                      if (.VulnerabilityID | startswith("CVE-")) then "[\(.VulnerabilityID)](https://nvd.nist.gov/vuln/detail/\(.VulnerabilityID))"
+                      elif (.VulnerabilityID | startswith("GHSA-")) then "[\(.VulnerabilityID)](https://github.com/advisories/\(.VulnerabilityID))"
+                      elif .PrimaryURL then "[\(.VulnerabilityID)](\(.PrimaryURL))"
+                      else .VulnerabilityID end;
+                    [.Results[]? | . as $result | .Vulnerabilities[]? |
+                      . + {Location: (if $result.Class == "os-pkgs"
+                                      then (($result.Target | capture("\\((?<os>[^)]+)\\)$") | .os) // $result.Type)
+                                      else ($result.Target | sub("/package\\.json$"; "")) end)}] |
+                    group_by([.PkgName, .InstalledVersion, .Location]) |
+                    map(
+                      (map(.VulnerabilityID) | unique) as $ids |
+                      (unique_by(.VulnerabilityID)) as $vulns |
+                      {
+                        pkg: .[0].PkgName,
+                        installed: .[0].InstalledVersion,
+                        location: .[0].Location,
+                        severity: (map(.Severity) | min_by(sev_rank)),
+                        # A single upgrade has to clear every advisory, hence the highest per-advisory fix.
+                        fix: ([$vulns[] | min_fix] | map(select(. != null)) | sort_by(norm(.)) | last // "-"),
+                        advisories: (($vulns[0:3] | map(advisory_link) | join(", ")) +
+                                     (if ($ids | length) > 3 then " _+\(($ids | length) - 3) more_" else "" end))
+                      }
+                    ) |
+                    sort_by((.severity | sev_rank), .pkg, .location) |
+                    .[] |
+                    [.pkg, .severity, .installed, .fix, .advisories, .location] |
+                    @tsv
+                    ' "$trivy_json" 2>/dev/null || echo "")
+                  fi
+                  if [ -n "$rows" ]; then
+                    max_rows=50
+                    row_count=$(wc -l <<< "$rows")
+                    echo "| Package | Severity | Installed | Fix ≥ | Advisory | Location |"
+                    echo "|---------|----------|-----------|-------|----------|----------|"
+                    while IFS=$'\t' read -r pkg severity installed fix_ver advisories location; do
+                      echo "| \`$pkg\` | $severity | \`$installed\` | \`$fix_ver\` | $advisories | \`$location\` |"
+                    done <<< "$(head -n "$max_rows" <<< "$rows")"
+                    if [ "$row_count" -gt "$max_rows" ]; then
+                      echo ""
+                      echo "_$((row_count - max_rows)) more package(s) — refer to the [action logs]($LOGS_URL) for the full output._"
                     fi
-                    echo '```'
+                    echo ""
+                  else
+                    echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
                     echo ""
                   fi
                 fi
