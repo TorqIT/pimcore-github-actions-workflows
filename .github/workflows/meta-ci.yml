@@ -47,6 +47,7 @@ jobs:
       RUN_PHPSTAN: true
       POST_SCAN_RESULTS_TO_PR: true
       TRIVYIGNORE_PATH: ./.trivyignore.yaml
+      AGENT_SERVER: ${{ contains(matrix.branch, 'enterprise') }}
     secrets:
       GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
       GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
