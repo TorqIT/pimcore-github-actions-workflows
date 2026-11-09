@@ -15,6 +15,10 @@ inputs:
     required: false
     default: "true"
     description: "Whether the project uses an init container (omits the init Trivy row when false)"
+  AGENT_SERVER:
+    required: false
+    default: "false"
+    description: "Whether the agent-server image was built and scanned (adds the agent-server Trivy row when true)"
   REF:
     required: true
     description: "The branch/ref name used in the comment marker for deduplication"
@@ -60,6 +64,14 @@ runs:
         path: ./trivy-results-supervisord
       continue-on-error: true
 
+    - name: Download Trivy results (agent-server)
+      if: inputs.AGENT_SERVER == 'true'
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        name: trivy-results-agent-server-${{ steps.ref-slug.outputs.slug }}
+        path: ./trivy-results-agent-server
+      continue-on-error: true
+
     - name: Post security scan results to PR
       shell: bash
       env:
@@ -71,6 +83,7 @@ runs:
         COMPOSER_OUTCOME: ${{ inputs.COMPOSER_OUTCOME }}
         SEMGREP_OUTCOME: ${{ inputs.SEMGREP_OUTCOME }}
         INIT: ${{ inputs.INIT }}
+        AGENT_SERVER: ${{ inputs.AGENT_SERVER }}
         REF: ${{ inputs.REF }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
       run: |
@@ -96,6 +109,11 @@ runs:
         else
           labels=("npm audit" "Composer audit" "Semgrep SAST" "Trivy (php image)" "Trivy (supervisord image)")
           outcomes=("$npm_outcome" "$composer_outcome" "$semgrep_outcome" "$php_outcome" "$supervisord_outcome")
+        fi
+        if [[ "$AGENT_SERVER" == "true" ]]; then
+          agent_server_outcome=$(cat ./trivy-results-agent-server/trivy-agent-server-status.txt 2>/dev/null || echo "unknown")
+          labels+=("Trivy (agent-server image)")
+          outcomes+=("$agent_server_outcome")
         fi
 
         failure_count=0
@@ -504,6 +522,11 @@ runs:
               trivy_names=("php" "supervisord")
               trivy_labels=("Trivy (php image)" "Trivy (supervisord image)")
               trivy_outcomes=("$php_outcome" "$supervisord_outcome")
+            fi
+            if [[ "$AGENT_SERVER" == "true" ]]; then
+              trivy_names+=("agent-server")
+              trivy_labels+=("Trivy (agent-server image)")
+              trivy_outcomes+=("$agent_server_outcome")
             fi
             for j in "${!trivy_names[@]}"; do
               name="${trivy_names[$j]}"
