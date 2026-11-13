@@ -345,8 +345,8 @@ jobs:
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.AGENT_SERVER_IMAGE || 'agent-server' }}
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
+          CACHE_FROM: type=gha,scope=${{ vars.AGENT_SERVER_IMAGE || 'agent-server' }}
+          CACHE_TO: type=gha,scope=${{ vars.AGENT_SERVER_IMAGE || 'agent-server' }},mode=min
 
       - name: Build and push init image
         uses: ./reusable-workflow/.github/actions/build-and-push-pimcore-image
@@ -360,8 +360,8 @@ jobs:
           PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
           PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
+          CACHE_FROM: type=gha,scope=${{ vars.INIT_IMAGE || 'init' }}
+          CACHE_TO: type=gha,scope=${{ vars.INIT_IMAGE || 'init' }},mode=min
           TAGS: |
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:latest,
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:${{ github.run_id }}
@@ -384,6 +384,8 @@ jobs:
           NPM_SPA: ${{ inputs.NPM_SPA }}
           SPA_TWIG: ${{ inputs.SPA_TWIG }}
           NPM_RUN_CMD: ${{ inputs.NPM_RUN_CMD }}
+          CACHE_FROM: type=gha,scope=${{ vars.PHP_IMAGE || 'php' }}
+          CACHE_TO: type=gha,scope=${{ vars.PHP_IMAGE || 'php' }},mode=max
           TAGS: |
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:latest,
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:${{ github.run_id }}
@@ -400,6 +402,8 @@ jobs:
           PIMCORE_INSTANCE_IDENTIFIER: ${{ secrets.PIMCORE_INSTANCE_IDENTIFIER }}
           PIMCORE_ENCRYPTION_SECRET: ${{ secrets.PIMCORE_ENCRYPTION_SECRET }}
           TORQ_GITHUB_TOKEN: ${{ secrets.TORQ_GITHUB_TOKEN }}
+          CACHE_FROM: type=gha,scope=${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}
+          CACHE_TO: type=gha,scope=${{ vars.SUPERVISORD_IMAGE || 'supervisord' }},mode=min
           TAGS: |
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:latest,
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
