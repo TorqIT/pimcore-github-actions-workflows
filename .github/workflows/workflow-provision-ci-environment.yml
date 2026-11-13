@@ -247,8 +247,8 @@ jobs:
           PIMCORE_ROOT: project-repo
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           CONTAINER_REGISTRY: ${{ steps.container-registry.outputs.name }}.azurecr.io
-          CACHE_FROM: type=gha
-          CACHE_TO: type=gha,mode=min
+          CACHE_FROM: type=gha,scope=agent-server
+          CACHE_TO: type=gha,scope=agent-server,mode=min
 
       - name: Build Ansible inventory
         if: steps.services-vm.outputs.provisioned == 'true'
