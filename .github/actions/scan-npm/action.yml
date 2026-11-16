@@ -1,19 +1,17 @@
 name: "Scan npm dependencies"
 description: "Audits production dependencies of every package-lock.json in the project with better-npm-audit, so exceptions in a project's .nsprc are honoured. Fails when an unexcepted, fixable HIGH or CRITICAL vulnerability is found. Writes results to /tmp for the scan report."
-inputs:
-  BETTER_NPM_AUDIT_VERSION:
-    required: false
-    default: "4.2.1"
-    description: "Exact better-npm-audit version to run"
 
 runs:
   using: "composite"
   steps:
+    - name: Install better-npm-audit
+      shell: bash
+      run: npm ci --ignore-scripts --no-audit --no-fund --prefix "$GITHUB_ACTION_PATH/better-npm-audit"
+
     - name: Scan for npm vulnerabilities
       shell: bash
-      env:
-        BETTER_NPM_AUDIT_VERSION: ${{ inputs.BETTER_NPM_AUDIT_VERSION }}
       run: |
+        better_npm_audit="$GITHUB_ACTION_PATH/better-npm-audit/node_modules/.bin/better-npm-audit"
         result=0
         > /tmp/npm-audit.txt
         while IFS= read -r -d '' f; do
@@ -21,7 +19,7 @@ runs:
           dir_slug=$(echo "$dir" | sed 's|^\./||;s|/|__|g')
           slug=${dir_slug:-root}
           echo "--- Scanning $dir ---" | tee -a /tmp/npm-audit.txt
-          (cd "$dir" && npx --yes "better-npm-audit@$BETTER_NPM_AUDIT_VERSION" audit --production --json) \
+          (cd "$dir" && "$better_npm_audit" audit --production --json) \
             > "/tmp/npm-bna-$slug.json" 2> "/tmp/npm-bna-$slug.log" || true
           tee -a /tmp/npm-audit.txt < "/tmp/npm-bna-$slug.log"
           bna_error=$(jq -r 'if has("vulnerabilities") then empty else (.error // "no result") end' "/tmp/npm-bna-$slug.json" 2>/dev/null || echo "output is not valid JSON")
@@ -48,5 +46,5 @@ runs:
           else
             echo "No unexcepted fixable high/critical vulnerabilities found" | tee -a /tmp/npm-audit.txt
           fi
-        done < <(find . -name "package-lock.json" -not -path "*/node_modules/*" -print0)
+        done < <(find . -name "package-lock.json" -not -path "*/node_modules/*" -not -path "./reusable-workflow/*" -print0)
         exit $result
