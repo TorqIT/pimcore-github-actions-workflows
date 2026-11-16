@@ -278,7 +278,7 @@ runs:
                     if ($found | length) > 0 then $found else [$versions[$name] // "unknown"] end;
                   $vulns | to_entries[] |
                   select((.value.severity == "high" or .value.severity == "critical") and (.value.fixAvailable != false)) |
-                  # Hide packages flagged only by advisories excepted in the project's .nsprc.
+                  # Hide packages flagged only by advisories excepted in the project .nsprc.
                   select((root_advisories($vulns; .key; []) | unique) as $advisories |
                     ($advisories | length) == 0 or ($advisories - $excepted | length) > 0) |
                   installed(.key) as $installed |
