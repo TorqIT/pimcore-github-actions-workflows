@@ -270,71 +270,17 @@ jobs:
       - name: Scan for npm vulnerabilities
         id: npm-scan
         continue-on-error: true
-        run: |
-          result=0
-          > /tmp/npm-audit.txt
-          while IFS= read -r -d '' f; do
-            dir=$(dirname "$f")
-            dir_slug=$(echo "$dir" | sed 's|^\./||;s|/|__|g')
-            echo "--- Scanning $dir ---" | tee -a /tmp/npm-audit.txt
-            npm audit --omit=dev --prefix "$dir" 2>&1 | tee -a /tmp/npm-audit.txt || true
-            npm audit --json --omit=dev --prefix "$dir" 2>/dev/null \
-              | jq --arg dir "$dir" '. + {_scannedDir: $dir}' \
-              > "/tmp/npm-raw-${dir_slug:-root}.json" || true
-            # Include nested copies (keyed by lockfile path) so the report can show
-            # the version npm actually flagged rather than only the hoisted one.
-            jq '[.packages // {} | to_entries[] | select(.key | test("(^|/)node_modules/(@[^/]+/[^/]+|[^/]+)$")) | {path: .key, name: (.key | sub("^.*node_modules/"; "")), version: .value.version}]' \
-              "$dir/package-lock.json" > "/tmp/npm-packages-${dir_slug:-root}.json" 2>/dev/null || echo '[]' > "/tmp/npm-packages-${dir_slug:-root}.json"
-            fixable_count=$(jq '[(.vulnerabilities // {}) | to_entries[] | select((.value.severity == "high" or .value.severity == "critical") and .value.fixAvailable != false)] | length' "/tmp/npm-raw-${dir_slug:-root}.json" 2>/dev/null || echo 0)
-            if [ "$fixable_count" -gt 0 ]; then
-              result=1
-            else
-              echo "No fixable high/critical vulnerabilities found" | tee -a /tmp/npm-audit.txt
-            fi
-          done < <(find . -name "package-lock.json" -not -path "*/node_modules/*" -print0)
-          exit $result
+        uses: ./reusable-workflow/.github/actions/scan-npm
 
       - name: Scan for composer vulnerabilities
         id: composer-scan
         continue-on-error: true
-        run: |
-          PIMCORE_ENTERPRISE_TOKEN="${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}"
-          if [[ -z "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
-            PIMCORE_ENTERPRISE_TOKEN=$(printf '%s' '${{ secrets.BUILD_TIME_SECRETS }}' | jq -r '."pimcore-enterprise-token" // empty' 2>/dev/null || true)
-          fi
-          if [[ -n "$PIMCORE_ENTERPRISE_TOKEN" ]]; then
-            echo "::add-mask::$PIMCORE_ENTERPRISE_TOKEN"
-            composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.repo.pimcore.com token "$PIMCORE_ENTERPRISE_TOKEN"
-          fi
-          REPMAN_CLIENT_TOKEN="${{ secrets.REPMAN_CLIENT_TOKEN }}"
-          if [[ -z "$REPMAN_CLIENT_TOKEN" ]]; then
-            REPMAN_CLIENT_TOKEN=$(printf '%s' '${{ secrets.BUILD_TIME_SECRETS }}' | jq -r '."repman-client-token" // empty' 2>/dev/null || true)
-          fi
-          if [[ -n "$REPMAN_CLIENT_TOKEN" ]]; then
-            echo "::add-mask::$REPMAN_CLIENT_TOKEN"
-            REPMAN_HOST=$(jq -r '.repositories // [] | map(select(.url // "" | contains("repman.io"))) | .[0].url // "" | ltrimstr("https://") | ltrimstr("http://") | rtrimstr("/")' ${{ inputs.PIMCORE_ROOT }}/composer.json 2>/dev/null || true)
-            if [[ -n "$REPMAN_HOST" ]]; then
-              composer --working-dir=${{ inputs.PIMCORE_ROOT }} config --global --auth http-basic.$REPMAN_HOST token "$REPMAN_CLIENT_TOKEN"
-            fi
-          fi
-          install_exit=0
-          if [ ! -f "${{ inputs.PIMCORE_ROOT }}/composer.lock" ]; then
-            set +e
-            composer --working-dir=${{ inputs.PIMCORE_ROOT }} install --prefer-dist --no-scripts --ignore-platform-reqs > /tmp/composer-install.txt 2>&1
-            install_exit=$?
-            set -e
-            cat /tmp/composer-install.txt
-          fi
-          {
-            cat /tmp/composer-install.txt 2>/dev/null || true
-            composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=report --locked --no-dev --format=json > /tmp/composer-audit.json 2>/dev/null || true
-            composer --working-dir=${{ inputs.PIMCORE_ROOT }} audit --abandoned=report --locked --no-dev || true
-            jq '[.packages[] | {name, version}]' "${{ inputs.PIMCORE_ROOT }}/composer.lock" > /tmp/composer-packages.json 2>/dev/null || echo '[]' > /tmp/composer-packages.json
-          } 2>&1 | tee /tmp/composer-audit.txt || true
-          echo "$install_exit" > /tmp/composer-install-exit.txt
-          [ "$install_exit" -eq 0 ] || exit 1
-          high_critical_count=$(jq '[.advisories // {} | to_entries[] | .value[] | select(.ignored != true and (.severity == "high" or .severity == "critical"))] | length' /tmp/composer-audit.json 2>/dev/null || echo 0)
-          [ "$high_critical_count" -eq 0 ]
+        uses: ./reusable-workflow/.github/actions/scan-composer
+        with:
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
+          REPMAN_CLIENT_TOKEN: ${{ secrets.REPMAN_CLIENT_TOKEN }}
+          BUILD_TIME_SECRETS: ${{ secrets.BUILD_TIME_SECRETS }}
 
       - name: Run Semgrep SAST scan
         id: semgrep-scan
@@ -480,61 +426,15 @@ jobs:
           PUSH: false
           LOAD: true
 
-      - name: Free disk space before Trivy scan if needed
-        if: matrix.enabled
-        run: |
-          FREE_GB=$(df / --output=avail -BG | tail -1 | tr -d 'G')
-          if [ "$FREE_GB" -lt 10 ]; then
-            sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
-            sudo swapoff -a && sudo rm -f /swapfile
-          fi
-        shell: bash
-
-      - name: Run Trivy vulnerability scanner on image
-        id: trivy-scan
-        if: matrix.enabled
-        continue-on-error: true
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      - name: Scan ${{ matrix.name }} image
+        if: always()
+        uses: ./reusable-workflow/.github/actions/scan-image
         with:
-          image-ref: ${{ matrix.image_ref || format('{0}:ci-{1}', matrix.name, github.run_id) }}
-          format: "json"
-          output: "trivy-${{ matrix.name }}.json"
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          scanners: "vuln"
-          severity: "CRITICAL,HIGH"
-          trivyignores: ${{ inputs.TRIVYIGNORE_PATH }}
-          timeout: "15m"
-
-      - name: Print Trivy results to log
-        if: always()
-        env:
-          TRIVY_TABLE_MODE: detailed
-        run: |
-          if [ -f trivy-${{ matrix.name }}.json ]; then
-            trivy convert --format table trivy-${{ matrix.name }}.json || cat trivy-${{ matrix.name }}.json
-          fi
-
-      - name: Upload Trivy results
-        if: always()
-        run: echo "${{ steps.trivy-scan.outcome }}" > trivy-${{ matrix.name }}-status.txt
-
-      - name: Upload Trivy results artifact
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: trivy-results-${{ matrix.name }}-${{ steps.ref-slug.outputs.slug }}
-          path: |
-            trivy-${{ matrix.name }}.json
-            trivy-${{ matrix.name }}-status.txt
-          if-no-files-found: ignore
-
-      - name: Fail if Trivy found vulnerabilities
-        if: steps.trivy-scan.outcome == 'failure'
-        run: |
-          echo "Trivy found CRITICAL or HIGH vulnerabilities in the ${{ matrix.name }} image"
-          exit 1
+          NAME: ${{ matrix.name }}
+          IMAGE_REF: ${{ matrix.image_ref || format('{0}:ci-{1}', matrix.name, github.run_id) }}
+          ARTIFACT_SUFFIX: ${{ steps.ref-slug.outputs.slug }}
+          SKIP_SCAN: ${{ !matrix.enabled || job.status != 'success' }}
+          TRIVYIGNORE_PATH: ${{ inputs.TRIVYIGNORE_PATH }}
 
   post-scan-report:
     name: Post security scan results to PR

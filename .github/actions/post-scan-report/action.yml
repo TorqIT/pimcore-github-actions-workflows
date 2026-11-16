@@ -270,6 +270,7 @@ runs:
                   # a path (older scan artifacts) fall back to a lookup by name.
                   (($pkgs_in[0] // []) | map(select(.path) | {(.path): .version}) | add // {}) as $by_path |
                   (($pkgs_in[0] // []) | map(select((.path // ("node_modules/" + .name)) == ("node_modules/" + .name)) | {(.name): .version}) | add // {}) as $versions |
+                  (._excepted // []) as $excepted |
                   (.vulnerabilities // {}) as $vulns |
                   # Every installed version of a vulnerable package, lowest first.
                   def installed($name):
@@ -277,6 +278,9 @@ runs:
                     if ($found | length) > 0 then $found else [$versions[$name] // "unknown"] end;
                   $vulns | to_entries[] |
                   select((.value.severity == "high" or .value.severity == "critical") and (.value.fixAvailable != false)) |
+                  # Hide packages flagged only by advisories excepted in the project's .nsprc.
+                  select((root_advisories($vulns; .key; []) | unique) as $advisories |
+                    ($advisories | length) == 0 or ($advisories - $excepted | length) > 0) |
                   installed(.key) as $installed |
                   # The lowest installed copy is the one furthest from a fix.
                   $installed[0] as $current_ver |
