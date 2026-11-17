@@ -460,6 +460,8 @@ jobs:
           AGENT_SERVER: ${{ inputs.AGENT_SERVER }}
           REF: ${{ inputs.PROJECT_REPOSITORY_REF }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          TRIVYIGNORE_PATH: ${{ inputs.TRIVYIGNORE_PATH }}
 
   run-unit-tests:
     name: Run unit tests

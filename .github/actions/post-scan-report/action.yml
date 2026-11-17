@@ -25,6 +25,14 @@ inputs:
   GITHUB_TOKEN:
     required: true
     description: "GitHub token for posting PR comments (requires pull-requests: write)"
+  PIMCORE_ROOT:
+    required: false
+    default: "."
+    description: "The path (relative to the project's root) in which the Pimcore files exist, used to point at composer.json in ignore instructions"
+  TRIVYIGNORE_PATH:
+    required: false
+    default: ""
+    description: "The .trivyignore.yaml path passed to Trivy, used in ignore instructions"
 
 runs:
   using: "composite"
@@ -86,10 +94,50 @@ runs:
         AGENT_SERVER: ${{ inputs.AGENT_SERVER }}
         REF: ${{ inputs.REF }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
+        PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+        TRIVYIGNORE_PATH: ${{ inputs.TRIVYIGNORE_PATH }}
       run: |
         npm_outcome="$NPM_OUTCOME"
         composer_outcome="$COMPOSER_OUTCOME"
         semgrep_outcome="$SEMGREP_OUTCOME"
+
+        IGNORE_DOCS_URL="https://github.com/TorqIT/pimcore-github-actions-workflows#ignoring-vulnerabilities"
+        ignore_expiry=$(date -u -d '+90 days' +%F)
+
+        project_path() {
+          local path="${1#./}"
+          echo "${path#./}"
+        }
+
+        print_npm_ignore_hint() {
+          local nsprc_path advisory_id="${2:-GHSA-xxxx-xxxx-xxxx}"
+          nsprc_path=$(project_path "$1/.nsprc")
+          printf '%s\n' '<details>' '<summary>How to ignore an npm advisory</summary>' ''
+          printf '%s\n' "If an advisory does not affect this project, add it to \`$nsprc_path\` (next to its \`package-lock.json\`):" ''
+          printf '%s\n' '```json' '{' "  \"$advisory_id\": {" '    "notes": "Why this does not affect us",' "    \"expiry\": \"$ignore_expiry\"" '  }' '}' '```' ''
+          printf '%s\n' "The exception stops applying after \`expiry\`. See [Ignoring vulnerabilities]($IGNORE_DOCS_URL)." '' '</details>' ''
+        }
+
+        print_composer_ignore_hint() {
+          local composer_path advisory_id="${1:-CVE-xxxx-xxxxx}"
+          composer_path=$(project_path "${PIMCORE_ROOT:-.}/composer.json")
+          printf '%s\n' '<details>' '<summary>How to ignore a Composer advisory</summary>' ''
+          printf '%s\n' "If an advisory does not affect this project, add it to \`config.audit.ignore\` in \`$composer_path\`:" ''
+          printf '%s\n' '```json' '"config": {' '  "audit": {' '    "ignore": {' "      \"$advisory_id\": \"Why this does not affect us (review by $ignore_expiry)\"" '    }' '  }' '}' '```' ''
+          printf '%s\n' "Composer ignores never expire, so put a review date in the reason. See [Ignoring vulnerabilities]($IGNORE_DOCS_URL)." '' '</details>' ''
+        }
+
+        print_trivy_ignore_hint() {
+          local ignore_path advisory_id="${1:-CVE-xxxx-xxxxx}"
+          ignore_path=$(project_path "${TRIVYIGNORE_PATH:-./.trivyignore.yaml}")
+          printf '%s\n' '<details>' '<summary>How to ignore an image vulnerability</summary>' ''
+          printf '%s\n' "If a vulnerability does not affect this project, add it to \`$ignore_path\`:" ''
+          printf '%s\n' '```yaml' 'vulnerabilities:' "  - id: $advisory_id" '    statement: Why this does not affect us' "    expired_at: $ignore_expiry" '```' ''
+          if [ -z "$TRIVYIGNORE_PATH" ]; then
+            printf '%s\n' "This workflow is not reading an ignore file yet: also pass \`TRIVYIGNORE_PATH: ./.trivyignore.yaml\` to the CI workflow." ''
+          fi
+          printf '%s\n' "The exception stops applying after \`expired_at\`. See [Ignoring vulnerabilities]($IGNORE_DOCS_URL)." '' '</details>' ''
+        }
         php_outcome=$(cat ./trivy-results-php/trivy-php-status.txt 2>/dev/null || echo "unknown")
         supervisord_outcome=$(cat ./trivy-results-supervisord/trivy-supervisord-status.txt 2>/dev/null || echo "unknown")
 
@@ -368,6 +416,9 @@ runs:
                   echo "| \`$pkg\` | $severity | \`$installed\` | \`$fix_ver\` | $advisory_col | $cmd |"
                 done <<< "$rows"
                 echo ""
+                first_advisory_url=$(head -n 1 <<< "$rows" | cut -f6 | cut -d' ' -f1)
+                if [ "$first_advisory_url" = "-" ]; then first_advisory_url=""; fi
+                print_npm_ignore_hint "$scan_dir" "$(basename "${first_advisory_url:-GHSA-xxxx-xxxx-xxxx}")"
               done
               if [ "$found_any" = false ]; then
                 echo "Could not parse detailed results — refer to the [action logs]($LOGS_URL)."
@@ -467,6 +518,7 @@ runs:
                     echo "| \`$pkg\` | $severity | \`$current_ver\` | \`$fix_ver\` | $advisory_col | \`composer update $pkg\` |"
                   done <<< "$rows"
                   echo ""
+                  print_composer_ignore_hint "$(head -n 1 <<< "$rows" | awk -F'\t' '{ print ($7 != "-" && $7 != "") ? $7 : $5 }')"
                 else
                   echo "No HIGH or CRITICAL advisories found — refer to the [action logs]($LOGS_URL) for lower-severity findings."
                   echo ""
@@ -532,6 +584,8 @@ runs:
               trivy_labels+=("Trivy (agent-server image)")
               trivy_outcomes+=("$agent_server_outcome")
             fi
+            trivy_failed=false
+            trivy_ignore_id=""
             for j in "${!trivy_names[@]}"; do
               name="${trivy_names[$j]}"
               label="${trivy_labels[$j]}"
@@ -548,6 +602,10 @@ runs:
                   echo "These may contain OS-level package vulnerabilities that require updates (e.g. \`apt update <package>\`) to be added to the Dockerfile."
                   echo ""
                   trivy_json="./trivy-results-${name}/trivy-${name}.json"
+                  trivy_failed=true
+                  if [ -z "$trivy_ignore_id" ]; then
+                    trivy_ignore_id=$(jq -r '[.Results[]?.Vulnerabilities[]?.VulnerabilityID] | first // empty' "$trivy_json" 2>/dev/null || true)
+                  fi
                   rows=""
                   if jq empty "$trivy_json" 2>/dev/null; then
                     rows=$(jq -r '
@@ -617,6 +675,10 @@ runs:
                 echo ""
               fi
             done
+            if [ "$trivy_failed" = true ]; then
+              echo ""
+              print_trivy_ignore_hint "$trivy_ignore_id"
+            fi
           fi
 
         } > /tmp/pr-comment.md
