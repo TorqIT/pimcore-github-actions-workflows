@@ -34,7 +34,7 @@ jobs:
             2025.x-enterprise,
             2025.x-azure,
             2025.x-enterprise-azure,
-            2026.x,
+            2026.x-temp,
             2026.x-enterprise,
             2026.x-azure,
             2026.x-enterprise-azure,
