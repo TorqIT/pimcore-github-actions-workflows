@@ -34,7 +34,6 @@ jobs:
             2025.x-enterprise,
             2025.x-azure,
             2025.x-enterprise-azure,
-            2026.x-temp,
             2026.x-enterprise,
             2026.x-azure,
             2026.x-enterprise-azure,
@@ -96,4 +95,3 @@ jobs:
       GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
 
   # TODO test CD to VM
-
