@@ -115,7 +115,7 @@ runs:
           printf '%s\n' '<details>' '<summary>How to ignore an npm advisory</summary>' ''
           printf '%s\n' "If an advisory does not affect this project, add it to \`$nsprc_path\` (next to its \`package-lock.json\`):" ''
           printf '%s\n' '```json' '{' "  \"$advisory_id\": {" '    "notes": "Why this does not affect us",' "    \"expiry\": \"$ignore_expiry\"" '  }' '}' '```' ''
-          printf '%s\n' "The exception stops applying after \`expiry\`. See [Ignoring vulnerabilities]($IGNORE_DOCS_URL)." '' '</details>' ''
+          printf '%s\n' "The exception stops applying after \`expiry\`." '' '</details>' ''
         }
 
         print_composer_ignore_hint() {
@@ -124,7 +124,7 @@ runs:
           printf '%s\n' '<details>' '<summary>How to ignore a Composer advisory</summary>' ''
           printf '%s\n' "If an advisory does not affect this project, add it to \`config.audit.ignore\` in \`$composer_path\`:" ''
           printf '%s\n' '```json' '"config": {' '  "audit": {' '    "ignore": {' "      \"$advisory_id\": \"Why this does not affect us (review by $ignore_expiry)\"" '    }' '  }' '}' '```' ''
-          printf '%s\n' "Composer ignores never expire, so put a review date in the reason. See [Ignoring vulnerabilities]($IGNORE_DOCS_URL)." '' '</details>' ''
+          printf '%s\n' "Composer ignores never expire, so put a review date in the reason." '' '</details>' ''
         }
 
         print_trivy_ignore_hint() {
@@ -136,7 +136,7 @@ runs:
           if [ -z "$TRIVYIGNORE_PATH" ]; then
             printf '%s\n' "This workflow is not reading an ignore file yet: also pass \`TRIVYIGNORE_PATH: ./.trivyignore.yaml\` to the CI workflow." ''
           fi
-          printf '%s\n' "The exception stops applying after \`expired_at\`. See [Ignoring vulnerabilities]($IGNORE_DOCS_URL)." '' '</details>' ''
+          printf '%s\n' "The exception stops applying after \`expired_at\`." '' '</details>' ''
         }
         php_outcome=$(cat ./trivy-results-php/trivy-php-status.txt 2>/dev/null || echo "unknown")
         supervisord_outcome=$(cat ./trivy-results-supervisord/trivy-supervisord-status.txt 2>/dev/null || echo "unknown")
