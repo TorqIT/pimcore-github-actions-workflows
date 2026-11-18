@@ -1,0 +1,102 @@
+name: "Upload SBOMs to Dependency-Track"
+description: "Generates CycloneDX SBOMs with Trivy for the given images and the project's npm lockfiles, uploads each to its own Dependency-Track project (versioned and tagged by environment, under the project's parent) and keeps them as a workflow artifact. Upload failures are reported as warnings so they never block a deployment."
+inputs:
+  DEPENDENCY_TRACK_URL:
+    required: true
+    description: "Base URL of the Dependency-Track instance (e.g. https://dependency-track.example.com)"
+  DEPENDENCY_TRACK_API_KEY:
+    required: true
+    description: "Dependency-Track API key with the BOM_UPLOAD and PROJECT_CREATION_UPLOAD permissions"
+  PROJECT:
+    required: true
+    description: "Name of the parent (collection) project in Dependency-Track; each SBOM is uploaded to a child project named <PROJECT>-<name>"
+  PARENT_VERSION:
+    required: false
+    default: ""
+    description: "Version of the parent project in Dependency-Track, if it has one"
+  ENVIRONMENT:
+    required: true
+    description: "Environment being deployed (e.g. production); used as the child projects' version and tag"
+  IMAGES:
+    required: true
+    description: "Images to generate SBOMs for, one per line as <name>=<image reference> (e.g. php=registry.example.com/php:12345)"
+  LOCKFILES:
+    required: false
+    default: "true"
+    description: "Whether to also upload an SBOM for each npm package-lock.json in the project (named after its directory)"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install Trivy
+      uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+      with:
+        # Keep in step with the Trivy server Dependency-Track analyses SBOMs with, so CI and Dependency-Track agree
+        version: "v0.76.2"
+        cache: true
+
+    - name: Generate and upload SBOMs
+      shell: bash
+      env:
+        DEPENDENCY_TRACK_URL: ${{ inputs.DEPENDENCY_TRACK_URL }}
+        DEPENDENCY_TRACK_API_KEY: ${{ inputs.DEPENDENCY_TRACK_API_KEY }}
+        PROJECT: ${{ inputs.PROJECT }}
+        PARENT_VERSION: ${{ inputs.PARENT_VERSION }}
+        ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
+        IMAGES: ${{ inputs.IMAGES }}
+        LOCKFILES: ${{ inputs.LOCKFILES }}
+      run: |
+        set -uo pipefail
+        mkdir -p sboms
+
+        upload() {
+          local name="$1" file="$2" project="$PROJECT-$1"
+          local parent_args=(-F "parentName=$PROJECT")
+          [ -n "$PARENT_VERSION" ] && parent_args+=(-F "parentVersion=$PARENT_VERSION")
+          if curl --fail-with-body --silent --show-error --output /dev/null \
+              -X POST "${DEPENDENCY_TRACK_URL%/}/api/v1/bom" \
+              -H "X-Api-Key: $DEPENDENCY_TRACK_API_KEY" \
+              -F "autoCreate=true" \
+              -F "projectName=$project" \
+              -F "projectVersion=$ENVIRONMENT" \
+              -F "projectTags=$ENVIRONMENT" \
+              "${parent_args[@]}" \
+              -F "bom=@$file"; then
+            echo "Uploaded SBOM for $project ($ENVIRONMENT)"
+          else
+            echo "::warning::Could not upload the SBOM for $project to Dependency-Track"
+          fi
+        }
+
+        while IFS='=' read -r name ref; do
+          name=$(xargs <<< "$name"); ref=$(xargs <<< "$ref")
+          [ -z "$name" ] && continue
+          # Composer packages ship package.json files for their prebuilt assets with placeholder versions; they're
+          # covered by the Composer package version, and npm lockfiles get their own SBOMs below
+          if trivy image --quiet --format cyclonedx --output "sboms/$name.cdx.json" \
+              --skip-files "**/vendor/**/package.json,**/bundles/**/package.json" "$ref"; then
+            upload "$name" "sboms/$name.cdx.json"
+          else
+            echo "::warning::Could not generate an SBOM for $ref"
+          fi
+        done <<< "$IMAGES"
+
+        if [ "$LOCKFILES" = "true" ]; then
+          while IFS= read -r -d '' lockfile; do
+            dir=$(dirname "$lockfile"); dir="${dir#./}"
+            name=$([ "$dir" = "." ] && echo "npm" || echo "${dir//\//-}")
+            if trivy fs --quiet --format cyclonedx --output "sboms/$name.cdx.json" "$lockfile"; then
+              upload "$name" "sboms/$name.cdx.json"
+            else
+              echo "::warning::Could not generate an SBOM for $lockfile"
+            fi
+          done < <(find . -name package-lock.json -not -path "*/node_modules/*" -not -path "*/vendor/*" -not -path "./reusable-workflow/*" -print0)
+        fi
+
+    - name: Keep SBOMs with the workflow run
+      if: always()
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: sboms-${{ inputs.ENVIRONMENT }}
+        path: sboms/
+        if-no-files-found: ignore

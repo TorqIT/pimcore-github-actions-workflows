@@ -257,6 +257,9 @@ on:
       GITHUB_APP_PRIVATE_KEY:
         required: false
         description: The private key of the GitHub App used to generate a token for checking out the project repository and submodules
+      DEPENDENCY_TRACK_API_KEY:
+        required: false
+        description: (Optional) Dependency-Track API key used to upload SBOMs when the DEPENDENCY_TRACK_URL variable is set
 
 jobs:
   build-and-push-images:
@@ -407,6 +410,21 @@ jobs:
           TAGS: |
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:latest,
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
+
+      - name: Upload SBOMs to Dependency-Track
+        if: ${{ vars.DEPENDENCY_TRACK_URL != '' }}
+        uses: ./reusable-workflow/.github/actions/upload-sboms
+        with:
+          DEPENDENCY_TRACK_URL: ${{ vars.DEPENDENCY_TRACK_URL }}
+          DEPENDENCY_TRACK_API_KEY: ${{ secrets.DEPENDENCY_TRACK_API_KEY }}
+          PROJECT: ${{ vars.DEPENDENCY_TRACK_PROJECT || github.event.repository.name }}
+          PARENT_VERSION: ${{ vars.DEPENDENCY_TRACK_PARENT_VERSION }}
+          ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
+          IMAGES: |
+            init=${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:${{ github.run_id }}
+            php=${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:${{ github.run_id }}
+            supervisord=${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
+            ${{ inputs.AGENT_SERVER && format('agent-server={0}/{1}:{2}', vars.CONTAINER_REGISTRY, vars.AGENT_SERVER_IMAGE || 'agent-server', github.run_id) || '' }}
 
       - name: Remove exception from Azure Container Registry firewall, if one is in place
         if: always()

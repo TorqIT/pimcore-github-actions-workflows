@@ -27,3 +27,37 @@ At present, reusable workflows can access [GitHub Environment](https://docs.gith
 ### Self-hosted runners
 
 All workflows contain an optional `RUNNER` input that will accept the name of a self-hosted runner. If this parameter is not provided, an `ubuntu-24.04` GitHub runner will be used.
+
+## Vulnerability scanning
+
+`ci-docker.yml` scans with [Trivy](https://trivy.dev/): the project's lockfiles (`composer.lock`, `package-lock.json`, …, production dependencies only) and each built image (OS packages and installed libraries). It fails on fixable HIGH and CRITICAL vulnerabilities and, with `POST_SCAN_RESULTS_TO_PR`, posts the results to the PR.
+
+### Ignoring vulnerabilities
+
+If a vulnerability does not affect a project, add it to the project's `.trivyignore.yaml` and pass `TRIVYIGNORE_PATH: ./.trivyignore.yaml` to the CI workflow:
+
+```yaml
+vulnerabilities:
+  - id: CVE-2026-12345
+    statement: Why this does not affect us
+    expired_at: 2027-03-01
+```
+
+The exception stops applying after `expired_at`. This one file covers Composer, npm and image findings, replacing `.nsprc` files and Composer's `config.audit.ignore`, which are no longer read.
+
+## Dependency-Track
+
+The deploy workflows (`deploy-to-azure-container-apps.yml` and `deploy-to-vm-docker-compose.yml`) can upload a CycloneDX SBOM of everything they deploy to [Dependency-Track](https://dependencytrack.org/), which then monitors it for newly published vulnerabilities. SBOMs are generated with Trivy for each built image and for each npm `package-lock.json` in the project, and are also kept as a workflow artifact.
+
+To enable it, set these GitHub variables (organization-wide or per repository/environment) and pass the secret:
+
+| Name | Type | Description |
+|------|------|-------------|
+| `DEPENDENCY_TRACK_URL` | Variable | Base URL of the Dependency-Track instance. Uploads only run when this is set. |
+| `DEPENDENCY_TRACK_PROJECT` | Variable | Name of the project's parent project in Dependency-Track. Defaults to the repository name. |
+| `DEPENDENCY_TRACK_PARENT_VERSION` | Variable | Version of that parent project, if it has one. |
+| `DEPENDENCY_TRACK_API_KEY` | Secret | API key of a Dependency-Track team with the `BOM_UPLOAD` and `PROJECT_CREATION_UPLOAD` permissions. |
+
+The parent project must already exist; create it as a collection project. Each SBOM goes into a child project named `<parent>-<name>` (e.g. `acme-php`, `acme-supervisord`, or `acme-frontend` for `frontend/package-lock.json`), whose version and tag are the deployed `ENVIRONMENT`. Each deploy replaces that environment's previous SBOM. Built images carry the standard `org.opencontainers.image.revision` and `org.opencontainers.image.source` labels, which Trivy includes in the SBOM, tying it to the commit it was built from.
+
+A failed upload is reported as a warning and does not fail the deployment.

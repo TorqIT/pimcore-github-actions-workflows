@@ -178,6 +178,10 @@ runs:
         while IFS= read -r line; do line="$(echo "$line" | xargs)"; [ -n "$line" ] && ARGS+=(--tag "$line"); done <<< "$(tr ',' '\n' <<< '${{ inputs.TAGS }}')"
         while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--build-arg "$line"); done <<< '${{ steps.build-args.outputs.args }}'
         while IFS= read -r line; do [ -n "$line" ] && ARGS+=(--secret "$line"); done <<< '${{ steps.build-secrets.outputs.secrets }}'
+        # Standard OCI labels tie the image (and any SBOM generated from it) back to the commit it was built from
+        REVISION=$(git rev-parse HEAD 2>/dev/null || echo "$GITHUB_SHA")
+        SOURCE=$(git remote get-url origin 2>/dev/null | sed -E 's#^git@([^:]+):#https://\1/#; s#://[^@/]+@#://#; s#\.git$##' || true)
+        ARGS+=(--label "org.opencontainers.image.revision=$REVISION" --label "org.opencontainers.image.source=${SOURCE:-$GITHUB_SERVER_URL/$GITHUB_REPOSITORY}")
         [ '${{ inputs.PUSH }}' = "true" ] && ARGS+=(--push)
         [ '${{ inputs.LOAD }}' = "true" ] && ARGS+=(--load)
         ARGS+=(".")
