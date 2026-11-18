@@ -1,0 +1,8 @@
+{
+  "name": "scan-npm-better-npm-audit",
+  "private": true,
+  "description": "Pins better-npm-audit and its dependencies for the scan-npm action",
+  "dependencies": {
+    "better-npm-audit": "4.2.1"
+  }
+}
