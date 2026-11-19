@@ -124,6 +124,11 @@ on:
         type: boolean
         default: false
         description: "Whether the project uses pimcore/pimcore-agent-bundle and its agent-server image should be built and scanned. The exact version to build is read from the project's composer.json. Requires PIMCORE_ENTERPRISE_TOKEN."
+      AGENT_SERVER_DOCKERFILE:
+        required: false
+        type: string
+        default: ""
+        description: "The path (relative to the project's root) of a Dockerfile to build the agent-server image with instead of the one shipped in pimcore/pimcore-agent-bundle. If empty, {PIMCORE_ROOT}/.docker/agent-server/Dockerfile.patch is used when it exists."
       RUN_UNIT_TESTS:
         required: false
         type: boolean
@@ -423,6 +428,7 @@ jobs:
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           CONTAINER_REGISTRY: ci
           IMAGE: agent-server
+          DOCKERFILE: ${{ inputs.AGENT_SERVER_DOCKERFILE }}
           PUSH: false
           LOAD: true
 
