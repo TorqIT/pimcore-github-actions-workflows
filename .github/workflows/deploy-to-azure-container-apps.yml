@@ -219,6 +219,16 @@ on:
         type: boolean
         default: false
         description: "Whether to use a GitHub App token for checking out the project repository and submodules"
+      DEPENDENCY_TRACK_URL:
+        required: false
+        type: string
+        default: ""
+        description: "(Optional) Base URL of a Dependency-Track instance to upload SBOMs of the deployed images and npm lockfiles to (e.g. https://dependency-track.example.com). Requires the DEPENDENCY_TRACK_API_KEY secret. If empty, no SBOMs are uploaded"
+      DEPENDENCY_TRACK_PROJECT:
+        required: false
+        type: string
+        default: ${{ github.event.repository.name }}
+        description: "Name of the project's parent (collection) project in Dependency-Track, which must already exist; SBOMs are uploaded to child projects named <DEPENDENCY_TRACK_PROJECT>-<image or lockfile directory>"
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -412,13 +422,12 @@ jobs:
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
 
       - name: Upload SBOMs to Dependency-Track
-        if: ${{ vars.DEPENDENCY_TRACK_URL != '' }}
+        if: ${{ inputs.DEPENDENCY_TRACK_URL != '' }}
         uses: ./reusable-workflow/.github/actions/upload-sboms
         with:
-          DEPENDENCY_TRACK_URL: ${{ vars.DEPENDENCY_TRACK_URL }}
+          DEPENDENCY_TRACK_URL: ${{ inputs.DEPENDENCY_TRACK_URL }}
           DEPENDENCY_TRACK_API_KEY: ${{ secrets.DEPENDENCY_TRACK_API_KEY }}
-          PROJECT: ${{ vars.DEPENDENCY_TRACK_PROJECT || github.event.repository.name }}
-          PARENT_VERSION: ${{ vars.DEPENDENCY_TRACK_PARENT_VERSION }}
+          PROJECT: ${{ inputs.DEPENDENCY_TRACK_PROJECT }}
           ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
           IMAGES: |
             init=${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:${{ github.run_id }}

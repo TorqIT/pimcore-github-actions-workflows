@@ -10,10 +10,6 @@ inputs:
   PROJECT:
     required: true
     description: "Name of the parent (collection) project in Dependency-Track; each SBOM is uploaded to a child project named <PROJECT>-<name>"
-  PARENT_VERSION:
-    required: false
-    default: ""
-    description: "Version of the parent project in Dependency-Track, if it has one"
   ENVIRONMENT:
     required: true
     description: "Environment being deployed (e.g. production); used as the child projects' version and tag"
@@ -23,7 +19,7 @@ inputs:
   LOCKFILES:
     required: false
     default: "true"
-    description: "Whether to also upload an SBOM for each npm package-lock.json in the project (named after its directory)"
+    description: "Whether to also upload an SBOM for each npm package-lock.json in the project, named after the name in the package.json beside it (or its directory if it has none)"
 
 runs:
   using: "composite"
@@ -41,7 +37,6 @@ runs:
         DEPENDENCY_TRACK_URL: ${{ inputs.DEPENDENCY_TRACK_URL }}
         DEPENDENCY_TRACK_API_KEY: ${{ inputs.DEPENDENCY_TRACK_API_KEY }}
         PROJECT: ${{ inputs.PROJECT }}
-        PARENT_VERSION: ${{ inputs.PARENT_VERSION }}
         ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
         IMAGES: ${{ inputs.IMAGES }}
         LOCKFILES: ${{ inputs.LOCKFILES }}
@@ -52,7 +47,6 @@ runs:
         upload() {
           local name="$1" file="$2" project="$PROJECT-$1"
           local parent_args=(-F "parentName=$PROJECT")
-          [ -n "$PARENT_VERSION" ] && parent_args+=(-F "parentVersion=$PARENT_VERSION")
           if curl --fail-with-body --silent --show-error --output /dev/null \
               -X POST "${DEPENDENCY_TRACK_URL%/}/api/v1/bom" \
               -H "X-Api-Key: $DEPENDENCY_TRACK_API_KEY" \
@@ -82,9 +76,18 @@ runs:
         done <<< "$IMAGES"
 
         if [ "$LOCKFILES" = "true" ]; then
+          declare -A used_names=()
           while IFS= read -r -d '' lockfile; do
             dir=$(dirname "$lockfile"); dir="${dir#./}"
-            name=$([ "$dir" = "." ] && echo "npm" || echo "${dir//\//-}")
+            dir_name=$([ "$dir" = "." ] && echo "npm" || echo "${dir//\//-}")
+            # Named after the package.json beside the lockfile (e.g. @acme/storefront -> storefront for project acme),
+            # falling back to the directory when it has no name of its own or another lockfile already uses it
+            name=$(jq -r '.name // empty' "$(dirname "$lockfile")/package.json" 2>/dev/null | sed -E 's#^@##; s#[^A-Za-z0-9._-]+#-#g')
+            name="${name#"$PROJECT"-}"
+            if [ -z "$name" ] || [ "$name" = "$PROJECT" ] || [ -n "${used_names[$name]:-}" ]; then
+              name="$dir_name"
+            fi
+            used_names[$name]=1
             if trivy fs --quiet --format cyclonedx --output "sboms/$name.cdx.json" "$lockfile"; then
               upload "$name" "sboms/$name.cdx.json"
             else
