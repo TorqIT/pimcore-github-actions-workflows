@@ -38,7 +38,12 @@ runs:
       continue-on-error: true
       uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
       with:
+        # Keep in step with the Trivy server Dependency-Track analyses SBOMs with, so CI and Dependency-Track agree
+        version: "v0.76.2"
         image-ref: ${{ inputs.IMAGE_REF }}
+        # Composer packages ship package.json files for their prebuilt assets with placeholder versions (often 0.0.1);
+        # they're already covered by the Composer package version, and npm lockfile dependencies are scanned separately
+        skip-files: "**/vendor/**/package.json,**/bundles/**/package.json"
         format: "json"
         output: "trivy-${{ inputs.NAME }}.json"
         exit-code: "1"

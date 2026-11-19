@@ -219,6 +219,16 @@ on:
         type: boolean
         default: false
         description: "Whether to use a GitHub App token for checking out the project repository and submodules"
+      DEPENDENCY_TRACK_URL:
+        required: false
+        type: string
+        default: ""
+        description: "(Optional) Base URL of a Dependency-Track instance to upload SBOMs of the deployed images and npm lockfiles to (e.g. https://dependency-track.example.com). Requires the DEPENDENCY_TRACK_API_KEY secret. If empty, no SBOMs are uploaded"
+      DEPENDENCY_TRACK_PROJECT:
+        required: false
+        type: string
+        default: ${{ github.event.repository.name }}
+        description: "Name of the project's parent (collection) project in Dependency-Track, which must already exist; SBOMs are uploaded to child projects named <DEPENDENCY_TRACK_PROJECT>-<image or lockfile directory>"
 
     secrets:
       SERVICE_PRINCIPAL_ID:
@@ -257,6 +267,9 @@ on:
       GITHUB_APP_PRIVATE_KEY:
         required: false
         description: The private key of the GitHub App used to generate a token for checking out the project repository and submodules
+      DEPENDENCY_TRACK_API_KEY:
+        required: false
+        description: (Optional) Dependency-Track API key used to upload SBOMs when the DEPENDENCY_TRACK_URL variable is set
 
 jobs:
   build-and-push-images:
@@ -407,6 +420,20 @@ jobs:
           TAGS: |
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:latest,
             ${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
+
+      - name: Upload SBOMs to Dependency-Track
+        if: ${{ inputs.DEPENDENCY_TRACK_URL != '' }}
+        uses: ./reusable-workflow/.github/actions/upload-sboms
+        with:
+          DEPENDENCY_TRACK_URL: ${{ inputs.DEPENDENCY_TRACK_URL }}
+          DEPENDENCY_TRACK_API_KEY: ${{ secrets.DEPENDENCY_TRACK_API_KEY }}
+          PROJECT: ${{ inputs.DEPENDENCY_TRACK_PROJECT }}
+          ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
+          IMAGES: |
+            init=${{ vars.CONTAINER_REGISTRY }}/${{ vars.INIT_IMAGE || 'init' }}:${{ github.run_id }}
+            php=${{ vars.CONTAINER_REGISTRY }}/${{ vars.PHP_IMAGE || 'php' }}:${{ github.run_id }}
+            supervisord=${{ vars.CONTAINER_REGISTRY }}/${{ vars.SUPERVISORD_IMAGE || 'supervisord' }}:${{ github.run_id }}
+            ${{ inputs.AGENT_SERVER && format('agent-server={0}/{1}:{2}', vars.CONTAINER_REGISTRY, vars.AGENT_SERVER_IMAGE || 'agent-server', github.run_id) || '' }}
 
       - name: Remove exception from Azure Container Registry firewall, if one is in place
         if: always()

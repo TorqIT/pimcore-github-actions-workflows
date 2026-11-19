@@ -27,3 +27,7 @@ At present, reusable workflows can access [GitHub Environment](https://docs.gith
 ### Self-hosted runners
 
 All workflows contain an optional `RUNNER` input that will accept the name of a self-hosted runner. If this parameter is not provided, an `ubuntu-24.04` GitHub runner will be used.
+
+## Vulnerability scanning
+
+`ci-docker.yml` scans with [Trivy](https://trivy.dev/): the project's lockfiles (`composer.lock`, `package-lock.json`, …, production dependencies only) and each built image (OS packages and installed libraries). It fails on fixable HIGH and CRITICAL vulnerabilities. Set `POST_SCAN_RESULTS_TO_PR` to `true` in your caller workflow to see the results in PRs.
