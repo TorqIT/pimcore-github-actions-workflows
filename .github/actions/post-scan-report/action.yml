@@ -142,10 +142,15 @@ runs:
         RISK_JQ='
           def risk($ids): [$ids[] | ($assess[0] // {})[.] // empty] as $r |
             ($r | map(select(.cve))) as $known |
+            ($known | map(select(.kev)) | first) as $in_kev |
+            ($known | map(select(.epss != null)) | max_by(.epss)) as $top_epss |
             {
               blocking: ($r | any(.blocking)),
-              kev: (if ($known | length) == 0 then "-" elif ($known | any(.kev)) then "**Yes**" else "No" end),
-              epss: ($known | map(.epss // empty) | max | if . == null then "-" else "\(. * 1000 | round / 10)%" end)
+              kev: (if ($known | length) == 0 then "-"
+                    elif $in_kev then "[**Yes**](https://www.cisa.gov/known-exploited-vulnerabilities-catalog?search_api_fulltext=\($in_kev.cve))"
+                    else "No" end),
+              epss: (if $top_epss == null then "-"
+                     else "[\($top_epss.epss * 1000 | round / 10)%](https://api.first.org/data/v1/epss?cve=\($top_epss.cve))" end)
             };
           def marked($severity; $risk): (if $risk.blocking then "❌ " else "⚠️ " end) + $severity;
         '
