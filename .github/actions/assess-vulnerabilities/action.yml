@@ -1,0 +1,84 @@
+name: "Assess vulnerabilities"
+description: "Looks up whether each vulnerability is in CISA's Known Exploited Vulnerabilities (KEV) catalog and its EPSS score, then decides whether it fails CI: CRITICAL and HIGH always do, MEDIUM only when in KEV or with an EPSS score above 10%."
+inputs:
+  FINDINGS_FILE:
+    required: true
+    description: "JSON array of findings, each {\"id\": \"CVE-…|GHSA-…|…\", \"severity\": \"CRITICAL|HIGH|MEDIUM|LOW\", \"aliases\": [\"…\"]}"
+  OUTPUT_FILE:
+    required: true
+    description: "Where to write the assessment: an object keyed by finding id, each {severity, cve, kev, epss, blocking}"
+  GITHUB_TOKEN:
+    required: false
+    default: ${{ github.token }}
+    description: "GitHub token used to look up the CVE behind GHSA advisories"
+outputs:
+  OUTCOME:
+    description: "'failure' if any finding fails CI, otherwise 'success'"
+    value: ${{ steps.assess.outputs.OUTCOME }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Look up KEV and EPSS and assess findings
+      id: assess
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+        FINDINGS_FILE: ${{ inputs.FINDINGS_FILE }}
+        OUTPUT_FILE: ${{ inputs.OUTPUT_FILE }}
+        EPSS_THRESHOLD: "0.1"
+      run: |
+        set -euo pipefail
+        work=$(mktemp -d)
+
+        # KEV and EPSS are keyed by CVE, so resolve GHSA advisories (npm, Composer and some Trivy findings) to theirs
+        jq -r '.[] | [.id] + (.aliases // []) | select(map(startswith("CVE-")) | any | not) | .[] | select(startswith("GHSA-"))' \
+          "$FINDINGS_FILE" | sort -u > "$work/ghsa-ids.txt"
+        while read -r ghsa; do
+          cve=$(gh api "/advisories/$ghsa" --jq '.cve_id // empty' 2>/dev/null || echo "::warning::Could not look up the CVE for $ghsa" >&2)
+          jq -n --arg ghsa "$ghsa" --arg cve "$cve" '{($ghsa): $cve}'
+        done < "$work/ghsa-ids.txt" | jq -s 'add // {}' > "$work/ghsa-cves.json"
+
+        jq -r --slurpfile ghsa "$work/ghsa-cves.json" \
+          '.[] | [.id] + (.aliases // []) | .[] | if startswith("CVE-") then . else ($ghsa[0][.] // empty) end | select(. != "")' \
+          "$FINDINGS_FILE" | sort -u > "$work/cves.txt"
+
+        curl -fsSL --retry 3 -o "$work/kev.json" https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+
+        echo '{}' > "$work/epss.json"
+        split -l 100 "$work/cves.txt" "$work/cve-batch-"
+        for batch in "$work"/cve-batch-*; do
+          [ -s "$batch" ] || continue
+          curl -fsS --retry 3 --get --data-urlencode "cve=$(paste -sd, "$batch")" --data limit=100 https://api.first.org/data/v1/epss \
+            | jq --slurpfile seen "$work/epss.json" '$seen[0] + ([.data[] | {(.cve): (.epss | tonumber)}] | add // {})' > "$work/epss-next.json"
+          mv "$work/epss-next.json" "$work/epss.json"
+        done
+
+        jq --slurpfile ghsa "$work/ghsa-cves.json" --slurpfile kev "$work/kev.json" --slurpfile epss "$work/epss.json" \
+          --argjson threshold "$EPSS_THRESHOLD" '
+          ([$kev[0].vulnerabilities[].cveID] | map({(.): true}) | add // {}) as $in_kev |
+          def sev_rank: {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}[.] // 4;
+          def cve: ([.id] + (.aliases // [])) as $ids |
+            ($ids | map(select(startswith("CVE-"))) | first) // ($ids | map($ghsa[0][.] // empty | select(. != "")) | first);
+          map(.severity |= ascii_upcase) | sort_by(.severity | sev_rank) | unique_by(.id) |
+          map(cve as $cve |
+            {id, severity, cve: $cve, kev: ($cve != null and ($in_kev[$cve] // false)), epss: (if $cve then $epss[0][$cve] else null end)} |
+            .blocking = (.severity == "CRITICAL" or .severity == "HIGH" or (.severity == "MEDIUM" and (.kev or (.epss // 0) > $threshold)))) |
+          map({(.id): .}) | add // {}' "$FINDINGS_FILE" > "$OUTPUT_FILE"
+
+        rm -rf "$work"
+
+        blocking=$(jq '[.[] | select(.blocking)] | length' "$OUTPUT_FILE")
+        if [ "$(jq length "$OUTPUT_FILE")" -gt 0 ]; then
+          echo "Vulnerabilities (fails CI: CRITICAL, HIGH, or MEDIUM in KEV or with EPSS > 10%):"
+          jq -r '["ID", "SEVERITY", "CVE", "KEV", "EPSS", "FAILS CI"],
+            (.[] | [.id, .severity, (.cve // "-"), (if .kev then "yes" else "no" end),
+                    (if .epss then "\(.epss * 1000 | round / 10)%" else "-" end), (if .blocking then "yes" else "no" end)]) | @tsv' \
+            "$OUTPUT_FILE" | column -t -s $'\t'
+        fi
+
+        if [ "$blocking" -gt 0 ]; then
+          echo "OUTCOME=failure" >> "$GITHUB_OUTPUT"
+        else
+          echo "OUTCOME=success" >> "$GITHUB_OUTPUT"
+        fi

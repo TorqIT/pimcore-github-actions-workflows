@@ -1,5 +1,5 @@
 name: "Scan Composer dependencies"
-description: "Runs composer audit (non-dev dependencies) against the project's composer.lock, honouring config.audit.ignore. Fails when an unignored HIGH or CRITICAL advisory is found or dependencies cannot be resolved. Writes results to /tmp for the scan report."
+description: "Runs composer audit (non-dev dependencies) against the project's composer.lock, honouring config.audit.ignore. Unignored CRITICAL, HIGH and MEDIUM advisories fail on CRITICAL or HIGH, or MEDIUM in KEV or with EPSS > 10%. Also fails when dependencies cannot be resolved. Writes results to /tmp for the scan report."
 inputs:
   PIMCORE_ROOT:
     required: true
@@ -21,6 +21,8 @@ runs:
   using: "composite"
   steps:
     - name: Scan for composer vulnerabilities
+      id: scan
+      continue-on-error: true
       shell: bash
       env:
         PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
@@ -61,5 +63,22 @@ runs:
         } 2>&1 | tee /tmp/composer-audit.txt || true
         echo "$install_exit" > /tmp/composer-install-exit.txt
         [ "$install_exit" -eq 0 ] || exit 1
-        high_critical_count=$(jq '[.advisories // {} | to_entries[] | .value[] | select(.ignored != true and (.severity == "high" or .severity == "critical"))] | length' /tmp/composer-audit.json 2>/dev/null || echo 0)
-        [ "$high_critical_count" -eq 0 ]
+        jq '[.advisories // {} | to_entries[] | .value[]
+          | select(.ignored != true and ((.severity // "") | IN("critical", "high", "medium")))
+          | {id: .advisoryId, severity: (.severity | ascii_upcase), aliases: ([.cve] + [.sources[]?.remoteId] | map(select(. != null)))}]' \
+          /tmp/composer-audit.json > /tmp/composer-findings.json
+
+    - name: Assess Composer vulnerabilities
+      id: assess
+      if: steps.scan.outcome == 'success'
+      uses: ./reusable-workflow/.github/actions/assess-vulnerabilities
+      with:
+        FINDINGS_FILE: /tmp/composer-findings.json
+        OUTPUT_FILE: /tmp/composer-assessment.json
+
+    - name: Fail if Composer vulnerabilities fail CI
+      if: always()
+      shell: bash
+      env:
+        OUTCOME: ${{ steps.assess.outputs.OUTCOME || 'failure' }}
+      run: '[ "$OUTCOME" = "success" ]'

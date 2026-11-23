@@ -314,8 +314,10 @@ jobs:
           cp /tmp/npm-audit.txt scan-results/ 2>/dev/null || true
           cp /tmp/npm-raw-*.json scan-results/ 2>/dev/null || true
           cp /tmp/npm-packages-*.json scan-results/ 2>/dev/null || true
+          cp /tmp/npm-assessment.json scan-results/ 2>/dev/null || true
           cp /tmp/composer-audit.txt scan-results/ 2>/dev/null || true
           cp /tmp/composer-audit.json scan-results/ 2>/dev/null || true
+          cp /tmp/composer-assessment.json scan-results/ 2>/dev/null || true
           cp /tmp/composer-packages.json scan-results/ 2>/dev/null || true
           cp /tmp/composer-install-exit.txt scan-results/ 2>/dev/null || true
           cp /tmp/semgrep.txt scan-results/ 2>/dev/null || true
