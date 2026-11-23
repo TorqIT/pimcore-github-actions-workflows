@@ -193,17 +193,12 @@ on:
         required: false
         type: boolean
         default: false
-        description: "Whether the project uses pimcore/pimcore-agent-bundle and its agent-server image should be built, pushed, and deployed. The exact version to build is read from the project's composer.json, and the image is tagged with it (as well as latest and the run ID). Requires the Pimcore Enterprise Token (the PIMCORE_ENTERPRISE_TOKEN secret, or pimcore-enterprise-token in BUILD_TIME_SECRETS)."
+        description: "Whether the project uses pimcore/pimcore-agent-bundle and its agent-server image should be built, pushed, and deployed. The exact version to build is read from the project's composer.json, and the image is tagged with it (as well as latest and the run ID). If {PIMCORE_ROOT}/.docker/agent-server/Dockerfile.patch exists, it replaces the bundle's agent-server Dockerfile. Requires the Pimcore Enterprise Token (the PIMCORE_ENTERPRISE_TOKEN secret, or pimcore-enterprise-token in BUILD_TIME_SECRETS)."
       AGENT_SERVER_IMAGE:
         required: false
         type: string
         default: "agent-server"
         description: "Name of the agent-server image"
-      AGENT_SERVER_DOCKERFILE:
-        required: false
-        type: string
-        default: ""
-        description: "The path (relative to the project's root) of a Dockerfile to build the agent-server image with instead of the one shipped in pimcore/pimcore-agent-bundle. If empty, {PIMCORE_ROOT}/.docker/agent-server/Dockerfile.patch is used when it exists."
       AGENT_SERVER_SERVICE:
         required: false
         type: string
@@ -397,7 +392,6 @@ jobs:
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN || fromJSON(secrets.BUILD_TIME_SECRETS || '{}')['pimcore-enterprise-token'] }}
           CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
           IMAGE: ${{ inputs.AGENT_SERVER_IMAGE }}
-          DOCKERFILE: ${{ inputs.AGENT_SERVER_DOCKERFILE }}
           CACHE_FROM: ${{ inputs.USE_GHA_CACHE && format('type=gha,scope={0}', inputs.AGENT_SERVER_IMAGE) || '' }}
           CACHE_TO: ${{ inputs.USE_GHA_CACHE && format('type=gha,scope={0},mode=min', inputs.AGENT_SERVER_IMAGE) || '' }}
 

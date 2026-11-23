@@ -10,10 +10,6 @@ inputs:
   CONTAINER_REGISTRY:
     required: true
     description: "The Docker registry to push the image to"
-  DOCKERFILE:
-    required: false
-    default: ""
-    description: "The path (relative to the project's root) of a Dockerfile to build the agent-server with instead of the one shipped in pimcore/pimcore-agent-bundle (e.g. to override vulnerable npm dependencies). The build context is still the bundle's agent-server directory. If empty, {PIMCORE_ROOT}/.docker/agent-server/Dockerfile.patch is used when it exists."
   IMAGE:
     required: false
     default: "agent-server"
@@ -80,27 +76,17 @@ runs:
         composer require --working-dir=agent-bundle-fetch --no-interaction --no-progress --no-scripts --ignore-platform-reqs \
           "pimcore/pimcore-agent-bundle:${{ steps.agent-bundle-version.outputs.version }}"
 
-    - name: Replace agent-server Dockerfile, if provided
+    - name: Patch agent-server Dockerfile, if provided
       shell: bash
-      env:
-        DOCKERFILE: ${{ inputs.DOCKERFILE }}
-        PATCH_FILE: ${{ inputs.PIMCORE_ROOT }}/.docker/agent-server/Dockerfile.patch
       run: |
         set -euo pipefail
-        if [ -n "$DOCKERFILE" ]; then
-          if [ ! -f "$DOCKERFILE" ]; then
-            echo "::error::Agent-server Dockerfile $DOCKERFILE was not found"
-            exit 1
-          fi
-          replacement="$DOCKERFILE"
-        elif [ -f "$PATCH_FILE" ]; then
-          replacement="$PATCH_FILE"
+        patch_file="${{ inputs.PIMCORE_ROOT }}/.docker/agent-server/Dockerfile.patch"
+        if [ -f "$patch_file" ]; then
+          echo "Found $patch_file - patching agent-server Dockerfile"
+          cp "$patch_file" agent-bundle-fetch/vendor/pimcore/pimcore-agent-bundle/agent-server/Dockerfile
         else
-          echo "No agent-server Dockerfile provided - using the one shipped in pimcore/pimcore-agent-bundle"
-          exit 0
+          echo "No $patch_file found - using agent-server Dockerfile as-is"
         fi
-        echo "Building agent-server with $replacement"
-        cp "$replacement" agent-bundle-fetch/vendor/pimcore/pimcore-agent-bundle/agent-server/Dockerfile
 
     - name: Build and push image
       uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0

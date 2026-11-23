@@ -174,11 +174,6 @@ on:
         type: boolean
         default: false
         description: "Whether the project uses pimcore/pimcore-agent-bundle and its agent-server image should be built, pushed, and deployed. The exact version to build is read from the project's composer.json (not composer.lock, which isn't always committed)."
-      AGENT_SERVER_DOCKERFILE:
-        required: false
-        type: string
-        default: ""
-        description: "The path (relative to the project's root) of a Dockerfile to build the agent-server image with instead of the one shipped in pimcore/pimcore-agent-bundle. If empty, {PIMCORE_ROOT}/.docker/agent-server/Dockerfile.patch is used when it exists."
       ANSIBLE_DIRECTORY:
         required: false
         type: string
@@ -350,7 +345,6 @@ jobs:
           PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN }}
           CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
           IMAGE: ${{ vars.AGENT_SERVER_IMAGE || 'agent-server' }}
-          DOCKERFILE: ${{ inputs.AGENT_SERVER_DOCKERFILE }}
           CACHE_FROM: type=gha,scope=${{ vars.AGENT_SERVER_IMAGE || 'agent-server' }}
           CACHE_TO: type=gha,scope=${{ vars.AGENT_SERVER_IMAGE || 'agent-server' }},mode=min
 
