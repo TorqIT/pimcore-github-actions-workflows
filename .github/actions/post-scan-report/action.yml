@@ -256,7 +256,8 @@ runs:
             echo ""
             echo "_Refer to the [action logs]($LOGS_URL) for full scan output._"
             echo ""
-            echo "❌ fails CI: CRITICAL, HIGH, or MEDIUM that is in CISA's [Known Exploited Vulnerabilities](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) catalog (KEV) or has an [EPSS](https://www.first.org/epss/) score above 10%. ⚠️ doesn't fail CI."
+            echo "- ❌ **Fails CI:** any CRITICAL or HIGH, and any MEDIUM that is [actively exploited](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) (KEV) or [likely to be exploited](https://www.first.org/epss/) (EPSS above 10%)"
+            echo "- ⚠️ **Doesn't fail CI:** any other MEDIUM"
 
             if [ "$npm_outcome" = "failure" ] || has_findings ./scan-results/npm-assessment.json; then
               echo ""
