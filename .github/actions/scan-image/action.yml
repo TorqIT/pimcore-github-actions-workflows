@@ -1,12 +1,12 @@
 name: "Scan image"
-description: "Scans a built Docker image with Trivy for fixable HIGH and CRITICAL vulnerabilities, prints the results, uploads them as an artifact for the scan report and fails if any were found"
+description: "Scans a built Docker image's SBOM with Trivy for fixable HIGH and CRITICAL vulnerabilities, prints the results, uploads them as an artifact for the scan report and fails if any were found"
 inputs:
   NAME:
     required: true
     description: "Short image name used in result file and artifact names (e.g. php, supervisord)"
-  IMAGE_REF:
+  SBOM_PATH:
     required: true
-    description: "The image reference to scan"
+    description: "Path to the image's CycloneDX SBOM (see the generate-sbom action)"
   ARTIFACT_SUFFIX:
     required: true
     description: "Suffix appended to the results artifact name, typically the ref slug"
@@ -22,23 +22,15 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Free disk space before Trivy scan if needed
-      if: inputs.SKIP_SCAN != 'true'
-      shell: bash
-      run: |
-        FREE_GB=$(df / --output=avail -BG | tail -1 | tr -d 'G')
-        if [ "$FREE_GB" -lt 10 ]; then
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
-          sudo swapoff -a && sudo rm -f /swapfile
-        fi
-
-    - name: Run Trivy vulnerability scanner on image
+    - name: Run Trivy vulnerability scanner on image SBOM
       id: trivy-scan
       if: inputs.SKIP_SCAN != 'true'
       continue-on-error: true
       uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
       with:
-        image-ref: ${{ inputs.IMAGE_REF }}
+        version: "v0.76.2"
+        scan-type: "sbom"
+        scan-ref: ${{ inputs.SBOM_PATH }}
         format: "json"
         output: "trivy-${{ inputs.NAME }}.json"
         exit-code: "1"

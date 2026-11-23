@@ -299,6 +299,14 @@ jobs:
         env:
           SEMGREP_SEND_METRICS: off
 
+      - name: Generate dependencies SBOM
+        uses: ./reusable-workflow/.github/actions/generate-sbom
+        with:
+          NAME: dependencies
+          SCAN_TYPE: fs
+          SCAN_REF: "."
+          ARTIFACT_SUFFIX: ${{ steps.ref-slug.outputs.slug }}
+
       - name: Upload scan results
         if: always()
         run: |
@@ -426,12 +434,22 @@ jobs:
           PUSH: false
           LOAD: true
 
-      - name: Scan ${{ matrix.name }} image
+      - name: Generate ${{ matrix.name }} image SBOM
+        id: sbom
+        if: matrix.enabled
+        uses: ./reusable-workflow/.github/actions/generate-sbom
+        with:
+          NAME: ${{ matrix.name }}
+          SCAN_TYPE: image
+          SCAN_REF: ${{ matrix.image_ref || format('{0}:ci-{1}', matrix.name, github.run_id) }}
+          ARTIFACT_SUFFIX: ${{ steps.ref-slug.outputs.slug }}
+
+      - name: Scan ${{ matrix.name }} image SBOM
         if: always()
         uses: ./reusable-workflow/.github/actions/scan-image
         with:
           NAME: ${{ matrix.name }}
-          IMAGE_REF: ${{ matrix.image_ref || format('{0}:ci-{1}', matrix.name, github.run_id) }}
+          SBOM_PATH: ${{ steps.sbom.outputs.SBOM_PATH }}
           ARTIFACT_SUFFIX: ${{ steps.ref-slug.outputs.slug }}
           SKIP_SCAN: ${{ !matrix.enabled || job.status != 'success' }}
           TRIVYIGNORE_PATH: ${{ inputs.TRIVYIGNORE_PATH }}
