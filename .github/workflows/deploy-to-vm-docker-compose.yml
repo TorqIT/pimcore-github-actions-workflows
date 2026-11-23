@@ -27,6 +27,10 @@
 #          }
 #       # other required secrets
 #
+# When AGENT_SERVER is true, the project's environment-specific Docker Compose file must define the agent-server service
+# (AGENT_SERVER_SERVICE) with an image of {CONTAINER_REGISTRY}/{AGENT_SERVER_IMAGE} tagged with the
+# pimcore/pimcore-agent-bundle version from composer.json, latest, or the run ID.
+#
 
 name: VM Deployment via Docker Compose
 
@@ -185,6 +189,21 @@ on:
         type: string
         default: "supervisord"
         description: "The name of the supervisord service in Docker Compose to run"
+      AGENT_SERVER:
+        required: false
+        type: boolean
+        default: false
+        description: "Whether the project uses pimcore/pimcore-agent-bundle and its agent-server image should be built, pushed, and deployed. The exact version to build is read from the project's composer.json, and the image is tagged with it (as well as latest and the run ID). If {PIMCORE_ROOT}/.docker/agent-server/Dockerfile.patch exists, it replaces the bundle's agent-server Dockerfile. Requires the Pimcore Enterprise Token (the PIMCORE_ENTERPRISE_TOKEN secret, or pimcore-enterprise-token in BUILD_TIME_SECRETS)."
+      AGENT_SERVER_IMAGE:
+        required: false
+        type: string
+        default: "agent-server"
+        description: "Name of the agent-server image"
+      AGENT_SERVER_SERVICE:
+        required: false
+        type: string
+        default: "agent-server"
+        description: "The name of the agent-server service in Docker Compose to run. It is deployed outside of blue/green, so it does not need to be listed in NON_PIMCORE_SERVICES."
       NON_PIMCORE_SERVICES:
         type: string
         required: false
@@ -243,6 +262,9 @@ on:
       RUN_TIME_SECRETS:
         required: false
         description: A JSON object of secret environment variables required at run-time (see above for example format)
+      PIMCORE_ENTERPRISE_TOKEN:
+        required: false
+        description: (Optional) The value of your project's Pimcore Enterprise Token, used to download pimcore/pimcore-agent-bundle when AGENT_SERVER is true. If not supplied, pimcore-enterprise-token from BUILD_TIME_SECRETS is used
       RECAPTCHA_CLIENT_KEY:
         required: false
         description: A client key used when building NPM frontends that require ReCAPTCHA
@@ -361,6 +383,17 @@ jobs:
           TAGS: |
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ inputs.IMAGES_TAG }},
             ${{ inputs.CONTAINER_REGISTRY }}/${{ inputs.SUPERVISORD_IMAGE }}:${{ github.run_id }}
+
+      - name: Build and push agent-server image
+        if: ${{ inputs.AGENT_SERVER }}
+        uses: ./reusable-workflow/.github/actions/build-and-push-agent-server-image
+        with:
+          PIMCORE_ROOT: ${{ inputs.PIMCORE_ROOT }}
+          PIMCORE_ENTERPRISE_TOKEN: ${{ secrets.PIMCORE_ENTERPRISE_TOKEN || fromJSON(secrets.BUILD_TIME_SECRETS || '{}')['pimcore-enterprise-token'] }}
+          CONTAINER_REGISTRY: ${{ inputs.CONTAINER_REGISTRY }}
+          IMAGE: ${{ inputs.AGENT_SERVER_IMAGE }}
+          CACHE_FROM: ${{ inputs.USE_GHA_CACHE && format('type=gha,scope={0}', inputs.AGENT_SERVER_IMAGE) || '' }}
+          CACHE_TO: ${{ inputs.USE_GHA_CACHE && format('type=gha,scope={0},mode=min', inputs.AGENT_SERVER_IMAGE) || '' }}
 
   deploy-containers:
     name: Deploy containers via Docker Compose
@@ -483,6 +516,19 @@ jobs:
               -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
               --env-file ${{ inputs.ENV_FILE }} \
               run --rm ${{ inputs.INIT_SERVICE }}
+
+      - name: Deploy agent-server container
+        if: ${{ inputs.AGENT_SERVER }}
+        run: |
+          set -e
+          docker compose \
+            -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+            --env-file ${{ inputs.ENV_FILE }} \
+            pull ${{ inputs.AGENT_SERVER_SERVICE }}
+          docker compose \
+            -f docker-compose.yaml -f ${{ inputs.DOCKER_COMPOSE_FILE }} \
+            --env-file ${{ inputs.ENV_FILE }} \
+            up -d ${{ inputs.AGENT_SERVER_SERVICE }}
 
       - name: Perform blue/green deployment of PHP and supervisord containers
         id: blue-green-deployment
