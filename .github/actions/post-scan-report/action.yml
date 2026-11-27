@@ -138,6 +138,32 @@ runs:
           fi
           printf '%s\n' "The exception stops applying after \`expired_at\`." '' '</details>' ''
         }
+        # Risk of a table row from the assessments of its advisories (see the assess-vulnerabilities action)
+        RISK_JQ='
+          def risk($ids): [$ids[] | ($assess[0] // {})[.] // empty] as $r |
+            ($r | map(select(.cve))) as $known |
+            ($known | map(select(.kev)) | first) as $in_kev |
+            ($known | map(select(.epss != null)) | max_by(.epss)) as $top_epss |
+            {
+              blocking: ($r | any(.blocking)),
+              kev: (if ($known | length) == 0 then "-"
+                    elif $in_kev then "[**Yes**](https://www.cisa.gov/known-exploited-vulnerabilities-catalog?search_api_fulltext=\($in_kev.cve))"
+                    else "No" end),
+              epss: (if $top_epss == null then "-"
+                     else "[\($top_epss.epss * 1000 | round / 10)%](https://api.first.org/data/v1/epss?cve=\($top_epss.cve))" end)
+            };
+          def marked($severity; $risk): (if $risk.blocking then "❌ " else "⚠️ " end) + $severity;
+        '
+
+        assessment_file() {
+          if jq empty "$1" 2>/dev/null; then echo "$1"; else echo /dev/null; fi
+        }
+
+        # Vulnerabilities that don't fail CI are still listed, so show a scan's details when it has any
+        has_findings() {
+          jq -e 'length > 0' "$1" >/dev/null 2>&1
+        }
+
         php_outcome=$(cat ./trivy-results-php/trivy-php-status.txt 2>/dev/null || echo "unknown")
         supervisord_outcome=$(cat ./trivy-results-supervisord/trivy-supervisord-status.txt 2>/dev/null || echo "unknown")
 
@@ -171,6 +197,11 @@ runs:
           fi
         done
 
+        findings_present=false
+        for assessment in ./scan-results/*-assessment.json ./trivy-results-*/trivy-*-assessment.json; do
+          if has_findings "$assessment"; then findings_present=true; fi
+        done
+
         LOGS_URL="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
         {
@@ -181,6 +212,9 @@ runs:
           if [ "$failure_count" -gt 0 ]; then
             echo "> [!CAUTION]"
             echo "> **$failure_count scan(s) failed** — action required. See below for what to fix."
+          elif [ "$findings_present" = true ]; then
+            echo "> [!TIP]"
+            echo "> All scans passed. The vulnerabilities listed below don't fail CI, but should be fixed when convenient."
           else
             echo "> [!TIP]"
             echo "> All scans passed — no immediate action required."
@@ -216,18 +250,22 @@ runs:
             fi
           fi
 
-          if [ "$failure_count" -gt 0 ]; then
+          if [ "$failure_count" -gt 0 ] || [ "$findings_present" = true ]; then
             echo ""
             echo "---"
             echo ""
             echo "_Refer to the [action logs]($LOGS_URL) for full scan output._"
+            echo ""
+            echo "- ❌ **Fails CI:** any CRITICAL or HIGH, and any MEDIUM that is [actively exploited](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) (KEV) or [likely to be exploited](https://www.first.org/epss/) (EPSS above 10%)"
+            echo "- ⚠️ **Doesn't fail CI:** any other MEDIUM"
 
-            if [ "$npm_outcome" = "failure" ]; then
+            if [ "$npm_outcome" = "failure" ] || has_findings ./scan-results/npm-assessment.json; then
               echo ""
               echo "<details>"
               echo "<summary><strong>npm audit</strong></summary>"
               echo ""
               found_any=false
+              npm_assessment=$(assessment_file ./scan-results/npm-assessment.json)
               for json_file in ./scan-results/npm-raw-*.json; do
                 [ -f "$json_file" ] || continue
                 scan_dir=$(jq -r '._scannedDir // "."' "$json_file" 2>/dev/null || echo ".")
@@ -237,7 +275,7 @@ runs:
                 # limit ("Argument list too long"). /dev/null slurps to an empty list.
                 pkgs_file="./scan-results/npm-packages-${dir_slug:-root}.json"
                 jq empty "$pkgs_file" 2>/dev/null || pkgs_file=/dev/null
-                rows=$(jq -r --slurpfile pkgs_in "$pkgs_file" '
+                rows=$(jq -r --slurpfile pkgs_in "$pkgs_file" --slurpfile assess "$npm_assessment" "$RISK_JQ"'
                   def norm(v):
                     (v // "" | ascii_downcase | ltrimstr("v")) as $s |
                     ($s | [scan("[0-9]+")] | map(tonumber)) as $parts |
@@ -324,8 +362,8 @@ runs:
                   def installed($name):
                     ([$vulns[$name].nodes // [] | .[] | $by_path[.] // empty] | unique | sort_by(norm(.))) as $found |
                     if ($found | length) > 0 then $found else [$versions[$name] // "unknown"] end;
-                  $vulns | to_entries[] |
-                  select((.value.severity == "high" or .value.severity == "critical") and (.value.fixAvailable != false)) |
+                  [$vulns | to_entries[] |
+                  select((.value.severity == "moderate" or .value.severity == "high" or .value.severity == "critical") and (.value.fixAvailable != false)) |
                   # Hide packages flagged only by advisories excepted in the project .nsprc.
                   select((root_advisories($vulns; .key; []) | unique) as $advisories |
                     ($advisories | length) == 0 or ($advisories - $excepted | length) > 0) |
@@ -356,9 +394,10 @@ runs:
                      {name: $dep, fix: ([$vulns[$dep].via // [] | .[] | select(type == "object") | fix_for($dep_ver; .range // "")] |
                        map(select(. != null)) | sort_by(norm(.)) | last)}
                    )) as $dep_fixes |
+                  risk(root_advisories($vulns; .key; []) | unique | map(split("/") | last)) as $risk |
                   [
                     .key,
-                    (.value.severity | ascii_upcase),
+                    marked(if .value.severity == "moderate" then "MEDIUM" else (.value.severity | ascii_upcase) end; $risk),
                     ($installed | join(", ")),
                     (if ($fa | type) == "object" and $fa.name != .key then ("via " + $fa.name + "@" + $fa.version)
                      elif $patched != null then $patched
@@ -379,17 +418,20 @@ runs:
                      else "-" end),
                     (if $downgrade then (.value.fixAvailable.name // (chain_fixes($vulns; .key; []) | first | .name)) +
                        "@" + (.value.fixAvailable.version // (chain_fixes($vulns; .key; []) | first | .version))
-                     else "-" end)
-                  ] |
+                     else "-" end),
+                    $risk.kev,
+                    $risk.epss
+                  ]] |
+                  sort_by(.[1] | startswith("⚠️")) | .[] |
                   @tsv
                 ' "$json_file" 2>/dev/null || echo "")
                 [ -z "$rows" ] && continue
                 found_any=true
                 echo "**\`$scan_dir\`**"
                 echo ""
-                echo "| Package | Severity | Installed | Fix ≥ | Advisory | Command |"
-                echo "|---------|----------|-----------|-------|----------|---------|"
-                while IFS=$'\t' read -r pkg severity installed fix_ver fix_type advisory_urls override downgrade_target; do
+                echo "| Package | Severity | Installed | Fix ≥ | Advisory | KEV | EPSS | Command |"
+                echo "|---------|----------|-----------|-------|----------|-----|------|---------|"
+                while IFS=$'\t' read -r pkg severity installed fix_ver fix_type advisory_urls override downgrade_target kev epss; do
                   if [ "$fix_type" = "override" ] && [ "$override" != "-" ]; then
                     cmd="Add \`\"overrides\": $override\` to package.json _(\`npm audit fix --force\` would downgrade to \`$downgrade_target\`)_"
                   elif [ "$fix_type" = "override" ]; then
@@ -413,7 +455,7 @@ runs:
                       advisory_col="$advisory_col _+$((advisory_total - 3)) more_"
                     fi
                   fi
-                  echo "| \`$pkg\` | $severity | \`$installed\` | \`$fix_ver\` | $advisory_col | $cmd |"
+                  echo "| \`$pkg\` | $severity | \`$installed\` | \`$fix_ver\` | $advisory_col | $kev | $epss | $cmd |"
                 done <<< "$rows"
                 echo ""
                 first_advisory_url=$(head -n 1 <<< "$rows" | cut -f6 | cut -d' ' -f1)
@@ -428,7 +470,7 @@ runs:
               echo ""
             fi
 
-            if [ "$composer_outcome" = "failure" ]; then
+            if [ "$composer_outcome" = "failure" ] || has_findings ./scan-results/composer-assessment.json; then
               echo ""
               echo "<details>"
               echo "<summary><strong>Composer audit</strong></summary>"
@@ -450,7 +492,7 @@ runs:
                 # Read from the file rather than --argjson (see the npm section).
                 pkgs_file="./scan-results/composer-packages.json"
                 jq empty "$pkgs_file" 2>/dev/null || pkgs_file=/dev/null
-                rows=$(jq -r --slurpfile pkgs_in "$pkgs_file" '
+                rows=$(jq -r --slurpfile pkgs_in "$pkgs_file" --slurpfile assess "$(assessment_file ./scan-results/composer-assessment.json)" "$RISK_JQ"'
                   def norm(v):
                     (v // "" | ascii_downcase | ltrimstr("v")) as $s |
                     ($s | [scan("[0-9]+")] | map(tonumber)) as $parts |
@@ -493,20 +535,22 @@ runs:
                       if ($allfixes | length) > 0 then ($allfixes | sort_by(norm(.)) | last) else null end
                     end;
                   (($pkgs_in[0] // []) | map({(.name): .version}) | add // {}) as $versions |
-                  .advisories // {} | to_entries[] |
+                  [.advisories // {} | to_entries[] |
                   .key as $pkg |
                   ($versions[$pkg] // "unknown") as $current_ver |
                   .value[] |
-                  select(.ignored != true and (.severity == "high" or .severity == "critical")) |
-                  [$pkg, (.severity | ascii_upcase), $current_ver,
+                  select(.ignored != true and ((.severity // "") | IN("critical", "high", "medium"))) |
+                  risk([.advisoryId]) as $risk |
+                  [$pkg, marked(.severity | ascii_upcase; $risk), $current_ver,
                    (fix_for($current_ver; .affectedVersions) // .affectedVersions // ""),
-                   (.advisoryId // "-"), (.link // "-"), (.cve // "-")] |
+                   (.advisoryId // "-"), (.link // "-"), (.cve // "-"), $risk.kev, $risk.epss]] |
+                  sort_by(.[1] | startswith("⚠️")) | .[] |
                   @tsv
                 ' ./scan-results/composer-audit.json 2>/dev/null || echo "")
                 if [ -n "$rows" ]; then
-                  echo "| Package | Severity | Installed | Fix ≥ | Advisory | Command |"
-                  echo "|---------|----------|-----------|-------|----------|---------|"
-                  while IFS=$'\t' read -r pkg severity current_ver fix_ver advisory link cve; do
+                  echo "| Package | Severity | Installed | Fix ≥ | Advisory | KEV | EPSS | Command |"
+                  echo "|---------|----------|-----------|-------|----------|-----|------|---------|"
+                  while IFS=$'\t' read -r pkg severity current_ver fix_ver advisory link cve kev epss; do
                     if [ "$link" != "-" ] && [ -n "$link" ]; then
                       advisory_col="[$advisory]($link)"
                     else
@@ -515,12 +559,12 @@ runs:
                     if [ "$cve" != "-" ] && [ -n "$cve" ]; then
                       advisory_col="$advisory_col / [$cve](https://nvd.nist.gov/vuln/detail/$cve)"
                     fi
-                    echo "| \`$pkg\` | $severity | \`$current_ver\` | \`$fix_ver\` | $advisory_col | \`composer update $pkg\` |"
+                    echo "| \`$pkg\` | $severity | \`$current_ver\` | \`$fix_ver\` | $advisory_col | $kev | $epss | \`composer update $pkg\` |"
                   done <<< "$rows"
                   echo ""
                   print_composer_ignore_hint "$(head -n 1 <<< "$rows" | awk -F'\t' '{ print ($7 != "-" && $7 != "") ? $7 : $5 }')"
                 else
-                  echo "No HIGH or CRITICAL advisories found — refer to the [action logs]($LOGS_URL) for lower-severity findings."
+                  echo "No CRITICAL, HIGH or MEDIUM advisories found — refer to the [action logs]($LOGS_URL) for lower-severity findings."
                   echo ""
                 fi
               else
@@ -590,7 +634,7 @@ runs:
               name="${trivy_names[$j]}"
               label="${trivy_labels[$j]}"
               t_outcome="${trivy_outcomes[$j]}"
-              if [ "$t_outcome" = "failure" ] || [ "$t_outcome" = "skipped" ]; then
+              if [ "$t_outcome" = "failure" ] || [ "$t_outcome" = "skipped" ] || has_findings "./trivy-results-${name}/trivy-${name}-assessment.json"; then
                 echo ""
                 echo "<details>"
                 echo "<summary><strong>$label</strong></summary>"
@@ -608,7 +652,7 @@ runs:
                   fi
                   rows=""
                   if jq empty "$trivy_json" 2>/dev/null; then
-                    rows=$(jq -r '
+                    rows=$(jq -r --slurpfile assess "$(assessment_file "./trivy-results-${name}/trivy-${name}-assessment.json")" "$RISK_JQ"'
                     def norm(v):
                       (v // "" | ascii_downcase | ltrimstr("v")) as $s |
                       ($s | [scan("[0-9]+")] | map(tonumber)) as $parts |
@@ -616,7 +660,7 @@ runs:
                     def vcmp(a; b):
                       (norm(a)) as $a | (norm(b)) as $b |
                       ([range(0;6)] | map($a[.] - $b[.]) | map(select(. != 0)) | first) // 0;
-                    def sev_rank: if . == "CRITICAL" then 0 elif . == "HIGH" then 1 else 2 end;
+                    def sev_rank: if . == "CRITICAL" then 0 elif . == "HIGH" then 1 elif . == "MEDIUM" then 2 else 3 end;
                     # FixedVersion lists one fix per release line ("5.0.10, 3.0.7, 2.1.5"); the
                     # relevant one is the lowest that is still above the installed version.
                     def min_fix:
@@ -636,7 +680,11 @@ runs:
                     map(
                       (map(.VulnerabilityID) | unique) as $ids |
                       (unique_by(.VulnerabilityID)) as $vulns |
+                      risk($ids) as $risk |
                       {
+                        blocking: $risk.blocking,
+                        kev: $risk.kev,
+                        epss: $risk.epss,
                         pkg: .[0].PkgName,
                         installed: .[0].InstalledVersion,
                         location: .[0].Location,
@@ -647,19 +695,19 @@ runs:
                                      (if ($ids | length) > 3 then " _+\(($ids | length) - 3) more_" else "" end))
                       }
                     ) |
-                    sort_by((.severity | sev_rank), .pkg, .location) |
+                    sort_by((.blocking | not), (.severity | sev_rank), .pkg, .location) |
                     .[] |
-                    [.pkg, .severity, .installed, .fix, .advisories, .location] |
+                    [.pkg, marked(.severity; {blocking}), .installed, .fix, .advisories, .kev, .epss, .location] |
                     @tsv
                     ' "$trivy_json" 2>/dev/null || echo "")
                   fi
                   if [ -n "$rows" ]; then
                     max_rows=50
                     row_count=$(wc -l <<< "$rows")
-                    echo "| Package | Severity | Installed | Fix ≥ | Advisory | Location |"
-                    echo "|---------|----------|-----------|-------|----------|----------|"
-                    while IFS=$'\t' read -r pkg severity installed fix_ver advisories location; do
-                      echo "| \`$pkg\` | $severity | \`$installed\` | \`$fix_ver\` | $advisories | \`$location\` |"
+                    echo "| Package | Severity | Installed | Fix ≥ | Advisory | KEV | EPSS | Location |"
+                    echo "|---------|----------|-----------|-------|----------|-----|------|----------|"
+                    while IFS=$'\t' read -r pkg severity installed fix_ver advisories kev epss location; do
+                      echo "| \`$pkg\` | $severity | \`$installed\` | \`$fix_ver\` | $advisories | $kev | $epss | \`$location\` |"
                     done <<< "$(head -n "$max_rows" <<< "$rows")"
                     if [ "$row_count" -gt "$max_rows" ]; then
                       echo ""

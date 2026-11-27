@@ -1,0 +1,54 @@
+name: "Generate SBOM"
+description: "Generates a CycloneDX SBOM with Trivy of a built image or of the lockfiles (composer.lock, package-lock.json, etc.) in a directory, and uploads it as an artifact"
+inputs:
+  NAME:
+    required: true
+    description: "Short name used in the SBOM file and artifact names (e.g. php, supervisord, dependencies)"
+  SCAN_TYPE:
+    required: true
+    description: "'image' to generate the SBOM from a built image, or 'fs' to generate it from the lockfiles in a directory"
+  SCAN_REF:
+    required: true
+    description: "The image reference (for 'image') or directory (for 'fs') to generate the SBOM from"
+  ARTIFACT_SUFFIX:
+    required: true
+    description: "Suffix appended to the artifact name, typically the ref slug"
+outputs:
+  SBOM_PATH:
+    description: "Path to the generated SBOM"
+    value: sbom-${{ inputs.NAME }}.cdx.json
+
+runs:
+  using: "composite"
+  steps:
+    - name: Free disk space before Trivy if needed
+      if: inputs.SCAN_TYPE == 'image'
+      shell: bash
+      run: |
+        FREE_GB=$(df / --output=avail -BG | tail -1 | tr -d 'G')
+        if [ "$FREE_GB" -lt 10 ]; then
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+          sudo swapoff -a && sudo rm -f /swapfile
+        fi
+
+    - name: Generate SBOM
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      with:
+        version: "v0.76.2"
+        scan-type: ${{ inputs.SCAN_TYPE }}
+        scan-ref: ${{ inputs.SCAN_REF }}
+        format: "cyclonedx"
+        output: "sbom-${{ inputs.NAME }}.cdx.json"
+        # Composer packages ship package.json files for their prebuilt assets with placeholder versions (often 0.0.1);
+        # they're already covered by the Composer package version, and npm lockfiles are covered by the dependencies SBOM
+        skip-files: ${{ inputs.SCAN_TYPE == 'image' && '**/vendor/**/package.json,**/bundles/**/package.json' || '' }}
+        # The workflow repository is checked out into reusable-workflow; vendor and node_modules hold installed copies of
+        # what the lockfiles already describe
+        skip-dirs: ${{ inputs.SCAN_TYPE == 'fs' && 'reusable-workflow,**/vendor,**/node_modules' || '' }}
+        timeout: "15m"
+
+    - name: Upload SBOM artifact
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: sbom-${{ inputs.NAME }}-${{ inputs.ARTIFACT_SUFFIX }}
+        path: sbom-${{ inputs.NAME }}.cdx.json

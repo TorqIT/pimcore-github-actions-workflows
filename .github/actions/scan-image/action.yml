@@ -1,12 +1,12 @@
 name: "Scan image"
-description: "Scans a built Docker image with Trivy for fixable HIGH and CRITICAL vulnerabilities, prints the results, uploads them as an artifact for the scan report and fails if any were found"
+description: "Scans a built Docker image's SBOM with Trivy for fixable CRITICAL, HIGH and MEDIUM vulnerabilities, prints the results and uploads them as an artifact for the scan report. Fails on CRITICAL or HIGH, or MEDIUM in KEV or with EPSS > 10%"
 inputs:
   NAME:
     required: true
     description: "Short image name used in result file and artifact names (e.g. php, supervisord)"
-  IMAGE_REF:
+  SBOM_PATH:
     required: true
-    description: "The image reference to scan"
+    description: "Path to the image's CycloneDX SBOM (see the generate-sbom action)"
   ARTIFACT_SUFFIX:
     required: true
     description: "Suffix appended to the results artifact name, typically the ref slug"
@@ -22,30 +22,21 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Free disk space before Trivy scan if needed
-      if: inputs.SKIP_SCAN != 'true'
-      shell: bash
-      run: |
-        FREE_GB=$(df / --output=avail -BG | tail -1 | tr -d 'G')
-        if [ "$FREE_GB" -lt 10 ]; then
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
-          sudo swapoff -a && sudo rm -f /swapfile
-        fi
-
-    - name: Run Trivy vulnerability scanner on image
+    - name: Run Trivy vulnerability scanner on image SBOM
       id: trivy-scan
       if: inputs.SKIP_SCAN != 'true'
       continue-on-error: true
       uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
       with:
-        image-ref: ${{ inputs.IMAGE_REF }}
+        version: "v0.76.2"
+        scan-type: "sbom"
+        scan-ref: ${{ inputs.SBOM_PATH }}
         format: "json"
         output: "trivy-${{ inputs.NAME }}.json"
-        exit-code: "1"
         ignore-unfixed: true
         vuln-type: "os,library"
         scanners: "vuln"
-        severity: "CRITICAL,HIGH"
+        severity: "CRITICAL,HIGH,MEDIUM"
         trivyignores: ${{ inputs.TRIVYIGNORE_PATH }}
         timeout: "15m"
 
@@ -60,13 +51,33 @@ runs:
           trivy convert --format table "$RESULTS_FILE" || cat "$RESULTS_FILE"
         fi
 
+    - name: Collect Trivy findings
+      if: steps.trivy-scan.outcome == 'success'
+      shell: bash
+      env:
+        RESULTS_FILE: trivy-${{ inputs.NAME }}.json
+        FINDINGS_FILE: trivy-${{ inputs.NAME }}-findings.json
+      run: |
+        jq '[.Results[]?.Vulnerabilities[]? | {id: .VulnerabilityID, severity: .Severity}]' "$RESULTS_FILE" > "$FINDINGS_FILE"
+
+    - name: Assess vulnerabilities
+      id: assess
+      if: steps.trivy-scan.outcome == 'success'
+      uses: ./reusable-workflow/.github/actions/assess-vulnerabilities
+      with:
+        FINDINGS_FILE: trivy-${{ inputs.NAME }}-findings.json
+        OUTPUT_FILE: trivy-${{ inputs.NAME }}-assessment.json
+
     - name: Record Trivy outcome
+      id: outcome
       if: always()
       shell: bash
       env:
-        OUTCOME: ${{ steps.trivy-scan.outcome }}
+        OUTCOME: ${{ steps.assess.outputs.OUTCOME || (steps.trivy-scan.outcome == 'success' && 'failure') || steps.trivy-scan.outcome }}
         STATUS_FILE: trivy-${{ inputs.NAME }}-status.txt
-      run: echo "$OUTCOME" > "$STATUS_FILE"
+      run: |
+        echo "$OUTCOME" > "$STATUS_FILE"
+        echo "OUTCOME=$OUTCOME" >> "$GITHUB_OUTPUT"
 
     - name: Upload Trivy results artifact
       if: always()
@@ -75,14 +86,15 @@ runs:
         name: trivy-results-${{ inputs.NAME }}-${{ inputs.ARTIFACT_SUFFIX }}
         path: |
           trivy-${{ inputs.NAME }}.json
+          trivy-${{ inputs.NAME }}-assessment.json
           trivy-${{ inputs.NAME }}-status.txt
         if-no-files-found: ignore
 
-    - name: Fail if Trivy found vulnerabilities
-      if: steps.trivy-scan.outcome == 'failure'
+    - name: Fail if Trivy found vulnerabilities that fail CI
+      if: steps.outcome.outputs.OUTCOME == 'failure'
       shell: bash
       env:
         NAME: ${{ inputs.NAME }}
       run: |
-        echo "Trivy found CRITICAL or HIGH vulnerabilities in the $NAME image"
+        echo "Trivy found vulnerabilities in the $NAME image that fail CI (CRITICAL, HIGH, or MEDIUM in KEV or with EPSS > 10%), or could not scan it"
         exit 1
